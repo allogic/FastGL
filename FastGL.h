@@ -15,59 +15,6 @@
 #ifndef FAST_GL_H
 #define FAST_GL_H
 
-/*
-#define FAST_GL_IMPLEMENTATION
-#include "FastGL.h"
-
-int main()
-{
-	WindowAlloc(800, 800, "FastGL");
-	GizmoAlloc(66, 0);
-
-	Vector3 Eye = { 0.0F, 0.0F, -10.0F };
-	Vector3 Center = { 0.0F, 0.0F, 0.0F };
-	Vector3 Up = { 0.0F, 1.0F, 0.0F };
-
-	Matrix4 Projection = MATRIX4_IDENTITY;
-	Matrix4 View = MATRIX4_IDENTITY;
-
-	while (!WindowShouldClose())
-	{
-		WindowPollEvents();
-
-		float Width = WindowWidth();
-		float Height = WindowHeight();
-		float MouseX = WindowMousePositionX();
-		float MouseY = WindowMousePositionY();
-		float FieldOfView = DEG2RAD(45.0F);
-		float AspectRatio = Width / Height;
-
-		WindowToNDC(&MouseX, &MouseY);
-
-		WindowViewport((int unsigned)Width, (int unsigned)Height);
-		WindowClear(0.0F, 0.0F, 0.0F, 0.0F, GL_COLOR_BUFFER_BIT);
-
-		//Matrix4_Perspective(FieldOfView, AspectRatio, 0.001F, 1000.0F, Projection);
-		Matrix4_Orthographic(-1.0F, 1.0F, -1.0F, 1.0F, 0.001F, 1000.0F, Projection);
-		//Matrix4_LookAt(Eye, Center, Up, View);
-
-		GizmoBeginLines();
-		GizmoDrawLineSimple(0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0xFF0000FF);
-		GizmoDrawLineSimple(0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0x00FF00FF);
-		GizmoDrawLineCircleSimple(0.0F, 0.0F, 0.0F, 32, 0.4F, 0xFF00FFFF);
-		GizmoDrawLineCircleSimple(MouseX, MouseY, 0.0F, 32, 0.4F, 0xFFFF00FF);
-		GizmoDrawLines(Projection, View);
-
-		WindowSwapBuffers();
-	}
-
-	GizmoFree();
-	WindowFree();
-
-	return 0;
-}
-*/
-
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
