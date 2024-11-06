@@ -1,4 +1,5 @@
-#pragma warning(disable : 4191)
+﻿#pragma warning(disable : 4191)
+#pragma warning(disable : 4255)
 #pragma warning(disable : 4668)
 #pragma warning(disable : 4710)
 #pragma warning(disable : 4711)
@@ -6,6 +7,7 @@
 #pragma warning(disable : 4820)
 #pragma warning(disable : 5039)
 #pragma warning(disable : 5045)
+#pragma warning(disable : 5246)
 #pragma warning(disable : 6011)
 #pragma warning(disable : 6308)
 #pragma warning(disable : 6387)
@@ -42,7 +44,16 @@ extern "C"
 
 #ifdef _DEBUG
 #define FAST_GL_DEBUG
+#define FAST_GL_REFERENCE_COUNT
 #endif // _DEBUG
+
+#define FAST_GL_VECTOR_INITIAL_CAPACITY (16ULL)
+
+#define FAST_GL_HASH_MAP_INITIAL_CAPACITY (128ULL)
+#define FAST_GL_HASH_MAP_INITIAL_HASH (5381ULL)
+#define FAST_GL_HASH_MAP_LOAD_FACTOR (0.75F)
+
+#define FAST_GL_TEXT_FMT_BUFFER_SIZE (0x1000ULL)
 
 	///////////////////////////////////////////////////////////////
 	// Global Macros
@@ -162,28 +173,63 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 
 #define GLSL_GL_VERSION \
-	"#version 460 core\n"
+	"\n#version 460 core\n"
+
+#define GLSL_BEGIN_INCLUDE_GUARD(NAME) \
+	"\n#ifndef " #NAME "\n" \
+	"\n#define " #NAME "\n"
+
+#define GLSL_END_INCLUDE_GUARD(NAME) \
+	"\n#endif\n"
 
 #define GLSL_CONSTANTS \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_CONSTANTS) \
 	"const float PI = 3.1415926;" \
 	"const float TAU = 6.2831853;" \
+	GLSL_END_INCLUDE_GUARD(GLSL_CONSTANTS)
 
-#define GLSL_MATH_UTILITIES \
+#define GLSL_MATH_UTILITY_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_MATH_UTILITY_IMPLEMENTATION) \
 	"float RemapTo01(float Value, float Min, float Max) {" \
 	"	return (Value - Min) / (Max - Min);" \
 	"}" \
 	"float Remap(float Value, float OldMin, float OldMax, float NewMin, float NewMax) {" \
 	"	return NewMin + ((Value - OldMin) / (OldMax - OldMin)) * (NewMax - NewMin);" \
-	"}"
+	"}" \
+	"float Gradiant01(float Position, float Size) {" \
+	"	return Position / Size;" \
+	"}" \
+	"float Gradiant(float Position, float Size, float Min, float Max) {" \
+	"	return Remap(Position / Size, 0.0, 1.0, Min, Max);" \
+	"}" \
+	"float HardTerrace(float Value, int TerraceLevels) {" \
+	"	float StepSize = 1.0 / float(TerraceLevels);" \
+	"	return floor(Value / StepSize) * StepSize;" \
+	"}" \
+	"float SoftTerrace(float Value, int TerraceLevels, float Sharpness) {" \
+	"	float StepSize = 1.0 / float(TerraceLevels);" \
+	"	float Level = floor(Value / StepSize);" \
+	"	float LowerStep = Level * StepSize;" \
+	"	float UpperStep = (Level + 1.0) * StepSize;" \
+	"	float MixFactor = smoothstep(0.0, 1.0, pow((Value - LowerStep) / StepSize, Sharpness));" \
+	"	return mix(LowerStep, UpperStep, MixFactor);" \
+	"}" \
+	"float Binarize(float Value, float Threshold) {" \
+	"	return (Value > Threshold) ? 1.0 : 0.0;" \
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_MATH_UTILITY_IMPLEMENTATION)
 
 #define GLSL_SCREEN_SPACE_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_SCREEN_SPACE_IMPLEMENTATION) \
 	"vec4 ScreenToClipSpace(vec2 ScreenPosition, vec2 ScreenSize) {" \
 	"	float NdcX = (2.0F * ScreenPosition.x) / ScreenSize.x - 1.0F;" \
 	"	float NdcY = (2.0F * (ScreenSize.y - ScreenPosition.y)) / ScreenSize.y - 1.0F;" \
 	"	return vec4(NdcX, NdcY, 0.0F, 1.0F);" \
-	"}"
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_SCREEN_SPACE_IMPLEMENTATION)
 
 #define GLSL_ROTATION_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_ROTATION_IMPLEMENTATION) \
 	"vec2 RotateVector2D(vec2 Vector, float Angle) {" \
 	"	float CA = cos(Angle);" \
 	"	float SA = sin(Angle);" \
@@ -207,9 +253,11 @@ extern "C"
 	"	Q.z = CX * CY * SZ - SX * SY * CZ;" \
 	"	Q.w = CX * CY * CZ + SX * SY * SZ;" \
 	"	return Q;" \
-	"}"
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_ROTATION_IMPLEMENTATION) \
 
 #define GLSL_UNSIGNED_RANDOM_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_UNSIGNED_RANDOM_IMPLEMENTATION) \
 	"const vec4 UNSIGNED_RANDOM_SCALE = vec4(443.897, 441.423, .0973, .1099);" \
 	"float random(float x) {" \
 	"	x = fract(x * UNSIGNED_RANDOM_SCALE.x);" \
@@ -281,9 +329,11 @@ extern "C"
 	"	p4 = fract(p4 * UNSIGNED_RANDOM_SCALE);" \
 	"	p4 += dot(p4, p4.wzxy + 19.19);" \
 	"	return fract((p4.xxyz + p4.yzzw) * p4.zywx);" \
-	"}"
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_UNSIGNED_RANDOM_IMPLEMENTATION)
 
 #define GLSL_SIGNED_RANDOM_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_SIGNED_RANDOM_IMPLEMENTATION) \
 	"float srandom(float x) {" \
 	"	return -1. + 2. * fract(sin(x) * 43758.5453);" \
 	"}" \
@@ -313,27 +363,36 @@ extern "C"
 	"vec3 srandom3(vec3 p, float tileLength) {" \
 	"	p = mod(p, vec3(tileLength));" \
 	"	return srandom3(p);" \
-	"}"
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_SIGNED_RANDOM_IMPLEMENTATION)
 
 #define GLSL_MOD289_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_MOD289_IMPLEMENTATION) \
 	"float mod289(float x) { return x - floor(x * (1. / 289.)) * 289.; }" \
 	"vec2 mod289(vec2 x) { return x - floor(x * (1. / 289.)) * 289.; }" \
 	"vec3 mod289(vec3 x) { return x - floor(x * (1. / 289.)) * 289.; }" \
-	"vec4 mod289(vec4 x) { return x - floor(x * (1. / 289.)) * 289.; }"
+	"vec4 mod289(vec4 x) { return x - floor(x * (1. / 289.)) * 289.; }" \
+	GLSL_END_INCLUDE_GUARD(GLSL_MOD289_IMPLEMENTATION)
+
 
 #define GLSL_PERMUTE_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_PERMUTE_IMPLEMENTATION) \
 	"float permute(float v) { return mod289(((v * 34.0) + 1.0) * v); }" \
 	"vec2 permute(vec2 v) { return mod289(((v * 34.0) + 1.0) * v); }" \
 	"vec3 permute(vec3 v) { return mod289(((v * 34.0) + 1.0) * v); }" \
-	"vec4 permute(vec4 v) { return mod289(((v * 34.0) + 1.0) * v); }"
+	"vec4 permute(vec4 v) { return mod289(((v * 34.0) + 1.0) * v); }" \
+	GLSL_END_INCLUDE_GUARD(GLSL_PERMUTE_IMPLEMENTATION)
 
 #define GLSL_TAYLOR_INV_SQRT_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_TAYLOR_INV_SQRT_IMPLEMENTATION) \
 	"float taylorInvSqrt(float r) { return 1.79284291400159 - 0.85373472095314 * r; }" \
 	"vec2 taylorInvSqrt(vec2 r) { return 1.79284291400159 - 0.85373472095314 * r; }" \
 	"vec3 taylorInvSqrt(vec3 r) { return 1.79284291400159 - 0.85373472095314 * r; }" \
-	"vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }"
+	"vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }" \
+	GLSL_END_INCLUDE_GUARD(GLSL_TAYLOR_INV_SQRT_IMPLEMENTATION)
 
 #define GLSL_GRAD4_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_GRAD4_IMPLEMENTATION) \
 	"vec4 grad4(float j, vec4 ip) {" \
 	"	const vec4 ones = vec4(1.0, 1.0, 1.0, -1.0);" \
 	"	vec4 p, s;" \
@@ -343,8 +402,10 @@ extern "C"
 	"	p.xyz = p.xyz + (s.xyz * 2.0 - 1.0) * s.www;" \
 	"	return p;" \
 	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_GRAD4_IMPLEMENTATION)
 
 #define GLSL_CUBIC_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_CUBIC_IMPLEMENTATION) \
 	"float cubic(float v) { return v*v*(3.0-2.0*v); }" \
 	"vec2 cubic(vec2 v) { return v * v * (3.0 - 2.0 * v); }" \
 	"vec3 cubic(vec3 v) { return v * v * (3.0 - 2.0 * v); }" \
@@ -380,15 +441,19 @@ extern "C"
 	"	vec4 v2 = v * v;" \
 	"	vec4 v3 = v * v2;" \
 	"	return a * v3 + b * v2 + c * v;" \
-	"}"
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_CUBIC_IMPLEMENTATION)
 
 #define GLSL_QUINTIC_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_QUINTIC_IMPLEMENTATION) \
 	"float quintic(float v) { return v*v*v*(v*(v*6.0-15.0)+10.0); }" \
 	"vec2 quintic(vec2 v) { return v * v * v * (v * (v * 6.0 - 15.0) + 10.0); }" \
 	"vec3 quintic(vec3 v) { return v * v * v * (v * (v * 6.0 - 15.0) + 10.0); }" \
-	"vec4 quintic(vec4 v) { return v * v * v * (v * (v * 6.0 - 15.0) + 10.0); }"
+	"vec4 quintic(vec4 v) { return v * v * v * (v * (v * 6.0 - 15.0) + 10.0); }" \
+	GLSL_END_INCLUDE_GUARD(GLSL_QUINTIC_IMPLEMENTATION)
 
 #define GLSL_SIMPLEX_NOISE_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_SIMPLEX_NOISE_IMPLEMENTATION) \
 	GLSL_MOD289_IMPLEMENTATION \
 	GLSL_PERMUTE_IMPLEMENTATION \
 	GLSL_TAYLOR_INV_SQRT_IMPLEMENTATION \
@@ -515,9 +580,11 @@ extern "C"
 	"	float s1 = SimplexNoise4D(vec4(Position.y - 19.1, Position.z + 33.4, Position.x + 47.2, Position.w));"\
 	"	float s2 = SimplexNoise4D(vec4(Position.z + 74.2, Position.x - 124.5, Position.y + 99.4, Position.w));"\
 	"	return vec3(s, s1, s2);"\
-	"}"
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_SIMPLEX_NOISE_IMPLEMENTATION)
 
 #define GLSL_GRADIENT_NOISE_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_GRADIENT_NOISE_IMPLEMENTATION) \
 	GLSL_UNSIGNED_RANDOM_IMPLEMENTATION \
 	GLSL_SIGNED_RANDOM_IMPLEMENTATION \
 	GLSL_CUBIC_IMPLEMENTATION \
@@ -548,9 +615,11 @@ extern "C"
 	"	vec3 f = fract(Position);" \
 	"	vec3 u = quintic(f);" \
 	"	return mix(mix(mix(dot(srandom3(i + vec3(0.0, 0.0, 0.0), TileLength), f - vec3(0.0, 0.0, 0.0)), dot(srandom3(i + vec3(1.0, 0.0, 0.0), TileLength), f - vec3(1.0, 0.0, 0.0)), u.x), mix(dot(srandom3(i + vec3(0.0, 1.0, 0.0), TileLength), f - vec3(0.0, 1.0, 0.0)), dot(srandom3(i + vec3(1.0, 1.0, 0.0), TileLength), f - vec3(1.0, 1.0, 0.0)), u.x), u.y), mix(mix(dot(srandom3(i + vec3(0.0, 0.0, 1.0), TileLength), f - vec3(0.0, 0.0, 1.0)), dot(srandom3(i + vec3(1.0, 0.0, 1.0), TileLength), f - vec3(1.0, 0.0, 1.0)), u.x), mix(dot(srandom3(i + vec3(0.0, 1.0, 1.0), TileLength), f - vec3(0.0, 1.0, 1.0)), dot(srandom3(i + vec3(1.0, 1.0, 1.0), TileLength), f - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z);" \
-	"}"
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_GRADIENT_NOISE_IMPLEMENTATION)
 
 #define GLSL_VORONOI_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_VORONOI_IMPLEMENTATION) \
 	GLSL_CONSTANTS \
 	GLSL_UNSIGNED_RANDOM_IMPLEMENTATION \
 	"float Voronoi2D(vec2 Position, float AngleOffset, float Radius, float Density) {" \
@@ -570,9 +639,11 @@ extern "C"
 	"		}" \
 	"	}" \
 	"	return f1;" \
-	"}"
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_VORONOI_IMPLEMENTATION)
 
 #define GLSL_VORO_NOISE_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_VORO_NOISE_IMPLEMENTATION) \
 	GLSL_UNSIGNED_RANDOM_IMPLEMENTATION \
 	"float VoroNoise2D(vec2 Position, float U, float V) {" \
 	"	float k = 1.0 + 63.0 * pow(1.0 - V, 6.0);" \
@@ -608,9 +679,11 @@ extern "C"
 	"		}" \
 	"	}" \
 	"	return a.x / a.y;" \
-	"}"
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_VORO_NOISE_IMPLEMENTATION)
 
 #define GLSL_FBM_NOISE_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_FBM_NOISE_IMPLEMENTATION) \
 	GLSL_SIMPLEX_NOISE_IMPLEMENTATION \
 	GLSL_GRADIENT_NOISE_IMPLEMENTATION \
 	"float FbmNoise2D(vec2 Position, float Scale, float Amplitude, int Octaves) {" \
@@ -645,9 +718,11 @@ extern "C"
 	"		Position = Position * Lacunarity;" \
 	"	}" \
 	"	return t / n;" \
-	"}"
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_FBM_NOISE_IMPLEMENTATION)
 
 #define GLSL_CURL_NOISE_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_CURL_NOISE_IMPLEMENTATION) \
 	GLSL_SIMPLEX_NOISE_IMPLEMENTATION \
 	"vec2 CurlNoise2D(vec2 Position) {" \
 	"	const float e = 0.1;" \
@@ -695,7 +770,227 @@ extern "C"
 	"	float z = p_x1.y - p_x0.y - p_y1.x + p_y0.x;" \
 	"	const float divisor = 1.0 / (2.0 * e);" \
 	"	return normalize(vec3(x, y, z) * divisor);" \
-	"}"
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_CURL_NOISE_IMPLEMENTATION)
+
+#define GLSL_PERLIN_NOISE_IMPLEMENTATION \
+	GLSL_BEGIN_INCLUDE_GUARD(GLSL_PERLIN_NOISE_IMPLEMENTATION) \
+	GLSL_MOD289_IMPLEMENTATION \
+	GLSL_PERMUTE_IMPLEMENTATION \
+	GLSL_QUINTIC_IMPLEMENTATION \
+	GLSL_TAYLOR_INV_SQRT_IMPLEMENTATION \
+	"float PerlinNoise2D(vec2 Position) {" \
+	"	vec4 Pi = floor(Position.xyxy) + vec4(0.0, 0.0, 1.0, 1.0);" \
+	"	vec4 Pf = fract(Position.xyxy) - vec4(0.0, 0.0, 1.0, 1.0);" \
+	"	Pi = mod289(Pi);" \
+	"	vec4 ix = Pi.xzxz;" \
+	"	vec4 iy = Pi.yyww;" \
+	"	vec4 fx = Pf.xzxz;" \
+	"	vec4 fy = Pf.yyww;" \
+	"	vec4 i = permute(permute(ix) + iy);" \
+	"	vec4 gx = fract(i * (1.0 / 41.0)) * 2.0 - 1.0;" \
+	"	vec4 gy = abs(gx) - 0.5;" \
+	"	vec4 tx = floor(gx + 0.5);" \
+	"	gx = gx - tx;" \
+	"	vec2 g00 = vec2(gx.x, gy.x);" \
+	"	vec2 g10 = vec2(gx.y, gy.y);" \
+	"	vec2 g01 = vec2(gx.z, gy.z);" \
+	"	vec2 g11 = vec2(gx.w, gy.w);" \
+	"	vec4 norm = taylorInvSqrt(vec4(dot(g00, g00), dot(g01, g01), dot(g10, g10), dot(g11, g11)));" \
+	"	g00 *= norm.x;" \
+	"	g01 *= norm.y;" \
+	"	g10 *= norm.z;" \
+	"	g11 *= norm.w;" \
+	"	float n00 = dot(g00, vec2(fx.x, fy.x));" \
+	"	float n10 = dot(g10, vec2(fx.y, fy.y));" \
+	"	float n01 = dot(g01, vec2(fx.z, fy.z));" \
+	"	float n11 = dot(g11, vec2(fx.w, fy.w));" \
+	"	vec2 fade_xy = quintic(Pf.xy);" \
+	"	vec2 n_x = mix(vec2(n00, n01), vec2(n10, n11), fade_xy.x);" \
+	"	float n_xy = mix(n_x.x, n_x.y, fade_xy.y);" \
+	"	return 2.3 * n_xy;" \
+	"}" \
+	"float PerlinNoise3D(vec3 Position) {" \
+	"	vec3 Pi0 = floor(Position);" \
+	"	vec3 Pi1 = Pi0 + vec3(1.0);" \
+	"	Pi0 = mod289(Pi0);" \
+	"	Pi1 = mod289(Pi1);" \
+	"	vec3 Pf0 = fract(Position);" \
+	"	vec3 Pf1 = Pf0 - vec3(1.0);" \
+	"	vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);" \
+	"	vec4 iy = vec4(Pi0.yy, Pi1.yy);" \
+	"	vec4 iz0 = Pi0.zzzz;" \
+	"	vec4 iz1 = Pi1.zzzz;" \
+	"	vec4 ixy = permute(permute(ix) + iy);" \
+	"	vec4 ixy0 = permute(ixy + iz0);" \
+	"	vec4 ixy1 = permute(ixy + iz1);" \
+	"	vec4 gx0 = ixy0 * (1.0 / 7.0);" \
+	"	vec4 gy0 = fract(floor(gx0) * (1.0 / 7.0)) - 0.5;" \
+	"	gx0 = fract(gx0);" \
+	"	vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);" \
+	"	vec4 sz0 = step(gz0, vec4(0.0));" \
+	"	gx0 -= sz0 * (step(0.0, gx0) - 0.5);" \
+	"	gy0 -= sz0 * (step(0.0, gy0) - 0.5);" \
+	"	vec4 gx1 = ixy1 * (1.0 / 7.0);" \
+	"	vec4 gy1 = fract(floor(gx1) * (1.0 / 7.0)) - 0.5;" \
+	"	gx1 = fract(gx1);" \
+	"	vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);" \
+	"	vec4 sz1 = step(gz1, vec4(0.0));" \
+	"	gx1 -= sz1 * (step(0.0, gx1) - 0.5);" \
+	"	gy1 -= sz1 * (step(0.0, gy1) - 0.5);" \
+	"	vec3 g000 = vec3(gx0.x, gy0.x, gz0.x);" \
+	"	vec3 g100 = vec3(gx0.y, gy0.y, gz0.y);" \
+	"	vec3 g010 = vec3(gx0.z, gy0.z, gz0.z);" \
+	"	vec3 g110 = vec3(gx0.w, gy0.w, gz0.w);" \
+	"	vec3 g001 = vec3(gx1.x, gy1.x, gz1.x);" \
+	"	vec3 g101 = vec3(gx1.y, gy1.y, gz1.y);" \
+	"	vec3 g011 = vec3(gx1.z, gy1.z, gz1.z);" \
+	"	vec3 g111 = vec3(gx1.w, gy1.w, gz1.w);" \
+	"	vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));" \
+	"	g000 *= norm0.x;" \
+	"	g010 *= norm0.y;" \
+	"	g100 *= norm0.z;" \
+	"	g110 *= norm0.w;" \
+	"	vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));" \
+	"	g001 *= norm1.x;" \
+	"	g011 *= norm1.y;" \
+	"	g101 *= norm1.z;" \
+	"	g111 *= norm1.w;" \
+	"	float n000 = dot(g000, Pf0);" \
+	"	float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));" \
+	"	float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));" \
+	"	float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));" \
+	"	float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));" \
+	"	float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));" \
+	"	float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));" \
+	"	float n111 = dot(g111, Pf1);" \
+	"	vec3 fade_xyz = quintic(Pf0);" \
+	"	vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);" \
+	"	vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);" \
+	"	float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x);" \
+	"	return 2.2 * n_xyz;" \
+	"}" \
+	"float PerlinNoise4D(vec4 Position) {" \
+	"	vec4 Pi0 = floor(Position);" \
+	"	vec4 Pi1 = Pi0 + 1.0;" \
+	"	Pi0 = mod289(Pi0);" \
+	"	Pi1 = mod289(Pi1);" \
+	"	vec4 Pf0 = fract(Position);" \
+	"	vec4 Pf1 = Pf0 - 1.0;" \
+	"	vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);" \
+	"	vec4 iy = vec4(Pi0.yy, Pi1.yy);" \
+	"	vec4 iz0 = vec4(Pi0.zzzz);" \
+	"	vec4 iz1 = vec4(Pi1.zzzz);" \
+	"	vec4 iw0 = vec4(Pi0.wwww);" \
+	"	vec4 iw1 = vec4(Pi1.wwww);" \
+	"	vec4 ixy = permute(permute(ix) + iy);" \
+	"	vec4 ixy0 = permute(ixy + iz0);" \
+	"	vec4 ixy1 = permute(ixy + iz1);" \
+	"	vec4 ixy00 = permute(ixy0 + iw0);" \
+	"	vec4 ixy01 = permute(ixy0 + iw1);" \
+	"	vec4 ixy10 = permute(ixy1 + iw0);" \
+	"	vec4 ixy11 = permute(ixy1 + iw1);" \
+	"	vec4 gx00 = ixy00 * (1.0 / 7.0);" \
+	"	vec4 gy00 = floor(gx00) * (1.0 / 7.0);" \
+	"	vec4 gz00 = floor(gy00) * (1.0 / 6.0);" \
+	"	gx00 = fract(gx00) - 0.5;" \
+	"	gy00 = fract(gy00) - 0.5;" \
+	"	gz00 = fract(gz00) - 0.5;" \
+	"	vec4 gw00 = vec4(0.75) - abs(gx00) - abs(gy00) - abs(gz00);" \
+	"	vec4 sw00 = step(gw00, vec4(0.0));" \
+	"	gx00 -= sw00 * (step(0.0, gx00) - 0.5);" \
+	"	gy00 -= sw00 * (step(0.0, gy00) - 0.5);" \
+	"	vec4 gx01 = ixy01 * (1.0 / 7.0);" \
+	"	vec4 gy01 = floor(gx01) * (1.0 / 7.0);" \
+	"	vec4 gz01 = floor(gy01) * (1.0 / 6.0);" \
+	"	gx01 = fract(gx01) - 0.5;" \
+	"	gy01 = fract(gy01) - 0.5;" \
+	"	gz01 = fract(gz01) - 0.5;" \
+	"	vec4 gw01 = vec4(0.75) - abs(gx01) - abs(gy01) - abs(gz01);" \
+	"	vec4 sw01 = step(gw01, vec4(0.0));" \
+	"	gx01 -= sw01 * (step(0.0, gx01) - 0.5);" \
+	"	gy01 -= sw01 * (step(0.0, gy01) - 0.5);" \
+	"	vec4 gx10 = ixy10 * (1.0 / 7.0);" \
+	"	vec4 gy10 = floor(gx10) * (1.0 / 7.0);" \
+	"	vec4 gz10 = floor(gy10) * (1.0 / 6.0);" \
+	"	gx10 = fract(gx10) - 0.5;" \
+	"	gy10 = fract(gy10) - 0.5;" \
+	"	gz10 = fract(gz10) - 0.5;" \
+	"	vec4 gw10 = vec4(0.75) - abs(gx10) - abs(gy10) - abs(gz10);" \
+	"	vec4 sw10 = step(gw10, vec4(0.0));" \
+	"	gx10 -= sw10 * (step(0.0, gx10) - 0.5);" \
+	"	gy10 -= sw10 * (step(0.0, gy10) - 0.5);" \
+	"	vec4 gx11 = ixy11 * (1.0 / 7.0);" \
+	"	vec4 gy11 = floor(gx11) * (1.0 / 7.0);" \
+	"	vec4 gz11 = floor(gy11) * (1.0 / 6.0);" \
+	"	gx11 = fract(gx11) - 0.5;" \
+	"	gy11 = fract(gy11) - 0.5;" \
+	"	gz11 = fract(gz11) - 0.5;" \
+	"	vec4 gw11 = vec4(0.75) - abs(gx11) - abs(gy11) - abs(gz11);" \
+	"	vec4 sw11 = step(gw11, vec4(0.0));" \
+	"	gx11 -= sw11 * (step(0.0, gx11) - 0.5);" \
+	"	gy11 -= sw11 * (step(0.0, gy11) - 0.5);" \
+	"	vec4 g0000 = vec4(gx00.x, gy00.x, gz00.x, gw00.x);" \
+	"	vec4 g1000 = vec4(gx00.y, gy00.y, gz00.y, gw00.y);" \
+	"	vec4 g0100 = vec4(gx00.z, gy00.z, gz00.z, gw00.z);" \
+	"	vec4 g1100 = vec4(gx00.w, gy00.w, gz00.w, gw00.w);" \
+	"	vec4 g0010 = vec4(gx10.x, gy10.x, gz10.x, gw10.x);" \
+	"	vec4 g1010 = vec4(gx10.y, gy10.y, gz10.y, gw10.y);" \
+	"	vec4 g0110 = vec4(gx10.z, gy10.z, gz10.z, gw10.z);" \
+	"	vec4 g1110 = vec4(gx10.w, gy10.w, gz10.w, gw10.w);" \
+	"	vec4 g0001 = vec4(gx01.x, gy01.x, gz01.x, gw01.x);" \
+	"	vec4 g1001 = vec4(gx01.y, gy01.y, gz01.y, gw01.y);" \
+	"	vec4 g0101 = vec4(gx01.z, gy01.z, gz01.z, gw01.z);" \
+	"	vec4 g1101 = vec4(gx01.w, gy01.w, gz01.w, gw01.w);" \
+	"	vec4 g0011 = vec4(gx11.x, gy11.x, gz11.x, gw11.x);" \
+	"	vec4 g1011 = vec4(gx11.y, gy11.y, gz11.y, gw11.y);" \
+	"	vec4 g0111 = vec4(gx11.z, gy11.z, gz11.z, gw11.z);" \
+	"	vec4 g1111 = vec4(gx11.w, gy11.w, gz11.w, gw11.w);" \
+	"	vec4 norm00 = taylorInvSqrt(vec4(dot(g0000, g0000), dot(g0100, g0100), dot(g1000, g1000), dot(g1100, g1100)));" \
+	"	g0000 *= norm00.x;" \
+	"	g0100 *= norm00.y;" \
+	"	g1000 *= norm00.z;" \
+	"	g1100 *= norm00.w;" \
+	"	vec4 norm01 = taylorInvSqrt(vec4(dot(g0001, g0001), dot(g0101, g0101), dot(g1001, g1001), dot(g1101, g1101)));" \
+	"	g0001 *= norm01.x;" \
+	"	g0101 *= norm01.y;" \
+	"	g1001 *= norm01.z;" \
+	"	g1101 *= norm01.w;" \
+	"	vec4 norm10 = taylorInvSqrt(vec4(dot(g0010, g0010), dot(g0110, g0110), dot(g1010, g1010), dot(g1110, g1110)));" \
+	"	g0010 *= norm10.x;" \
+	"	g0110 *= norm10.y;" \
+	"	g1010 *= norm10.z;" \
+	"	g1110 *= norm10.w;" \
+	"	vec4 norm11 = taylorInvSqrt(vec4(dot(g0011, g0011), dot(g0111, g0111), dot(g1011, g1011), dot(g1111, g1111)));" \
+	"	g0011 *= norm11.x;" \
+	"	g0111 *= norm11.y;" \
+	"	g1011 *= norm11.z;" \
+	"	g1111 *= norm11.w;" \
+	"	float n0000 = dot(g0000, Pf0);" \
+	"	float n1000 = dot(g1000, vec4(Pf1.x, Pf0.yzw));" \
+	"	float n0100 = dot(g0100, vec4(Pf0.x, Pf1.y, Pf0.zw));" \
+	"	float n1100 = dot(g1100, vec4(Pf1.xy, Pf0.zw));" \
+	"	float n0010 = dot(g0010, vec4(Pf0.xy, Pf1.z, Pf0.w));" \
+	"	float n1010 = dot(g1010, vec4(Pf1.x, Pf0.y, Pf1.z, Pf0.w));" \
+	"	float n0110 = dot(g0110, vec4(Pf0.x, Pf1.yz, Pf0.w));" \
+	"	float n1110 = dot(g1110, vec4(Pf1.xyz, Pf0.w));" \
+	"	float n0001 = dot(g0001, vec4(Pf0.xyz, Pf1.w));" \
+	"	float n1001 = dot(g1001, vec4(Pf1.x, Pf0.yz, Pf1.w));" \
+	"	float n0101 = dot(g0101, vec4(Pf0.x, Pf1.y, Pf0.z, Pf1.w));" \
+	"	float n1101 = dot(g1101, vec4(Pf1.xy, Pf0.z, Pf1.w));" \
+	"	float n0011 = dot(g0011, vec4(Pf0.xy, Pf1.zw));" \
+	"	float n1011 = dot(g1011, vec4(Pf1.x, Pf0.y, Pf1.zw));" \
+	"	float n0111 = dot(g0111, vec4(Pf0.x, Pf1.yzw));" \
+	"	float n1111 = dot(g1111, Pf1);" \
+	"	vec4 fade_xyzw = quintic(Pf0);" \
+	"	vec4 n_0w = mix(vec4(n0000, n1000, n0100, n1100), vec4(n0001, n1001, n0101, n1101), fade_xyzw.w);" \
+	"	vec4 n_1w = mix(vec4(n0010, n1010, n0110, n1110), vec4(n0011, n1011, n0111, n1111), fade_xyzw.w);" \
+	"	vec4 n_zw = mix(n_0w, n_1w, fade_xyzw.z);" \
+	"	vec2 n_yzw = mix(n_zw.xy, n_zw.zw, fade_xyzw.y);" \
+	"	float n_xyzw = mix(n_yzw.x, n_yzw.y, fade_xyzw.x);" \
+	"	return 2.2 * n_xyzw;" \
+	"}" \
+	GLSL_END_INCLUDE_GUARD(GLSL_PERLIN_NOISE_IMPLEMENTATION)
 
 	///////////////////////////////////////////////////////////////
 	// Platform Checks
@@ -864,13 +1159,13 @@ extern "C"
 	typedef void(*glUseProgram_PROC)(int unsigned Program);
 	typedef void(*glDeleteProgram_PROC)(int unsigned Program);
 	typedef int(*glGetUniformLocation_PROC)(int unsigned Program, char const* Name);
-	typedef void(*glUniform1i_PROC)(int unsigned Location, int Value);
-	typedef void(*glUniform1ui_PROC)(int unsigned Location, int unsigned Value);
-	typedef void(*glUniform1f_PROC)(int unsigned Location, float Value);
-	typedef void(*glUniform2fv_PROC)(int unsigned Location, int Count, float const* Value);
-	typedef void(*glUniform3fv_PROC)(int unsigned Location, int Count, float const* Value);
-	typedef void(*glUniform4fv_PROC)(int unsigned Location, int Count, float const* Value);
-	typedef void(*glUniformMatrix4fv_PROC)(int unsigned Location, int unsigned Count, char unsigned Transpose, float const* Value);
+	typedef void(*glUniform1i_PROC)(int Location, int Value);
+	typedef void(*glUniform1ui_PROC)(int Location, int unsigned Value);
+	typedef void(*glUniform1f_PROC)(int Location, float Value);
+	typedef void(*glUniform2fv_PROC)(int Location, int Count, float const* Value);
+	typedef void(*glUniform3fv_PROC)(int Location, int Count, float const* Value);
+	typedef void(*glUniform4fv_PROC)(int Location, int Count, float const* Value);
+	typedef void(*glUniformMatrix4fv_PROC)(int Location, int unsigned Count, char unsigned Transpose, float const* Value);
 	typedef void(*glDispatchCompute_PROC)(int unsigned NumGroupsX, int unsigned NumGroupsY, int unsigned NumGroupsZ);
 	typedef void(*glGetShaderiv_PROC)(int unsigned Shader, int unsigned Name, int* Params);
 	typedef void(*glGetShaderInfoLog_PROC)(int unsigned Shader, int BufferSize, int* Length, char* InfoLog);
@@ -891,8 +1186,8 @@ extern "C"
 	typedef void(*glBufferSubData_PROC)(int unsigned Target, int unsigned Offset, int unsigned Size, void const* Data);
 	typedef void(*glGetBufferSubData_PROC)(int unsigned Target, int unsigned Offset, int unsigned Size, void* Data);
 	typedef void(*glBindBufferBase_PROC)(int unsigned Target, int unsigned Index, int unsigned Buffer);
-	typedef void*(*glMapBuffer_PROC)(int unsigned Target, int unsigned Access);
-	typedef void*(*glMapBufferRange_PROC)(int unsigned Target, int unsigned Offset, int unsigned Length, int unsigned Access);
+	typedef void* (*glMapBuffer_PROC)(int unsigned Target, int unsigned Access);
+	typedef void* (*glMapBufferRange_PROC)(int unsigned Target, int unsigned Offset, int unsigned Length, int unsigned Access);
 	typedef char unsigned(*glUnmapBuffer_PROC)(int unsigned Target);
 	typedef void(*glBindTextureUnit_PROC)(int unsigned Unit, int unsigned Texture);
 	typedef void(*glBindImageTexture_PROC)(int unsigned Unit, int unsigned Texture, int Level, char unsigned Layered, int Layer, int unsigned Access, int unsigned Format);
@@ -1040,10 +1335,10 @@ extern "C"
 	extern void* Memory_Realloc(void* Block, long long unsigned Size);
 	extern void Memory_Free(void* Block);
 
-	extern void Memory_CheckForLeaksInternal(void);
-
 #ifdef FAST_GL_IMPLEMENTATION
+#ifdef FAST_GL_REFERENCE_COUNT
 	static long long unsigned sAllocatedBytes = 0;
+#endif // FAST_GL_REFERENCE_COUNT
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
@@ -1207,8 +1502,6 @@ extern "C"
 	// Vector Definition
 	///////////////////////////////////////////////////////////////
 
-#define VECTOR_INITIAL_CAPACITY (16ULL)
-
 	typedef struct
 	{
 		char unsigned* Buffer;
@@ -1233,13 +1526,15 @@ extern "C"
 
 	extern void Vector_ExpandInternal(Vector* Vtor);
 
+#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedVectors = 0;
+#endif // FAST_GL_REFERENCE_COUNT
+#endif // FAST_GL_IMPLEMENTATION
+
 	///////////////////////////////////////////////////////////////
 	// HashMap Definition
 	///////////////////////////////////////////////////////////////
-
-#define HASH_MAP_INITIAL_CAPACITY (128ULL)
-#define HASH_MAP_INITIAL_HASH (5381ULL)
-#define HASH_MAP_LOAD_FACTOR (0.75F)
 
 	typedef struct
 	{
@@ -1269,6 +1564,12 @@ extern "C"
 	extern long long unsigned HashMap_ComputeHashInternal(char* Key, long long unsigned Modulus);
 	extern void HashMap_ResizeInternal(HashMap* Map);
 
+#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedHashMaps = 0;
+#endif // FAST_GL_REFERENCE_COUNT
+#endif // FAST_GL_IMPLEMENTATION
+
 	///////////////////////////////////////////////////////////////
 	// FileSystem Definition
 	///////////////////////////////////////////////////////////////
@@ -1290,7 +1591,7 @@ extern "C"
 	} FileReader;
 
 	extern void FileReader_Alloc(FileReader* Reader, char unsigned const* Buffer, int unsigned BufferSize);
-	extern void FileReader_SeekAbs(FileReader* Reader, int Offset);
+	extern void FileReader_SeekAbs(FileReader* Reader, int unsigned Offset);
 	extern void FileReader_SeekRel(FileReader* Reader, int Offset);
 	extern int unsigned FileReader_Offset(FileReader* Reader);
 	extern char FileReader_ReadInt8(FileReader* Reader);
@@ -1360,9 +1661,13 @@ extern "C"
 	extern void Timer_BeginMeasure(Timer* Timr);
 	extern void Timer_EndMeasure(Timer* Timr);
 	extern double Timer_ElapsedNanoSeconds(Timer* Timr);
-	extern double Timer_ElapsedMicroSeconds(Timer* Timr);
-	extern double Timer_ElapsedMilliSeconds(Timer* Timr);
 	extern void Timer_Free(Timer* Timr);
+
+#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedTimers = 0;
+#endif // FAST_GL_REFERENCE_COUNT
+#endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Transform Definition
@@ -1479,43 +1784,81 @@ extern "C"
 	extern void Shader_CheckCompileStatus(int unsigned Shader);
 	extern void Shader_CheckLinkStatus(int unsigned Program);
 
+#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedPrograms = 0;
+#endif // FAST_GL_REFERENCE_COUNT
+#endif // FAST_GL_IMPLEMENTATION
+
 	///////////////////////////////////////////////////////////////
 	// VertexArray Definition
 	///////////////////////////////////////////////////////////////
 
 	extern void VertexArray_Alloc(int unsigned* VertexArray);
 	extern void VertexArray_Bind(int unsigned VertexArray);
+	extern void VertexArray_DrawPoints(int unsigned Count);
+	extern void VertexArray_DrawPointsInstanced(int unsigned Count, int unsigned NumInstances);
+	extern void VertexArray_DrawLines(int unsigned Count);
+	extern void VertexArray_DrawLinesInstanced(int unsigned Count, int unsigned NumInstances);
+	extern void VertexArray_DrawLineStrip(int unsigned Count);
+	extern void VertexArray_DrawLineStripInstanced(int unsigned Count, int unsigned NumInstances);
+	extern void VertexArray_DrawTriangles(int unsigned Count);
+	extern void VertexArray_DrawTrianglesInstanced(int unsigned Count, int unsigned NumInstances);
+	extern void VertexArray_DrawTriangleStrip(int unsigned Count);
+	extern void VertexArray_DrawTriangleStripInstanced(int unsigned Count, int unsigned NumInstances);
 	extern void VertexArray_UnBind(void);
 	extern void VertexArray_Free(int unsigned VertexArray);
+
+#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedVertexArrays = 0;
+#endif // FAST_GL_REFERENCE_COUNT
+#endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Buffer Definition
 	///////////////////////////////////////////////////////////////
 
-	extern void Buffer_VertexAlloc(int unsigned* Buffer, int unsigned Size, int unsigned Usage);
-	extern void Buffer_IndexAlloc(int unsigned* Buffer, int unsigned Size, int unsigned Usage);
-	extern void Buffer_UniformAlloc(int unsigned* Buffer, int unsigned Size, int unsigned Usage);
-	extern void Buffer_StorageAlloc(int unsigned* Buffer, int unsigned Size, int unsigned Usage);
+	extern void Buffer_VertexAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
+	extern void Buffer_IndexAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
+	extern void Buffer_UniformAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
+	extern void Buffer_StorageAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
 	extern void Buffer_VertexBind(int unsigned Buffer);
 	extern void Buffer_IndexBind(int unsigned Buffer);
 	extern void Buffer_UniformBind(int unsigned Buffer);
 	extern void Buffer_StorageBind(int unsigned Buffer);
-	extern void Buffer_VertexSetData(void const* Data, int unsigned Size);
-	extern void Buffer_IndexSetData(void const* Data, int unsigned Size);
-	extern void Buffer_UniformSetData(void const* Data, int unsigned Size);
-	extern void Buffer_StorageSetData(void const* Data, int unsigned Size);
-	extern void Buffer_VertexGetData(void* Data, int unsigned Size);
-	extern void Buffer_IndexGetData(void* Data, int unsigned Size);
-	extern void Buffer_UniformGetData(void* Data, int unsigned Size);
-	extern void Buffer_StorageGetData(void* Data, int unsigned Size);
-	extern void Buffer_VertexSetSubData(void const* Data, int unsigned Offset, int unsigned Size);
-	extern void Buffer_IndexSetSubData(void const* Data, int unsigned Offset, int unsigned Size);
-	extern void Buffer_UniformSetSubData(void const* Data, int unsigned Offset, int unsigned Size);
-	extern void Buffer_StorageSetSubData(void const* Data, int unsigned Offset, int unsigned Size);
-	extern void Buffer_VertexGetSubData(void* Data, int unsigned Offset, int unsigned Size);
-	extern void Buffer_IndexGetSubData(void* Data, int unsigned Offset, int unsigned Size);
-	extern void Buffer_UniformGetSubData(void* Data, int unsigned Offset, int unsigned Size);
-	extern void Buffer_StorageGetSubData(void* Data, int unsigned Offset, int unsigned Size);
+	extern void Buffer_VertexUnBind(void);
+	extern void Buffer_IndexUnBind(void);
+	extern void Buffer_UniformUnBind(void);
+	extern void Buffer_StorageUnBind(void);
+	extern void Buffer_VertexEnableAttrib(int unsigned Index);
+	extern void Buffer_VertexAttribPointerReal32(int unsigned Index, int unsigned Size, long long unsigned Stride, long long unsigned Offset);
+	extern void Buffer_VertexAttribPointerUInt32(int unsigned Index, int unsigned Size, long long unsigned Stride, long long unsigned Offset);
+	extern void Buffer_VertexAttribDivisor(int unsigned Index, int unsigned Divisor);
+	extern void Buffer_VertexSetData(void const* Data, long long unsigned Size);
+	extern void Buffer_IndexSetData(void const* Data, long long unsigned Size);
+	extern void Buffer_UniformSetData(void const* Data, long long unsigned Size);
+	extern void Buffer_StorageSetData(void const* Data, long long unsigned Size);
+	extern void Buffer_VertexGetData(void* Data, long long unsigned Size);
+	extern void Buffer_IndexGetData(void* Data, long long unsigned Size);
+	extern void Buffer_UniformGetData(void* Data, long long unsigned Size);
+	extern void Buffer_StorageGetData(void* Data, long long unsigned Size);
+	extern void Buffer_VertexSetSubData(void const* Data, long long unsigned Offset, long long unsigned Size);
+	extern void Buffer_IndexSetSubData(void const* Data, long long unsigned Offset, long long unsigned Size);
+	extern void Buffer_UniformSetSubData(void const* Data, long long unsigned Offset, long long unsigned Size);
+	extern void Buffer_StorageSetSubData(void const* Data, long long unsigned Offset, long long unsigned Size);
+	extern void Buffer_VertexGetSubData(void* Data, long long unsigned Offset, long long unsigned Size);
+	extern void Buffer_IndexGetSubData(void* Data, long long unsigned Offset, long long unsigned Size);
+	extern void Buffer_UniformGetSubData(void* Data, long long unsigned Offset, long long unsigned Size);
+	extern void Buffer_StorageGetSubData(void* Data, long long unsigned Offset, long long unsigned Size);
+	extern void* Buffer_VertexMap(int unsigned Access);
+	extern void* Buffer_IndexMap(int unsigned Access);
+	extern void* Buffer_UniformMap(int unsigned Access);
+	extern void* Buffer_StorageMap(int unsigned Access);
+	extern void Buffer_VertexUnMap(void);
+	extern void Buffer_IndexUnMap(void);
+	extern void Buffer_UniformUnMap(void);
+	extern void Buffer_StorageUnMap(void);
 	extern void Buffer_VertexBeginBarrier(void);
 	extern void Buffer_IndexBeginBarrier(void);
 	extern void Buffer_UniformBeginBarrier(void);
@@ -1524,6 +1867,12 @@ extern "C"
 	extern void Buffer_UniformMount(int unsigned Buffer, int unsigned Index);
 	extern void Buffer_StorageMount(int unsigned Buffer, int unsigned Index);
 	extern void Buffer_Free(int unsigned Buffer);
+
+#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedBuffers = 0;
+#endif // FAST_GL_REFERENCE_COUNT
+#endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Gizmo Definition
@@ -1936,8 +2285,8 @@ extern "C"
 	} GlyphVertex;
 	typedef struct
 	{
-		CoordSpace CoordSpace;
-		Vector3 PivotPosition;
+		CoordSpace Space;
+		Vector3 Pivot;
 		Vector3 Position;
 		Vector3 Rotation;
 		Vector2 Scale;
@@ -2592,8 +2941,8 @@ extern "C"
 		GLSL_GL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in uint VertexIndex;"
-		"layout (location = 2) in uint InstanceCoordSpace;"
-		"layout (location = 3) in vec3 InstancePivotPosition;"
+		"layout (location = 2) in uint InstanceSpace;"
+		"layout (location = 3) in vec3 InstancePivot;"
 		"layout (location = 4) in vec3 InstancePosition;"
 		"layout (location = 5) in vec3 InstanceRotation;"
 		"layout (location = 6) in vec2 InstanceScale;"
@@ -2619,7 +2968,7 @@ extern "C"
 		"void main() {"
 		"	float U0, V0;"
 		"	float U1, V1;"
-		"	switch (InstanceCoordSpace) {"
+		"	switch (InstanceSpace) {"
 		"		case COORD_SPACE_WORLD: {"
 		"			vec2 BearingSize = InstanceBearing / InstanceUnitsPerEm;"
 		"			vec2 GlyphSize = InstanceGlyphSize / InstanceUnitsPerEm;"
@@ -2760,6 +3109,9 @@ extern "C"
 		"	if (Alpha <= 0.0) discard;"
 		"	BaseColor = FragmentInput.Color * Alpha;"
 		"}";
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedFonts = 0;
+#endif // FAST_GL_REFERENCE_COUNT
 #else
 	extern Font gDefaultFont;
 #endif // FAST_GL_IMPLEMENTATION
@@ -2797,6 +3149,9 @@ extern "C"
 
 #ifdef FAST_GL_IMPLEMENTATION
 	static Font* sCurrFont = 0;
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedTextCaches = 0;
+#endif // FAST_GL_REFERENCE_COUNT
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
@@ -2878,8 +3233,14 @@ extern "C"
 	extern void Texture2D_MountImageReadWrite(Texture2D* Texture, int unsigned Index, TextureInternalFormat InternalFormat);
 	extern void Texture2D_Update(Texture2D* Texture, bool GenerateMipMaps);
 	extern void Texture2D_UpdatePixels(Texture2D* Texture, char unsigned* Pixels, bool GenerateMipMaps);
-	extern char unsigned* Texture2D_CopyPixels(Texture2D* Texture);
+	extern void* Texture2D_CopyPixels(Texture2D* Texture);
 	extern void Texture2D_Free(Texture2D* Texture);
+
+#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedTexture2Ds = 0;
+#endif // FAST_GL_REFERENCE_COUNT
+#endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// FrameBuffer Definition
@@ -2913,6 +3274,12 @@ extern "C"
 	extern void FrameBuffer_UnBindReadWrite(FrameBuffer* Buffer);
 	extern void FrameBuffer_Free(FrameBuffer* Buffer);
 
+#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedFrameBuffers = 0;
+#endif // FAST_GL_REFERENCE_COUNT
+#endif // FAST_GL_IMPLEMENTATION
+
 	///////////////////////////////////////////////////////////////
 	// BitMap Definition
 	///////////////////////////////////////////////////////////////
@@ -2944,6 +3311,12 @@ extern "C"
 
 	extern void BitMap_Alloc(char unsigned** Pixels, char const* FilePath, int unsigned* Width, int unsigned* Height);
 	extern void BitMap_Free(char unsigned* Pixels);
+
+#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedBitMaps = 0;
+#endif // FAST_GL_REFERENCE_COUNT
+#endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Primitive Definition
@@ -2999,6 +3372,12 @@ extern "C"
 	extern SpriteInstanceEntry* Primitive_InstancedSpriteMapBuffer(InstancedSprite* Mesh);
 	extern void Primitive_InstancedSpriteUnMapBuffer(InstancedSprite* Mesh);
 	extern void Primitive_InstancedSpriteFree(InstancedSprite* Mesh);
+
+#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedPrimitives = 0;
+#endif // FAST_GL_REFERENCE_COUNT
+#endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// SpritePlayer Definition
@@ -3079,6 +3458,9 @@ extern "C"
 		"	vec3 AverageColor = Accumulator.rgb / max(Accumulator.a, EPSILON_5);"
 		"	FinalColor = vec4(AverageColor, 1.0 - Revealage);"
 		"}";
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedPostProcessEffects = 0;
+#endif // FAST_GL_REFERENCE_COUNT
 #else
 	extern char const gPassThroughPostProcessFragmentShader[];
 	extern char const gWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader[];
@@ -3157,7 +3539,7 @@ extern "C"
 		"uniform uint NumSamples;"
 		"uniform uint CurrIndex;"
 		"uniform uint Scale;"
-		GLSL_MATH_UTILITIES
+		GLSL_MATH_UTILITY_IMPLEMENTATION
 		"void main() {"
 		"	float X = FragmentInput.TextureCoords.x;"
 		"	float LineWidth = 1.0 / float(NumSamples);"
@@ -3178,6 +3560,9 @@ extern "C"
 		"		discard;"
 		"	}"
 		"}";
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedHistograms = 0;
+#endif // FAST_GL_REFERENCE_COUNT
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
@@ -3432,10 +3817,6 @@ extern "C"
 #else
 		free(Block);
 #endif // FAST_GL_DEBUG
-	}
-	void Memory_CheckForLeaksInternal(void)
-	{
-		assert(sAllocatedBytes == 0);
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -4223,12 +4604,16 @@ extern "C"
 	void Vector_Alloc(Vector* Vtor, long long unsigned ValueSize)
 	{
 		memset(Vtor, 0, sizeof(Vector));
-		Vtor->Buffer = (char unsigned*)Memory_Alloc(ValueSize * VECTOR_INITIAL_CAPACITY, 0);
+		Vtor->Buffer = (char unsigned*)Memory_Alloc(ValueSize * FAST_GL_VECTOR_INITIAL_CAPACITY, 0);
 		Vtor->ValueSize = ValueSize;
-		Vtor->BufferSize = ValueSize * VECTOR_INITIAL_CAPACITY;
-		Vtor->BufferNum = VECTOR_INITIAL_CAPACITY;
+		Vtor->BufferSize = ValueSize * FAST_GL_VECTOR_INITIAL_CAPACITY;
+		Vtor->BufferNum = FAST_GL_VECTOR_INITIAL_CAPACITY;
 		Vtor->BufferIndex = 0;
 		Vtor->BufferOffset = 0;
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedVectors += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Vector_Push(Vector* Vtor, void* Item)
 	{
@@ -4315,6 +4700,10 @@ extern "C"
 	{
 		Memory_Free(Vtor->Buffer);
 		memset(Vtor, 0, sizeof(Vector));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedVectors -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Vector_ExpandInternal(Vector* Vtor)
 	{
@@ -4334,17 +4723,21 @@ extern "C"
 	void HashMap_Alloc(HashMap* Map)
 	{
 		memset(Map, 0, sizeof(HashMap));
-		Map->Table = (HashMapPair**)Memory_Alloc(HASH_MAP_INITIAL_CAPACITY * sizeof(HashMapPair*), 0);
-		Map->TableSize = HASH_MAP_INITIAL_CAPACITY;
+		Map->Table = (HashMapPair**)Memory_Alloc(FAST_GL_HASH_MAP_INITIAL_CAPACITY * sizeof(HashMapPair*), 0);
+		Map->TableSize = FAST_GL_HASH_MAP_INITIAL_CAPACITY;
 		Map->TableCount = 0;
-		for (long long unsigned TableIndex = 0; TableIndex < HASH_MAP_INITIAL_CAPACITY; TableIndex++)
+		for (long long unsigned TableIndex = 0; TableIndex < FAST_GL_HASH_MAP_INITIAL_CAPACITY; TableIndex++)
 		{
 			Map->Table[TableIndex] = 0;
 		}
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedHashMaps += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void HashMap_Insert(HashMap* Map, void const* Key, long long unsigned KeySize, void const* Value, long long unsigned KeyValue)
 	{
-		if ((((float)(Map->TableCount + 1U)) / (float)Map->TableSize) > HASH_MAP_LOAD_FACTOR)
+		if ((((float)(Map->TableCount + 1U)) / (float)Map->TableSize) > FAST_GL_HASH_MAP_LOAD_FACTOR)
 		{
 			HashMap_ResizeInternal(Map);
 		}
@@ -4356,7 +4749,7 @@ extern "C"
 	}
 	void HashMap_InsertSimple(HashMap* Map, char const* Key, void const* Value, long long unsigned KeyValue)
 	{
-		if ((((float)(Map->TableCount + 1U)) / (float)Map->TableSize) > HASH_MAP_LOAD_FACTOR)
+		if ((((float)(Map->TableCount + 1U)) / (float)Map->TableSize) > FAST_GL_HASH_MAP_LOAD_FACTOR)
 		{
 			HashMap_ResizeInternal(Map);
 		}
@@ -4470,6 +4863,10 @@ extern "C"
 		}
 		Memory_Free(Map->Table);
 		memset(Map, 0, sizeof(HashMap));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedHashMaps -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	HashMapPair* HashMap_PairAllocInternal(void const* Key, long long unsigned KeySize, void const* Value, long long unsigned ValueSize)
 	{
@@ -4483,7 +4880,7 @@ extern "C"
 	}
 	long long unsigned HashMap_ComputeHashInternal(char* Key, long long unsigned Modulus)
 	{
-		long long unsigned Hash = HASH_MAP_INITIAL_HASH;
+		long long unsigned Hash = FAST_GL_HASH_MAP_INITIAL_HASH;
 		while (*Key++) Hash = ((Hash << 5U) + Hash) + *Key;
 		return Hash % Modulus;
 	}
@@ -4570,7 +4967,7 @@ extern "C"
 		Reader->BufferSize = BufferSize;
 		Reader->BufferOffset = 0;
 	}
-	void FileReader_SeekAbs(FileReader* Reader, int Offset)
+	void FileReader_SeekAbs(FileReader* Reader, int unsigned Offset)
 	{
 		Reader->BufferOffset = Offset;
 	}
@@ -4839,13 +5236,21 @@ extern "C"
 
 		Timr->Type = TIMER_TYPE_CPU;
 		Timr->Frequency = (double)Frequency.QuadPart;
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedTimers += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Timer_AllocGpu(Timer* Timr)
 	{
 		memset(Timr, 0, sizeof(Timer));
-		
+
 		Timr->Type = TIMER_TYPE_GPU;
 		glGenQueries(1, &Timr->ComputeQuery);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedTimers += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Timer_BeginMeasure(Timer* Timr)
 	{
@@ -4913,6 +5318,10 @@ extern "C"
 			break;
 		}
 		}
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedTimers -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -5779,6 +6188,10 @@ extern "C"
 #endif // FAST_GL_DEBUG
 		glDeleteShader(VertexShader);
 		glDeleteShader(FragmentShader);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPrograms += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Shader_VertexGeometryFragmentAlloc(int unsigned* Program, char const* VertexSource, const char* GeometrySource, char const* FragmentSource)
 	{
@@ -5813,6 +6226,10 @@ extern "C"
 		glDeleteShader(VertexShader);
 		glDeleteShader(GeometryShader);
 		glDeleteShader(FragmentShader);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPrograms += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Shader_ComputeAlloc(int unsigned* Program, char const* ComputeSource)
 	{
@@ -5831,6 +6248,10 @@ extern "C"
 		Shader_CheckLinkStatus((*Program));
 #endif // FAST_GL_DEBUG
 		glDeleteShader(ComputeShader);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPrograms += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Shader_Bind(int unsigned Program)
 	{
@@ -5920,6 +6341,10 @@ extern "C"
 	void Shader_Free(int unsigned Program)
 	{
 		glDeleteProgram(Program);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPrograms -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Shader_CheckCompileStatus(int unsigned Shader)
 	{
@@ -5973,10 +6398,54 @@ extern "C"
 	void VertexArray_Alloc(int unsigned* VertexArray)
 	{
 		glGenVertexArrays(1, VertexArray);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedVertexArrays += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void VertexArray_Bind(int unsigned VertexArray)
 	{
 		glBindVertexArray(VertexArray);
+	}
+	void VertexArray_DrawPoints(int unsigned Count)
+	{
+		glDrawArrays(GL_LINES, 0, (int)Count);
+	}
+	void VertexArray_DrawPointsInstanced(int unsigned Count, int unsigned NumInstances)
+	{
+		glDrawArraysInstanced(GL_POINTS, 0, (int)Count, (int)NumInstances);
+	}
+	void VertexArray_DrawLines(int unsigned Count)
+	{
+		glDrawArrays(GL_LINES, 0, (int)Count);
+	}
+	void VertexArray_DrawLinesInstanced(int unsigned Count, int unsigned NumInstances)
+	{
+		glDrawArraysInstanced(GL_LINES, 0, (int)Count, (int)NumInstances);
+	}
+	void VertexArray_DrawLineStrip(int unsigned Count)
+	{
+		glDrawArrays(GL_LINE_STRIP, 0, (int)Count);
+	}
+	void VertexArray_DrawLineStripInstanced(int unsigned Count, int unsigned NumInstances)
+	{
+		glDrawArraysInstanced(GL_LINE_STRIP, 0, (int)Count, (int)NumInstances);
+	}
+	void VertexArray_DrawTriangles(int unsigned Count)
+	{
+		glDrawArrays(GL_TRIANGLES, 0, (int)Count);
+	}
+	void VertexArray_DrawTrianglesInstanced(int unsigned Count, int unsigned NumInstances)
+	{
+		glDrawArraysInstanced(GL_TRIANGLES, 0, (int)Count, (int)NumInstances);
+	}
+	void VertexArray_DrawTriangleStrip(int unsigned Count)
+	{
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, (int)Count);
+	}
+	void VertexArray_DrawTriangleStripInstanced(int unsigned Count, int unsigned NumInstances)
+	{
+		glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, (int)Count, (int)NumInstances);
 	}
 	void VertexArray_UnBind(void)
 	{
@@ -5985,6 +6454,10 @@ extern "C"
 	void VertexArray_Free(int unsigned VertexArray)
 	{
 		glDeleteVertexArrays(1, &VertexArray);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedVertexArrays -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -5993,33 +6466,49 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 
 #ifdef FAST_GL_IMPLEMENTATION
-	void Buffer_VertexAlloc(int unsigned* Buffer, int unsigned Size, int unsigned Usage)
+	void Buffer_VertexAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
 	{
 		glGenBuffers(1, Buffer);
 		glBindBuffer(GL_ARRAY_BUFFER, (*Buffer));
-		glBufferData(GL_ARRAY_BUFFER, Size, 0, Usage);
+		glBufferData(GL_ARRAY_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBuffers += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
-	void Buffer_IndexAlloc(int unsigned* Buffer, int unsigned Size, int unsigned Usage)
+	void Buffer_IndexAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
 	{
 		glGenBuffers(1, Buffer);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (*Buffer));
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, Size, 0, Usage);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBuffers += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
-	void Buffer_UniformAlloc(int unsigned* Buffer, int unsigned Size, int unsigned Usage)
+	void Buffer_UniformAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
 	{
 		glGenBuffers(1, Buffer);
 		glBindBuffer(GL_UNIFORM_BUFFER, (*Buffer));
-		glBufferData(GL_UNIFORM_BUFFER, Size, 0, Usage);
+		glBufferData(GL_UNIFORM_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBuffers += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
-	void Buffer_StorageAlloc(int unsigned* Buffer, int unsigned Size, int unsigned Usage)
+	void Buffer_StorageAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
 	{
 		glGenBuffers(1, Buffer);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, (*Buffer));
-		glBufferData(GL_SHADER_STORAGE_BUFFER, Size, 0, Usage);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBuffers += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Buffer_VertexBind(int unsigned Buffer)
 	{
@@ -6037,69 +6526,133 @@ extern "C"
 	{
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, Buffer);
 	}
-	void Buffer_VertexSetData(void const* Data, int unsigned Size)
+	void Buffer_VertexUnBind(void)
 	{
-		glBufferSubData(GL_ARRAY_BUFFER, 0, Size, Data);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
-	void Buffer_IndexSetData(void const* Data, int unsigned Size)
+	void Buffer_IndexUnBind(void)
 	{
-		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, Size, Data);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
-	void Buffer_UniformSetData(void const* Data, int unsigned Size)
+	void Buffer_UniformUnBind(void)
 	{
-		glBufferSubData(GL_UNIFORM_BUFFER, 0, Size, Data);
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
-	void Buffer_StorageSetData(void const* Data, int unsigned Size)
+	void Buffer_StorageUnBind(void)
 	{
-		glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, Size, Data);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	}
-	void Buffer_VertexGetData(void* Data, int unsigned Size)
+	void Buffer_VertexEnableAttrib(int unsigned Index)
 	{
-		glGetBufferSubData(GL_ARRAY_BUFFER, 0, Size, Data);
+		glEnableVertexAttribArray(Index);
 	}
-	void Buffer_IndexGetData(void* Data, int unsigned Size)
+	void Buffer_VertexAttribPointerReal32(int unsigned Index, int unsigned Size, long long unsigned Stride, long long unsigned Offset)
 	{
-		glGetBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, Size, Data);
+		glVertexAttribPointer(Index, (int)Size, GL_FLOAT, 0, (int unsigned)Stride, (void*)Offset);
 	}
-	void Buffer_UniformGetData(void* Data, int unsigned Size)
+	void Buffer_VertexAttribPointerUInt32(int unsigned Index, int unsigned Size, long long unsigned Stride, long long unsigned Offset)
 	{
-		glGetBufferSubData(GL_UNIFORM_BUFFER, 0, Size, Data);
+		glVertexAttribIPointer(Index, (int)Size, GL_UNSIGNED_INT, (int unsigned)Stride, (void*)Offset);
 	}
-	void Buffer_StorageGetData(void* Data, int unsigned Size)
+	void Buffer_VertexAttribDivisor(int unsigned Index, int unsigned Divisor)
 	{
-		glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, Size, Data);
+		glVertexAttribDivisor(Index, Divisor);
 	}
-	void Buffer_VertexSetSubData(void const* Data, int unsigned Offset, int unsigned Size)
+	void Buffer_VertexSetData(void const* Data, long long unsigned Size)
 	{
-		glBufferSubData(GL_ARRAY_BUFFER, Offset, Size, Data);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (int unsigned)Size, Data);
 	}
-	void Buffer_IndexSetSubData(void const* Data, int unsigned Offset, int unsigned Size)
+	void Buffer_IndexSetData(void const* Data, long long unsigned Size)
 	{
-		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, Offset, Size, Data);
+		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, (int unsigned)Size, Data);
 	}
-	void Buffer_UniformSetSubData(void const* Data, int unsigned Offset, int unsigned Size)
+	void Buffer_UniformSetData(void const* Data, long long unsigned Size)
 	{
-		glBufferSubData(GL_UNIFORM_BUFFER, Offset, Size, Data);
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, (int unsigned)Size, Data);
 	}
-	void Buffer_StorageSetSubData(void const* Data, int unsigned Offset, int unsigned Size)
+	void Buffer_StorageSetData(void const* Data, long long unsigned Size)
 	{
-		glBufferSubData(GL_SHADER_STORAGE_BUFFER, Offset, Size, Data);
+		glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, (int unsigned)Size, Data);
 	}
-	void Buffer_VertexGetSubData(void* Data, int unsigned Offset, int unsigned Size)
+	void Buffer_VertexGetData(void* Data, long long unsigned Size)
 	{
-		glGetBufferSubData(GL_ARRAY_BUFFER, Offset, Size, Data);
+		glGetBufferSubData(GL_ARRAY_BUFFER, 0, (int unsigned)Size, Data);
 	}
-	void Buffer_IndexGetSubData(void* Data, int unsigned Offset, int unsigned Size)
+	void Buffer_IndexGetData(void* Data, long long unsigned Size)
 	{
-		glGetBufferSubData(GL_ELEMENT_ARRAY_BUFFER, Offset, Size, Data);
+		glGetBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, (int unsigned)Size, Data);
 	}
-	void Buffer_UniformGetSubData(void* Data, int unsigned Offset, int unsigned Size)
+	void Buffer_UniformGetData(void* Data, long long unsigned Size)
 	{
-		glGetBufferSubData(GL_UNIFORM_BUFFER, Offset, Size, Data);
+		glGetBufferSubData(GL_UNIFORM_BUFFER, 0, (int unsigned)Size, Data);
 	}
-	void Buffer_StorageGetSubData(void* Data, int unsigned Offset, int unsigned Size)
+	void Buffer_StorageGetData(void* Data, long long unsigned Size)
 	{
-		glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, Offset, Size, Data);
+		glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, (int unsigned)Size, Data);
+	}
+	void Buffer_VertexSetSubData(void const* Data, long long unsigned Offset, long long unsigned Size)
+	{
+		glBufferSubData(GL_ARRAY_BUFFER, (int unsigned)Offset, (int unsigned)Size, Data);
+	}
+	void Buffer_IndexSetSubData(void const* Data, long long unsigned Offset, long long unsigned Size)
+	{
+		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, (int unsigned)Offset, (int unsigned)Size, Data);
+	}
+	void Buffer_UniformSetSubData(void const* Data, long long unsigned Offset, long long unsigned Size)
+	{
+		glBufferSubData(GL_UNIFORM_BUFFER, (int unsigned)Offset, (int unsigned)Size, Data);
+	}
+	void Buffer_StorageSetSubData(void const* Data, long long unsigned Offset, long long unsigned Size)
+	{
+		glBufferSubData(GL_SHADER_STORAGE_BUFFER, (int unsigned)Offset, (int unsigned)Size, Data);
+	}
+	void Buffer_VertexGetSubData(void* Data, long long unsigned Offset, long long unsigned Size)
+	{
+		glGetBufferSubData(GL_ARRAY_BUFFER, (int unsigned)Offset, (int unsigned)Size, Data);
+	}
+	void Buffer_IndexGetSubData(void* Data, long long unsigned Offset, long long unsigned Size)
+	{
+		glGetBufferSubData(GL_ELEMENT_ARRAY_BUFFER, (int unsigned)Offset, (int unsigned)Size, Data);
+	}
+	void Buffer_UniformGetSubData(void* Data, long long unsigned Offset, long long unsigned Size)
+	{
+		glGetBufferSubData(GL_UNIFORM_BUFFER, (int unsigned)Offset, (int unsigned)Size, Data);
+	}
+	void Buffer_StorageGetSubData(void* Data, long long unsigned Offset, long long unsigned Size)
+	{
+		glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, (int unsigned)Offset, (int unsigned)Size, Data);
+	}
+	void* Buffer_VertexMap(int unsigned Access)
+	{
+		return glMapBuffer(GL_ARRAY_BUFFER, Access);
+	}
+	void* Buffer_IndexMap(int unsigned Access)
+	{
+		return glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, Access);
+	}
+	void* Buffer_UniformMap(int unsigned Access)
+	{
+		return glMapBuffer(GL_UNIFORM_BUFFER, Access);
+	}
+	void* Buffer_StorageMap(int unsigned Access)
+	{
+		return glMapBuffer(GL_SHADER_STORAGE_BUFFER, Access);
+	}
+	void Buffer_VertexUnMap(void)
+	{
+		glUnmapBuffer(GL_ARRAY_BUFFER);
+	}
+	void Buffer_IndexUnMap(void)
+	{
+		glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+	}
+	void Buffer_UniformUnMap(void)
+	{
+		glUnmapBuffer(GL_UNIFORM_BUFFER);
+	}
+	void Buffer_StorageUnMap(void)
+	{
+		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	}
 	void Buffer_VertexBeginBarrier(void)
 	{
@@ -6132,6 +6685,10 @@ extern "C"
 	void Buffer_Free(int unsigned Buffer)
 	{
 		glDeleteBuffers(1, &Buffer);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBuffers -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -6150,70 +6707,63 @@ extern "C"
 		Shader_VertexGeometryFragmentAlloc(&sLineProgram, sLineVertexShader, sLineGeometryShader, sLineFragmentShader);
 		Shader_VertexGeometryFragmentAlloc(&sQuadProgram, sQuadVertexShader, sQuadGeometryShader, sQuadFragmentShader);
 
-		glGenVertexArrays(1, &sPointVertexArray);
-		glGenBuffers(1, &sPointInstanceBuffer);
-		glBindVertexArray(sPointVertexArray);
-		glBindBuffer(GL_ARRAY_BUFFER, sPointInstanceBuffer);
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glEnableVertexAttribArray(2);
-		glEnableVertexAttribArray(3);
-		glVertexAttribPointer(0, 3, GL_FLOAT, 0, sizeof(PointInstanceEntry), ((void*)(OFFSET_OF(PointInstanceEntry, Position))));
-		glVertexAttribPointer(1, 1, GL_FLOAT, 0, sizeof(PointInstanceEntry), ((void*)(OFFSET_OF(PointInstanceEntry, Radius))));
-		glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(PointInstanceEntry), ((void*)(OFFSET_OF(PointInstanceEntry, Color))));
-		glVertexAttribIPointer(3, 1, GL_UNSIGNED_INT, sizeof(PointInstanceEntry), ((void*)(OFFSET_OF(PointInstanceEntry, Direction))));
-		glVertexAttribDivisor(0, 1);
-		glVertexAttribDivisor(1, 1);
-		glVertexAttribDivisor(2, 1);
-		glVertexAttribDivisor(3, 1);
-		glBufferData(GL_ARRAY_BUFFER, NumPoints * sizeof(PointInstanceEntry), 0, GL_DYNAMIC_DRAW);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		VertexArray_Alloc(&sPointVertexArray);
+		Buffer_VertexAlloc(&sPointInstanceBuffer, NumPoints * sizeof(PointInstanceEntry), 0, GL_STATIC_DRAW);
+		VertexArray_Bind(sPointVertexArray);
+		Buffer_VertexBind(sPointInstanceBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexAttribPointerReal32(0, 3, sizeof(PointInstanceEntry), OFFSET_OF(PointInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(1, 1, sizeof(PointInstanceEntry), OFFSET_OF(PointInstanceEntry, Radius));
+		Buffer_VertexAttribPointerUInt32(2, 4, sizeof(PointInstanceEntry), OFFSET_OF(PointInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(3, 1, sizeof(PointInstanceEntry), OFFSET_OF(PointInstanceEntry, Direction));
+		Buffer_VertexAttribDivisor(0, 1);
+		Buffer_VertexAttribDivisor(0, 1);
+		Buffer_VertexAttribDivisor(1, 1);
+		Buffer_VertexAttribDivisor(2, 1);
+		Buffer_VertexAttribDivisor(3, 1);
+		VertexArray_UnBind();
 
-		glGenVertexArrays(1, &sLineVertexArray);
-		glGenBuffers(1, &sLineVertexBuffer);
-		glGenBuffers(1, &sLineIndexBuffer);
-		glBindVertexArray(sLineVertexArray);
-		glBindBuffer(GL_ARRAY_BUFFER, sLineVertexBuffer);
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glEnableVertexAttribArray(2);
-		glEnableVertexAttribArray(3);
-		glVertexAttribPointer(0, 3, GL_FLOAT, 0, sizeof(LineVertex), ((void*)(OFFSET_OF(LineVertex, Position))));
-		glVertexAttribPointer(1, 1, GL_FLOAT, 0, sizeof(LineVertex), ((void*)(OFFSET_OF(LineVertex, Thickness))));
-		glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(LineVertex), ((void*)(OFFSET_OF(LineVertex, Color))));
-		glVertexAttribIPointer(3, 1, GL_UNSIGNED_INT, sizeof(LineVertex), ((void*)(OFFSET_OF(LineVertex, Direction))));
-		glBufferData(GL_ARRAY_BUFFER, NumLines * 2 * sizeof(LineVertex), 0, GL_DYNAMIC_DRAW);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sLineIndexBuffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, NumLines * 2 * sizeof(int unsigned), 0, GL_DYNAMIC_DRAW);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		VertexArray_Alloc(&sLineVertexArray);
+		Buffer_VertexAlloc(&sLineVertexBuffer, NumLines * 2 * sizeof(LineVertex), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexAlloc(&sLineIndexBuffer, NumLines * 2 * sizeof(int unsigned), 0, GL_DYNAMIC_DRAW);
+		VertexArray_Bind(sLineVertexArray);
+		Buffer_VertexBind(sLineVertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexAttribPointerReal32(0, 3, sizeof(LineVertex), OFFSET_OF(LineVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 1, sizeof(LineVertex), OFFSET_OF(LineVertex, Thickness));
+		Buffer_VertexAttribPointerReal32(2, 4, sizeof(LineVertex), OFFSET_OF(LineVertex, Color));
+		Buffer_VertexAttribPointerUInt32(3, 1, sizeof(LineVertex), OFFSET_OF(LineVertex, Direction));
+		Buffer_IndexBind(sLineIndexBuffer);
+		VertexArray_UnBind();
 
-		glGenVertexArrays(1, &sQuadVertexArray);
-		glGenBuffers(1, &sQuadInstanceBuffer);
-		glBindVertexArray(sQuadVertexArray);
-		glBindBuffer(GL_ARRAY_BUFFER, sQuadInstanceBuffer);
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glEnableVertexAttribArray(2);
-		glEnableVertexAttribArray(3);
-		glVertexAttribPointer(0, 3, GL_FLOAT, 0, sizeof(QuadInstanceEntry), ((void*)(OFFSET_OF(QuadInstanceEntry, Position))));
-		glVertexAttribPointer(1, 3, GL_FLOAT, 0, sizeof(QuadInstanceEntry), ((void*)(OFFSET_OF(QuadInstanceEntry, Size))));
-		glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(QuadInstanceEntry), ((void*)(OFFSET_OF(QuadInstanceEntry, Color))));
-		glVertexAttribIPointer(3, 1, GL_UNSIGNED_INT, sizeof(QuadInstanceEntry), ((void*)(OFFSET_OF(QuadInstanceEntry, Direction))));
-		glVertexAttribDivisor(0, 1);
-		glVertexAttribDivisor(1, 1);
-		glVertexAttribDivisor(2, 1);
-		glVertexAttribDivisor(3, 1);
-		glBufferData(GL_ARRAY_BUFFER, NumQuads * sizeof(QuadInstanceEntry), 0, GL_DYNAMIC_DRAW);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		VertexArray_Alloc(&sQuadVertexArray);
+		Buffer_VertexAlloc(&sQuadInstanceBuffer, NumQuads * sizeof(QuadInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		VertexArray_Bind(sQuadVertexArray);
+		Buffer_VertexBind(sQuadInstanceBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexAttribPointerReal32(0, 3, sizeof(QuadInstanceEntry), OFFSET_OF(QuadInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(1, 3, sizeof(QuadInstanceEntry), OFFSET_OF(QuadInstanceEntry, Size));
+		Buffer_VertexAttribPointerReal32(2, 4, sizeof(QuadInstanceEntry), OFFSET_OF(QuadInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(3, 1, sizeof(QuadInstanceEntry), OFFSET_OF(QuadInstanceEntry, Direction));
+		Buffer_VertexAttribDivisor(0, 1);
+		Buffer_VertexAttribDivisor(1, 1);
+		Buffer_VertexAttribDivisor(2, 1);
+		Buffer_VertexAttribDivisor(3, 1);
+		VertexArray_UnBind();
 	}
 	void Gizmo_BeginPoints(void)
 	{
-		glBindBuffer(GL_ARRAY_BUFFER, sPointInstanceBuffer);
-		sMappedPointInstanceBuffer = (PointInstanceEntry*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		Buffer_VertexBind(sPointInstanceBuffer);
+		sMappedPointInstanceBuffer = (PointInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 		sPointInstanceOffset = 0;
 	}
 	void Gizmo_DrawPoint(GizmoDir Direction, Vector3 Position, float Radius, Vector4 Color)
@@ -6346,21 +6896,21 @@ extern "C"
 	}
 	void Gizmo_EndPoints(Matrix4 Projection, Matrix4 View)
 	{
-		glUnmapBuffer(GL_ARRAY_BUFFER);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		Buffer_VertexUnMap();
+		Buffer_VertexUnBind();
 		Shader_Bind(sPointProgram);
 		Shader_SetUniformMatrix4(sPointProgram, "ProjectionMatrix", Projection);
 		Shader_SetUniformMatrix4(sPointProgram, "ViewMatrix", View);
-		glBindVertexArray(sPointVertexArray);
-		glDrawArraysInstanced(GL_POINTS, 0, 1, (int)sPointInstanceOffset);
-		glBindVertexArray(0);
+		VertexArray_Bind(sPointVertexArray);
+		VertexArray_DrawPointsInstanced(1, sPointInstanceOffset);
+		VertexArray_UnBind();
 	}
 	void Gizmo_BeginLines(void)
 	{
-		glBindBuffer(GL_ARRAY_BUFFER, sLineVertexBuffer);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sLineIndexBuffer);
-		sMappedLineVertexBuffer = (LineVertex*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-		sMappedLineIndexBuffer = (int unsigned*)glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
+		Buffer_VertexBind(sLineVertexBuffer);
+		Buffer_IndexBind(sLineIndexBuffer);
+		sMappedLineVertexBuffer = (LineVertex*)Buffer_VertexMap(GL_WRITE_ONLY);
+		sMappedLineIndexBuffer = (int unsigned*)Buffer_IndexMap(GL_WRITE_ONLY);
 		sLineVertexOffset = 0;
 		sLineIndexOffset = 0;
 	}
@@ -7275,21 +7825,21 @@ extern "C"
 	}
 	void Gizmo_EndLines(Matrix4 Projection, Matrix4 View)
 	{
-		glUnmapBuffer(GL_ARRAY_BUFFER);
-		glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		Buffer_VertexUnMap();
+		Buffer_IndexUnMap();
+		Buffer_VertexUnBind();
+		Buffer_IndexUnBind();
 		Shader_Bind(sLineProgram);
 		Shader_SetUniformMatrix4(sLineProgram, "ProjectionMatrix", Projection);
 		Shader_SetUniformMatrix4(sLineProgram, "ViewMatrix", View);
-		glBindVertexArray(sLineVertexArray);
-		glDrawArrays(GL_LINES, 0, (int)sLineIndexOffset);
-		glBindVertexArray(0);
+		VertexArray_Bind(sLineVertexArray);
+		VertexArray_DrawLines(sLineIndexOffset);
+		VertexArray_UnBind();
 	}
 	void Gizmo_BeginQuads(void)
 	{
-		glBindBuffer(GL_ARRAY_BUFFER, sQuadInstanceBuffer);
-		sMappedQuadInstanceBuffer = (QuadInstanceEntry*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		Buffer_VertexBind(sQuadInstanceBuffer);
+		sMappedQuadInstanceBuffer = (QuadInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 		sQuadInstanceOffset = 0;
 	}
 	void Gizmo_DrawQuad(GizmoDir Direction, Vector3 Position, Vector3 Size, Vector4 Color)
@@ -7326,25 +7876,24 @@ extern "C"
 	}
 	void Gizmo_EndQuads(Matrix4 Projection, Matrix4 View)
 	{
-		glUnmapBuffer(GL_ARRAY_BUFFER);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		Buffer_VertexUnMap();
+		Buffer_VertexUnBind();
 		Shader_Bind(sQuadProgram);
 		Shader_SetUniformMatrix4(sQuadProgram, "ProjectionMatrix", Projection);
 		Shader_SetUniformMatrix4(sQuadProgram, "ViewMatrix", View);
-		glBindVertexArray(sQuadVertexArray);
-		glDrawArraysInstanced(GL_POINTS, 0, 1, (int)sQuadInstanceOffset);
-		glBindVertexArray(0);
+		VertexArray_Bind(sQuadVertexArray);
+		VertexArray_DrawPointsInstanced(1, sQuadInstanceOffset);
+		VertexArray_UnBind();
 	}
 	void Gizmo_Free(void)
 	{
-		glDeleteBuffers(1, &sPointInstanceBuffer);
-		glDeleteBuffers(1, &sLineVertexBuffer);
-		glDeleteBuffers(1, &sLineIndexBuffer);
-		glDeleteBuffers(1, &sQuadInstanceBuffer);
-		glDeleteVertexArrays(1, &sPointVertexArray);
-		glDeleteVertexArrays(1, &sLineVertexArray);
-		glDeleteVertexArrays(1, &sQuadVertexArray);
-
+		Buffer_Free(sPointInstanceBuffer);
+		Buffer_Free(sLineVertexBuffer);
+		Buffer_Free(sLineIndexBuffer);
+		Buffer_Free(sQuadInstanceBuffer);
+		VertexArray_Free(sPointVertexArray);
+		VertexArray_Free(sLineVertexArray);
+		VertexArray_Free(sQuadVertexArray);
 		Shader_Free(sPointProgram);
 		Shader_Free(sLineProgram);
 		Shader_Free(sQuadProgram);
@@ -7363,10 +7912,18 @@ extern "C"
 		FileSystem_ReadBinary(&Buffer, &BufferSize, FilePath);
 		Font_AllocInternal(Fnt, NumChars, Buffer, BufferSize);
 		Memory_Free(Buffer);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedFonts += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Font_AllocFromMemory(Font* Fnt, int unsigned NumChars, char unsigned* Buffer, int unsigned BufferSize)
 	{
 		Font_AllocInternal(Fnt, NumChars, Buffer, BufferSize);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedFonts += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	Glyph* Font_GlyphByGlyphIndex(Font* Fnt, short unsigned GlyphIndex)
 	{
@@ -7392,28 +7949,30 @@ extern "C"
 			if (Fnt->Glyphs[GlyphIndex].Points) Memory_Free(Fnt->Glyphs[GlyphIndex].Points);
 			if (Fnt->Glyphs[GlyphIndex].Flags) Memory_Free(Fnt->Glyphs[GlyphIndex].Flags);
 			if (Fnt->Glyphs[GlyphIndex].Instructions) Memory_Free(Fnt->Glyphs[GlyphIndex].Instructions);
-			
+
 			Vector_Free(&Fnt->Glyphs[GlyphIndex].PointOffsets);
 			Vector_Free(&Fnt->Glyphs[GlyphIndex].BezierPoints);
 			Vector_Free(&Fnt->Glyphs[GlyphIndex].BezierOffsets);
 			Vector_Free(&Fnt->Glyphs[GlyphIndex].BezierCurves);
-
-			glDeleteVertexArrays(1, &Fnt->GlyphVertexArray);
-			glDeleteBuffers(1, &Fnt->GlyphVertexBuffer);
-			glDeleteBuffers(1, &Fnt->GlyphInstanceBuffer);
-			glDeleteBuffers(1, &Fnt->GlyphIndexBuffer);
-			glDeleteBuffers(1, &Fnt->BezierOffsetBuffer);
-			glDeleteBuffers(1, &Fnt->BezierCurveBuffer);
 		}
 
 		HashMap_Free(&Fnt->GlyphMapping);
 		Vector_Free(&Fnt->BezierOffsets);
 		Vector_Free(&Fnt->BezierCurves);
-
+		Buffer_Free(Fnt->GlyphVertexBuffer);
+		Buffer_Free(Fnt->GlyphInstanceBuffer);
+		Buffer_Free(Fnt->GlyphIndexBuffer);
+		Buffer_Free(Fnt->BezierOffsetBuffer);
+		Buffer_Free(Fnt->BezierCurveBuffer);
+		VertexArray_Free(Fnt->GlyphVertexArray);
 		Memory_Free(Fnt->GlyphOffsets);
 		Memory_Free(Fnt->Glyphs);
 
 		memset(Fnt, 0, sizeof(Font));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedFonts -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Font_AllocInternal(Font* Fnt, int unsigned NumChars, char unsigned* Buffer, int unsigned BufferSize)
 	{
@@ -7564,9 +8123,9 @@ extern "C"
 		FileReader_ReadUInt8Array(&Reader, Fnt->OS2Table.Panose, 10);
 		FileReader_ReadUInt32Array(&Reader, true, Fnt->OS2Table.UnicodeRange, 4);
 		FileReader_ReadInt8Array(&Reader, Fnt->OS2Table.VendorID, 4);
-		Fnt->OS2Table.Selection = FileReader_ReadInt16(&Reader, true);
-		Fnt->OS2Table.FirstCharIndex = FileReader_ReadInt16(&Reader, true);
-		Fnt->OS2Table.LastCharIndex = FileReader_ReadInt16(&Reader, true);
+		Fnt->OS2Table.Selection = FileReader_ReadUInt16(&Reader, true);
+		Fnt->OS2Table.FirstCharIndex = FileReader_ReadUInt16(&Reader, true);
+		Fnt->OS2Table.LastCharIndex = FileReader_ReadUInt16(&Reader, true);
 		Fnt->OS2Table.TypoAscender = FileReader_ReadInt16(&Reader, true);
 		Fnt->OS2Table.TypoDescender = FileReader_ReadInt16(&Reader, true);
 		Fnt->OS2Table.TypoLineGap = FileReader_ReadInt16(&Reader, true);
@@ -7650,76 +8209,63 @@ extern "C"
 		IndexBuffer[4] = 3;
 		IndexBuffer[5] = 1;
 
-		glGenVertexArrays(1, &Fnt->GlyphVertexArray);
-		glGenBuffers(1, &Fnt->GlyphVertexBuffer);
-		glGenBuffers(1, &Fnt->GlyphInstanceBuffer);
-		glGenBuffers(1, &Fnt->GlyphIndexBuffer);
-		glBindVertexArray(Fnt->GlyphVertexArray);
-		glBindBuffer(GL_ARRAY_BUFFER, Fnt->GlyphVertexBuffer);
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(0, 2, GL_FLOAT, 0, sizeof(GlyphVertex), ((void*)(OFFSET_OF(GlyphVertex, Position))));
-		glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(GlyphVertex), ((void*)(OFFSET_OF(GlyphVertex, Index))));
-		glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(GlyphVertex), VertexBuffer, GL_STATIC_DRAW);
-		glBindBuffer(GL_ARRAY_BUFFER, Fnt->GlyphInstanceBuffer);
-		glEnableVertexAttribArray(2);
-		glEnableVertexAttribArray(3);
-		glEnableVertexAttribArray(4);
-		glEnableVertexAttribArray(5);
-		glEnableVertexAttribArray(6);
-		glEnableVertexAttribArray(7);
-		glEnableVertexAttribArray(8);
-		glEnableVertexAttribArray(9);
-		glEnableVertexAttribArray(10);
-		glEnableVertexAttribArray(11);
-		glEnableVertexAttribArray(12);
-		glEnableVertexAttribArray(13);
-		glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, CoordSpace))));
-		glVertexAttribPointer(3, 3, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, PivotPosition))));
-		glVertexAttribPointer(4, 3, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, Position))));
-		glVertexAttribPointer(5, 3, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, Rotation))));
-		glVertexAttribPointer(6, 2, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, Scale))));
-		glVertexAttribPointer(7, 2, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, Bearing))));
-		glVertexAttribPointer(8, 1, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, UnitsPerEm))));
-		glVertexAttribPointer(9, 1, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, FontSize))));
-		glVertexAttribPointer(10, 2, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, GlyphSize))));
-		glVertexAttribPointer(11, 4, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, Color))));
-		glVertexAttribIPointer(12, 1, GL_UNSIGNED_INT, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, GlyphIndex))));
-		glVertexAttribIPointer(13, 1, GL_UNSIGNED_INT, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, LineHeight))));
-		glVertexAttribDivisor(2, 1);
-		glVertexAttribDivisor(3, 1);
-		glVertexAttribDivisor(4, 1);
-		glVertexAttribDivisor(5, 1);
-		glVertexAttribDivisor(6, 1);
-		glVertexAttribDivisor(7, 1);
-		glVertexAttribDivisor(8, 1);
-		glVertexAttribDivisor(9, 1);
-		glVertexAttribDivisor(10, 1);
-		glVertexAttribDivisor(11, 1);
-		glVertexAttribDivisor(12, 1);
-		glVertexAttribDivisor(13, 1);
-		glBufferData(GL_ARRAY_BUFFER, NumChars * sizeof(GlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Fnt->GlyphIndexBuffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		VertexArray_Alloc(&Fnt->GlyphVertexArray);
+		Buffer_VertexAlloc(&Fnt->GlyphVertexBuffer, 4 * sizeof(GlyphVertex), VertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexAlloc(&Fnt->GlyphInstanceBuffer, NumChars * sizeof(GlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexAlloc(&Fnt->GlyphIndexBuffer, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
+		VertexArray_Bind(Fnt->GlyphVertexArray);
+		Buffer_VertexBind(Fnt->GlyphVertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(GlyphVertex), OFFSET_OF(GlyphVertex, Position));
+		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(GlyphVertex), OFFSET_OF(GlyphVertex, Index));
+		Buffer_VertexBind(Fnt->GlyphInstanceBuffer);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexEnableAttrib(4);
+		Buffer_VertexEnableAttrib(5);
+		Buffer_VertexEnableAttrib(6);
+		Buffer_VertexEnableAttrib(7);
+		Buffer_VertexEnableAttrib(8);
+		Buffer_VertexEnableAttrib(9);
+		Buffer_VertexEnableAttrib(10);
+		Buffer_VertexEnableAttrib(11);
+		Buffer_VertexEnableAttrib(12);
+		Buffer_VertexEnableAttrib(13);
+		Buffer_VertexAttribPointerUInt32(2, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Space));
+		Buffer_VertexAttribPointerReal32(3, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(4, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(5, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(6, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Scale));
+		Buffer_VertexAttribPointerReal32(7, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(8, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(9, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(10, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(11, 4, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(13, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribDivisor(2, 1);
+		Buffer_VertexAttribDivisor(3, 1);
+		Buffer_VertexAttribDivisor(4, 1);
+		Buffer_VertexAttribDivisor(5, 1);
+		Buffer_VertexAttribDivisor(6, 1);
+		Buffer_VertexAttribDivisor(7, 1);
+		Buffer_VertexAttribDivisor(8, 1);
+		Buffer_VertexAttribDivisor(9, 1);
+		Buffer_VertexAttribDivisor(10, 1);
+		Buffer_VertexAttribDivisor(11, 1);
+		Buffer_VertexAttribDivisor(12, 1);
+		Buffer_VertexAttribDivisor(13, 1);
+		Buffer_IndexBind(Fnt->GlyphIndexBuffer);
+		VertexArray_UnBind();
 
 		void* BezierOffsetBuffer = Vector_Buffer(&Fnt->BezierOffsets);
-		long long unsigned NumBezierOffsets = Vector_Num(&Fnt->BezierOffsets);
-
-		glGenBuffers(1, &Fnt->BezierOffsetBuffer);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, Fnt->BezierOffsetBuffer);
-		glBufferData(GL_SHADER_STORAGE_BUFFER, (int unsigned)(NumBezierOffsets * sizeof(BezierOffsetEntry)), BezierOffsetBuffer, GL_STATIC_DRAW);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
 		void* BezierCurveBuffer = Vector_Buffer(&Fnt->BezierCurves);
+		long long unsigned NumBezierOffsets = Vector_Num(&Fnt->BezierOffsets);
 		long long unsigned NumBezierCurves = Vector_Num(&Fnt->BezierCurves);
 
-		glGenBuffers(1, &Fnt->BezierCurveBuffer);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, Fnt->BezierCurveBuffer);
-		glBufferData(GL_SHADER_STORAGE_BUFFER, (int unsigned)(NumBezierCurves * sizeof(BezierCurveEntry)), BezierCurveBuffer, GL_STATIC_DRAW);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+		Buffer_StorageAlloc(&Fnt->BezierOffsetBuffer, NumBezierOffsets * sizeof(BezierOffsetEntry), BezierOffsetBuffer, GL_STATIC_DRAW);
+		Buffer_StorageAlloc(&Fnt->BezierCurveBuffer, NumBezierCurves * sizeof(BezierCurveEntry), BezierCurveBuffer, GL_STATIC_DRAW);
 	}
 	void Font_ReadGlyphInternal(Font* Fnt, FileReader* Reader, short unsigned GlyphIndex, Glyph* Result)
 	{
@@ -8364,13 +8910,13 @@ extern "C"
 	void Text_Begin(Font* Fnt)
 	{
 		sCurrFont = Fnt;
-		glBindBuffer(GL_ARRAY_BUFFER, sCurrFont->GlyphInstanceBuffer);
-		sCurrFont->MappedGlyphInstanceBuffer = (GlyphInstanceEntry*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		Buffer_VertexBind(sCurrFont->GlyphInstanceBuffer);
+		sCurrFont->MappedGlyphInstanceBuffer = (GlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 		sCurrFont->GlyphInstanceOffset = 0;
 	}
 	void Text_DrawWorld(Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...)
 	{
-		static char FormatBuffer[0x1000] = { 0 };
+		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -8413,10 +8959,10 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].CoordSpace = COORD_SPACE_WORLD;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[0] = Position[0];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[1] = Position[1];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[2] = Position[2];
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Space = COORD_SPACE_WORLD;
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[0] = Position[0];
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[1] = Position[1];
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[2] = Position[2];
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[0] = X;
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[1] = Y;
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[2] = Z;
@@ -8452,7 +8998,7 @@ extern "C"
 	}
 	void Text_DrawScreen(Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...)
 	{
-		static char FormatBuffer[0x1000] = { 0 };
+		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -8494,10 +9040,10 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].CoordSpace = COORD_SPACE_SCREEN;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[0] = Position[0];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[1] = Position[1];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[2] = 0.0F;
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Space = COORD_SPACE_SCREEN;
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[0] = Position[0];
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[1] = Position[1];
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[2] = 0.0F;
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[0] = X;
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[1] = Y;
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[2] = 0.0F;
@@ -8533,7 +9079,7 @@ extern "C"
 	}
 	void Text_DrawWorldSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float ScaleX, float ScaleY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
-		static char FormatBuffer[0x1000] = { 0 };
+		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -8576,10 +9122,10 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].CoordSpace = COORD_SPACE_WORLD;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[0] = PositionX;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[1] = PositionY;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[2] = PositionZ;
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Space = COORD_SPACE_WORLD;
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[0] = PositionX;
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[1] = PositionY;
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[2] = PositionZ;
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[0] = X;
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[1] = Y;
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[2] = Z;
@@ -8615,7 +9161,7 @@ extern "C"
 	}
 	void Text_DrawScreenSimple(float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
-		static char FormatBuffer[0x1000] = { 0 };
+		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -8657,10 +9203,10 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].CoordSpace = COORD_SPACE_SCREEN;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[0] = PositionX;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[1] = PositionY;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].PivotPosition[2] = 0.0F;
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Space = COORD_SPACE_SCREEN;
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[0] = PositionX;
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[1] = PositionY;
+					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[2] = 0.0F;
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[0] = X;
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[1] = Y;
 					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[2] = 0.0F;
@@ -8698,17 +9244,17 @@ extern "C"
 	{
 		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
 
-		glUnmapBuffer(GL_ARRAY_BUFFER);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		Buffer_VertexUnMap();
+		Buffer_VertexUnBind();
 		Shader_Bind(sFontProgram);
 		Shader_SetUniformVector2(sFontProgram, "ScreenSize", ScreenSize);
 		Shader_SetUniformMatrix4(sFontProgram, "ProjectionMatrix", Projection);
 		Shader_SetUniformMatrix4(sFontProgram, "ViewMatrix", View);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, sCurrFont->BezierOffsetBuffer);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, sCurrFont->BezierCurveBuffer);
-		glBindVertexArray(sCurrFont->GlyphVertexArray);
-		glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (int)sCurrFont->GlyphInstanceOffset);
-		glBindVertexArray(0);
+		Buffer_StorageMount(sCurrFont->BezierOffsetBuffer, 0);
+		Buffer_StorageMount(sCurrFont->BezierCurveBuffer, 1);
+		VertexArray_Bind(sCurrFont->GlyphVertexArray);
+		VertexArray_DrawTriangleStripInstanced(4, sCurrFont->GlyphInstanceOffset);
+		VertexArray_UnBind();
 	}
 	void Text_CacheAlloc(TextCache* Cache, int unsigned NumChars)
 	{
@@ -8740,71 +9286,70 @@ extern "C"
 		IndexBuffer[4] = 3;
 		IndexBuffer[5] = 1;
 
-		glGenVertexArrays(1, &Cache->GlyphVertexArray);
-		glGenBuffers(1, &Cache->GlyphVertexBuffer);
-		glGenBuffers(1, &Cache->GlyphInstanceBuffer);
-		glGenBuffers(1, &Cache->GlyphIndexBuffer);
-		glBindVertexArray(Cache->GlyphVertexArray);
-		glBindBuffer(GL_ARRAY_BUFFER, Cache->GlyphVertexBuffer);
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(0, 2, GL_FLOAT, 0, sizeof(GlyphVertex), ((void*)(OFFSET_OF(GlyphVertex, Position))));
-		glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(GlyphVertex), ((void*)(OFFSET_OF(GlyphVertex, Index))));
-		glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(GlyphVertex), VertexBuffer, GL_STATIC_DRAW);
-		glBindBuffer(GL_ARRAY_BUFFER, Cache->GlyphInstanceBuffer);
-		glEnableVertexAttribArray(2);
-		glEnableVertexAttribArray(3);
-		glEnableVertexAttribArray(4);
-		glEnableVertexAttribArray(5);
-		glEnableVertexAttribArray(6);
-		glEnableVertexAttribArray(7);
-		glEnableVertexAttribArray(8);
-		glEnableVertexAttribArray(9);
-		glEnableVertexAttribArray(10);
-		glEnableVertexAttribArray(11);
-		glEnableVertexAttribArray(12);
-		glEnableVertexAttribArray(13);
-		glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, CoordSpace))));
-		glVertexAttribPointer(3, 3, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, PivotPosition))));
-		glVertexAttribPointer(4, 3, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, Position))));
-		glVertexAttribPointer(5, 3, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, Rotation))));
-		glVertexAttribPointer(6, 2, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, Scale))));
-		glVertexAttribPointer(7, 2, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, Bearing))));
-		glVertexAttribPointer(8, 1, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, UnitsPerEm))));
-		glVertexAttribPointer(9, 1, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, FontSize))));
-		glVertexAttribPointer(10, 2, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, GlyphSize))));
-		glVertexAttribPointer(11, 4, GL_FLOAT, 0, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, Color))));
-		glVertexAttribIPointer(12, 1, GL_UNSIGNED_INT, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, GlyphIndex))));
-		glVertexAttribIPointer(13, 1, GL_UNSIGNED_INT, sizeof(GlyphInstanceEntry), ((void*)(OFFSET_OF(GlyphInstanceEntry, LineHeight))));
-		glVertexAttribDivisor(2, 1);
-		glVertexAttribDivisor(3, 1);
-		glVertexAttribDivisor(4, 1);
-		glVertexAttribDivisor(5, 1);
-		glVertexAttribDivisor(6, 1);
-		glVertexAttribDivisor(7, 1);
-		glVertexAttribDivisor(8, 1);
-		glVertexAttribDivisor(9, 1);
-		glVertexAttribDivisor(10, 1);
-		glVertexAttribDivisor(11, 1);
-		glVertexAttribDivisor(12, 1);
-		glVertexAttribDivisor(13, 1);
-		glBufferData(GL_ARRAY_BUFFER, NumChars * sizeof(GlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Cache->GlyphIndexBuffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		VertexArray_Alloc(&Cache->GlyphVertexArray);
+		Buffer_VertexAlloc(&Cache->GlyphVertexBuffer, 4 * sizeof(GlyphVertex), VertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexAlloc(&Cache->GlyphInstanceBuffer, NumChars * sizeof(GlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexAlloc(&Cache->GlyphIndexBuffer, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
+		VertexArray_Bind(Cache->GlyphVertexArray);
+		Buffer_VertexBind(Cache->GlyphVertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(GlyphVertex), OFFSET_OF(GlyphVertex, Position));
+		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(GlyphVertex), OFFSET_OF(GlyphVertex, Index));
+		Buffer_VertexBind(Cache->GlyphInstanceBuffer);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexEnableAttrib(4);
+		Buffer_VertexEnableAttrib(5);
+		Buffer_VertexEnableAttrib(6);
+		Buffer_VertexEnableAttrib(7);
+		Buffer_VertexEnableAttrib(8);
+		Buffer_VertexEnableAttrib(9);
+		Buffer_VertexEnableAttrib(10);
+		Buffer_VertexEnableAttrib(11);
+		Buffer_VertexEnableAttrib(12);
+		Buffer_VertexEnableAttrib(13);
+		Buffer_VertexAttribPointerUInt32(2, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Space));
+		Buffer_VertexAttribPointerReal32(3, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(4, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(5, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(6, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Scale));
+		Buffer_VertexAttribPointerReal32(7, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(8, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(9, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(10, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(11, 4, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(13, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribDivisor(2, 1);
+		Buffer_VertexAttribDivisor(3, 1);
+		Buffer_VertexAttribDivisor(4, 1);
+		Buffer_VertexAttribDivisor(5, 1);
+		Buffer_VertexAttribDivisor(6, 1);
+		Buffer_VertexAttribDivisor(7, 1);
+		Buffer_VertexAttribDivisor(8, 1);
+		Buffer_VertexAttribDivisor(9, 1);
+		Buffer_VertexAttribDivisor(10, 1);
+		Buffer_VertexAttribDivisor(11, 1);
+		Buffer_VertexAttribDivisor(12, 1);
+		Buffer_VertexAttribDivisor(13, 1);
+		Buffer_IndexBind(Cache->GlyphIndexBuffer);
+		VertexArray_UnBind();
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedTextCaches += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Text_BeginCache(TextCache* Cache, Font* Fnt)
 	{
 		sCurrFont = Fnt;
-		glBindBuffer(GL_ARRAY_BUFFER, Cache->GlyphInstanceBuffer);
-		Cache->MappedGlyphInstanceBuffer = (GlyphInstanceEntry*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		Buffer_VertexBind(Cache->GlyphInstanceBuffer);
+		Cache->MappedGlyphInstanceBuffer = (GlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 		Cache->GlyphInstanceOffset = 0;
 	}
 	void Text_CacheDrawWorld(TextCache* Cache, Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...)
 	{
-		static char FormatBuffer[0x1000] = { 0 };
+		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -8847,10 +9392,10 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].CoordSpace = COORD_SPACE_WORLD;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[0] = Position[0];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[1] = Position[1];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[2] = Position[2];
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Space = COORD_SPACE_WORLD;
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = Position[0];
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = Position[1];
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = Position[2];
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = Z;
@@ -8886,7 +9431,7 @@ extern "C"
 	}
 	void Text_CacheDrawScreen(TextCache* Cache, Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...)
 	{
-		static char FormatBuffer[0x1000] = { 0 };
+		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -8928,10 +9473,10 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].CoordSpace = COORD_SPACE_SCREEN;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[0] = Position[0];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[1] = Position[1];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[2] = 0.0F;
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Space = COORD_SPACE_SCREEN;
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = Position[0];
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = Position[1];
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = 0.0F;
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = 0.0F;
@@ -8967,7 +9512,7 @@ extern "C"
 	}
 	void Text_CacheDrawWorldSimple(TextCache* Cache, float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float ScaleX, float ScaleY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
-		static char FormatBuffer[0x1000] = { 0 };
+		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -9010,10 +9555,10 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].CoordSpace = COORD_SPACE_WORLD;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[0] = PositionX;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[1] = PositionY;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[2] = PositionZ;
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Space = COORD_SPACE_WORLD;
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = PositionX;
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = PositionY;
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = PositionZ;
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = Z;
@@ -9049,7 +9594,7 @@ extern "C"
 	}
 	void Text_CacheDrawScreenSimple(TextCache* Cache, float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
-		static char FormatBuffer[0x1000] = { 0 };
+		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -9091,10 +9636,10 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].CoordSpace = COORD_SPACE_SCREEN;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[0] = PositionX;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[1] = PositionY;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].PivotPosition[2] = 0.0F;
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Space = COORD_SPACE_SCREEN;
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = PositionX;
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = PositionY;
+					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = 0.0F;
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
 					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = 0.0F;
@@ -9132,8 +9677,8 @@ extern "C"
 	{
 		UNREFERENCED_PARAMETER(Cache);
 
-		glUnmapBuffer(GL_ARRAY_BUFFER);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		Buffer_VertexUnMap();
+		Buffer_VertexUnBind();
 	}
 	void Text_DrawCache(TextCache* Cache, Matrix4 Projection, Matrix4 View)
 	{
@@ -9143,19 +9688,24 @@ extern "C"
 		Shader_SetUniformVector2(sFontProgram, "ScreenSize", ScreenSize);
 		Shader_SetUniformMatrix4(sFontProgram, "ProjectionMatrix", Projection);
 		Shader_SetUniformMatrix4(sFontProgram, "ViewMatrix", View);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, sCurrFont->BezierOffsetBuffer);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, sCurrFont->BezierCurveBuffer);
-		glBindVertexArray(Cache->GlyphVertexArray);
-		glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (int)Cache->GlyphInstanceOffset);
-		glBindVertexArray(0);
+		Buffer_StorageMount(sCurrFont->BezierOffsetBuffer, 0);
+		Buffer_StorageMount(sCurrFont->BezierCurveBuffer, 1);
+		VertexArray_Bind(Cache->GlyphVertexArray);
+		VertexArray_DrawTriangleStripInstanced(4, Cache->GlyphInstanceOffset);
+		VertexArray_UnBind();
 	}
 	extern void Text_CacheFree(TextCache* Cache)
 	{
-		glDeleteBuffers(1, &Cache->GlyphVertexBuffer);
-		glDeleteBuffers(1, &Cache->GlyphInstanceBuffer);
-		glDeleteBuffers(1, &Cache->GlyphIndexBuffer);
-		glDeleteVertexArrays(1, &Cache->GlyphVertexArray);
+		Buffer_Free(Cache->GlyphVertexBuffer);
+		Buffer_Free(Cache->GlyphInstanceBuffer);
+		Buffer_Free(Cache->GlyphIndexBuffer);
+		VertexArray_Free(Cache->GlyphVertexArray);
+
 		memset(Cache, 0, sizeof(TextCache));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedTextCaches -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -9177,6 +9727,10 @@ extern "C"
 		Texture->Type = TEXTURE_TYPE_UINT8;
 		Texture->Format = TEXTURE_FORMAT_RGBA;
 		Texture->InternalFormat = TEXTURE_INTERNAL_FORMAT_RGBA;
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedTexture2Ds += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	int unsigned Texture2D_GetWidth(Texture2D* Texture)
 	{
@@ -9274,25 +9828,61 @@ extern "C"
 		}
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
-	char unsigned* Texture2D_CopyPixels(Texture2D* Texture)
+	void* Texture2D_CopyPixels(Texture2D* Texture)
 	{
-		int unsigned PixelSize = 0;
+		void* Pixels = 0;
+
 		switch (Texture->Type)
 		{
-		case TEXTURE_TYPE_UINT8: PixelSize = sizeof(char unsigned); break;
-		case TEXTURE_TYPE_REAL32: PixelSize = sizeof(float); break;
-		case TEXTURE_TYPE_UINT24_UINT8: PixelSize = sizeof(int unsigned); break;
+		case TEXTURE_TYPE_UINT8:
+		{
+			switch (Texture->Format)
+			{
+			case TEXTURE_FORMAT_R: Pixels = Memory_Alloc(Texture->Width * Texture->Height * sizeof(char unsigned), 0); break;
+			case TEXTURE_FORMAT_RG: Pixels = Memory_Alloc(Texture->Width * Texture->Height * sizeof(char unsigned) * 2, 0); break;
+			case TEXTURE_FORMAT_RGB: Pixels = Memory_Alloc(Texture->Width * Texture->Height * sizeof(char unsigned) * 3, 0); break;
+			case TEXTURE_FORMAT_RGBA: Pixels = Memory_Alloc(Texture->Width * Texture->Height * sizeof(char unsigned) * 4, 0); break;
+			case TEXTURE_FORMAT_DEPTH_STENCIL: assert(0); break;
+			}
+
+			break;
 		}
-		char unsigned* Pixels = (char unsigned*)Memory_Alloc(Texture->Width * Texture->Height * PixelSize, 0);
+		case TEXTURE_TYPE_REAL32:
+		{
+			switch (Texture->Format)
+			{
+			case TEXTURE_FORMAT_R: Pixels = Memory_Alloc(Texture->Width * Texture->Height * sizeof(float), 0); break;
+			case TEXTURE_FORMAT_RG: Pixels = Memory_Alloc(Texture->Width * Texture->Height * sizeof(float) * 2, 0); break;
+			case TEXTURE_FORMAT_RGB: Pixels = Memory_Alloc(Texture->Width * Texture->Height * sizeof(float) * 3, 0); break;
+			case TEXTURE_FORMAT_RGBA: Pixels = Memory_Alloc(Texture->Width * Texture->Height * sizeof(float) * 4, 0); break;
+			case TEXTURE_FORMAT_DEPTH_STENCIL: assert(0); break;
+			}
+
+			break;
+		}
+		case TEXTURE_TYPE_UINT24_UINT8:
+		{
+			assert(0);
+
+			break;
+		}
+		}
+
 		glBindTexture(GL_TEXTURE_2D, Texture->Texture);
 		glGetTexImage(GL_TEXTURE_2D, 0, Texture->Format, Texture->Type, Pixels);
 		glBindTexture(GL_TEXTURE_2D, 0);
+
 		return Pixels;
 	}
 	void Texture2D_Free(Texture2D* Texture)
 	{
 		glDeleteTextures(1, &Texture->Texture);
+
 		memset(Texture, 0, sizeof(Texture2D));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedTexture2Ds -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -9304,18 +9894,25 @@ extern "C"
 	void FrameBuffer_Alloc(FrameBuffer* Buffer, int unsigned NumColorAttachments, int unsigned Width, int unsigned Height)
 	{
 		memset(Buffer, 0, sizeof(FrameBuffer));
+
 		glGenFramebuffers(1, &Buffer->FrameBuffer);
+
 		Buffer->Width = Width;
 		Buffer->Height = Height;
 		Buffer->NumColorAttachments = NumColorAttachments;
 		Buffer->ColorAttachments = (Texture2D**)Memory_Alloc(NumColorAttachments * sizeof(Texture2D*), 0);
 		Buffer->DepthStencilAttachment = 0;
 		Buffer->BufferAttachments = (int unsigned*)Memory_Alloc(NumColorAttachments * sizeof(int unsigned), 0);
+
 		for (int unsigned ColorAttachmentIndex = 0; ColorAttachmentIndex < NumColorAttachments; ColorAttachmentIndex++)
 		{
 			Buffer->ColorAttachments[ColorAttachmentIndex] = 0;
 			Buffer->BufferAttachments[ColorAttachmentIndex] = GL_COLOR_ATTACHMENT0 + ColorAttachmentIndex;
 		}
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedFrameBuffers += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	int unsigned FrameBuffer_GetColorAttachmentNum(FrameBuffer* Buffer)
 	{
@@ -9348,8 +9945,9 @@ extern "C"
 	void FrameBuffer_Update(FrameBuffer* Buffer)
 	{
 		glBindFramebuffer(GL_FRAMEBUFFER, Buffer->FrameBuffer);
-		glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_DEFAULT_WIDTH, Buffer->Width);
-		glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_DEFAULT_HEIGHT, Buffer->Height);
+		glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_DEFAULT_WIDTH, (int)Buffer->Width);
+		glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_DEFAULT_HEIGHT, (int)Buffer->Height);
+
 		for (int unsigned ColorAttachmentIndex = 0; ColorAttachmentIndex < Buffer->NumColorAttachments; ColorAttachmentIndex++)
 		{
 			Texture2D_SetWidth(Buffer->ColorAttachments[ColorAttachmentIndex], Buffer->Width);
@@ -9359,6 +9957,7 @@ extern "C"
 		Texture2D_SetWidth(Buffer->DepthStencilAttachment, Buffer->Width);
 		Texture2D_SetHeight(Buffer->DepthStencilAttachment, Buffer->Height);
 		Texture2D_Update(Buffer->DepthStencilAttachment, false);
+
 		for (int unsigned ColorAttachmentIndex = 0; ColorAttachmentIndex < Buffer->NumColorAttachments; ColorAttachmentIndex++)
 		{
 			int unsigned ColorTexture = Texture2D_GetTexture(Buffer->ColorAttachments[ColorAttachmentIndex]);
@@ -9366,6 +9965,7 @@ extern "C"
 		}
 		int unsigned DepthStencilTexture = Texture2D_GetTexture(Buffer->DepthStencilAttachment);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, DepthStencilTexture, 0);
+
 		glDrawBuffers(Buffer->NumColorAttachments, Buffer->BufferAttachments);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
@@ -9402,9 +10002,15 @@ extern "C"
 	void FrameBuffer_Free(FrameBuffer* Buffer)
 	{
 		glDeleteFramebuffers(1, &Buffer->FrameBuffer);
+
 		Memory_Free(Buffer->BufferAttachments);
 		Memory_Free(Buffer->ColorAttachments);
+
 		memset(Buffer, 0, sizeof(FrameBuffer));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedFrameBuffers -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -9474,10 +10080,18 @@ extern "C"
 		Memory_Free(PixelsOriginal);
 
 		fclose(File);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBitMaps += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void BitMap_Free(char unsigned* Pixels)
 	{
 		Memory_Free(Pixels);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBitMaps -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -9517,21 +10131,21 @@ extern "C"
 		IndexBuffer[4] = 3;
 		IndexBuffer[5] = 1;
 
-		glGenVertexArrays(1, &Mesh->VertexArray);
-		glGenBuffers(1, &Mesh->VertexBuffer);
-		glGenBuffers(1, &Mesh->IndexBuffer);
-		glBindVertexArray(Mesh->VertexArray);
-		glBindBuffer(GL_ARRAY_BUFFER, Mesh->VertexBuffer);
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(0, 2, GL_FLOAT, 0, sizeof(SpriteVertex), ((void*)(OFFSET_OF(SpriteVertex, Position))));
-		glVertexAttribPointer(1, 2, GL_FLOAT, 0, sizeof(SpriteVertex), ((void*)(OFFSET_OF(SpriteVertex, TextureCoords))));
-		glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(SpriteVertex), VertexBuffer, GL_STATIC_DRAW);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Mesh->IndexBuffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		VertexArray_Alloc(&Mesh->VertexArray);
+		Buffer_VertexAlloc(&Mesh->VertexBuffer, 4 * sizeof(SpriteVertex), VertexBuffer, GL_STATIC_DRAW);
+		Buffer_IndexAlloc(&Mesh->IndexBuffer, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
+		VertexArray_Bind(Mesh->VertexArray);
+		Buffer_VertexBind(Mesh->VertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, TextureCoords));
+		Buffer_IndexBind(Mesh->IndexBuffer);
+		VertexArray_UnBind();
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPrimitives += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	int unsigned Primitive_GetSpriteVertexArray(SpriteMesh* Mesh)
 	{
@@ -9539,11 +10153,15 @@ extern "C"
 	}
 	void Primitive_SpriteFree(SpriteMesh* Mesh)
 	{
-		glDeleteBuffers(1, &Mesh->VertexBuffer);
-		glDeleteBuffers(1, &Mesh->IndexBuffer);
-		glDeleteVertexArrays(1, &Mesh->VertexArray);
+		Buffer_Free(Mesh->VertexBuffer);
+		Buffer_Free(Mesh->IndexBuffer);
+		VertexArray_Free(Mesh->VertexArray);
 
 		memset(Mesh, 0, sizeof(SpriteMesh));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPrimitives -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Primitive_PostProcessAlloc(PostProcessMesh* Mesh)
 	{
@@ -9576,21 +10194,21 @@ extern "C"
 		IndexBuffer[4] = 3;
 		IndexBuffer[5] = 1;
 
-		glGenVertexArrays(1, &Mesh->VertexArray);
-		glGenBuffers(1, &Mesh->VertexBuffer);
-		glGenBuffers(1, &Mesh->IndexBuffer);
-		glBindVertexArray(Mesh->VertexArray);
-		glBindBuffer(GL_ARRAY_BUFFER, Mesh->VertexBuffer);
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(0, 2, GL_FLOAT, 0, sizeof(PostProcessVertex), ((void*)(OFFSET_OF(PostProcessVertex, Position))));
-		glVertexAttribPointer(1, 2, GL_FLOAT, 0, sizeof(PostProcessVertex), ((void*)(OFFSET_OF(PostProcessVertex, TextureCoords))));
-		glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(PostProcessVertex), VertexBuffer, GL_STATIC_DRAW);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Mesh->IndexBuffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		VertexArray_Alloc(&Mesh->VertexArray);
+		Buffer_VertexAlloc(&Mesh->VertexBuffer, 4 * sizeof(PostProcessVertex), VertexBuffer, GL_STATIC_DRAW);
+		Buffer_IndexAlloc(&Mesh->IndexBuffer, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
+		VertexArray_Bind(Mesh->VertexArray);
+		Buffer_VertexBind(Mesh->VertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(PostProcessVertex), OFFSET_OF(PostProcessVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(PostProcessVertex), OFFSET_OF(PostProcessVertex, TextureCoords));
+		Buffer_IndexBind(Mesh->IndexBuffer);
+		VertexArray_UnBind();
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPrimitives += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	int unsigned Primitive_GetPostProcessVertexArray(PostProcessMesh* Mesh)
 	{
@@ -9598,10 +10216,15 @@ extern "C"
 	}
 	void Primitive_PostProcessFree(PostProcessMesh* Mesh)
 	{
-		glDeleteBuffers(1, &Mesh->VertexBuffer);
-		glDeleteBuffers(1, &Mesh->IndexBuffer);
-		glDeleteVertexArrays(1, &Mesh->VertexArray);
+		Buffer_Free(Mesh->VertexBuffer);
+		Buffer_Free(Mesh->IndexBuffer);
+		VertexArray_Free(Mesh->VertexArray);
+
 		memset(Mesh, 0, sizeof(PostProcessMesh));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPrimitives -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Primitive_InstancedSpriteAlloc(InstancedSprite* Mesh, int unsigned NumInstances)
 	{
@@ -9636,39 +10259,38 @@ extern "C"
 		IndexBuffer[4] = 3;
 		IndexBuffer[5] = 1;
 
-		glGenVertexArrays(1, &Mesh->VertexArray);
-		glGenBuffers(1, &Mesh->VertexBuffer);
-		glGenBuffers(1, &Mesh->InstanceBuffer);
-		glGenBuffers(1, &Mesh->IndexBuffer);
-		glBindVertexArray(Mesh->VertexArray);
-		glBindBuffer(GL_ARRAY_BUFFER, Mesh->VertexBuffer);
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(0, 2, GL_FLOAT, 0, sizeof(SpriteVertex), ((void*)(OFFSET_OF(SpriteVertex, Position))));
-		glVertexAttribPointer(1, 2, GL_FLOAT, 0, sizeof(SpriteVertex), ((void*)(OFFSET_OF(SpriteVertex, TextureCoords))));
-		glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(SpriteVertex), VertexBuffer, GL_STATIC_DRAW);
-		glBindBuffer(GL_ARRAY_BUFFER, Mesh->InstanceBuffer);
-		glEnableVertexAttribArray(2);
-		glEnableVertexAttribArray(3);
-		glEnableVertexAttribArray(4);
-		glEnableVertexAttribArray(5);
-		glEnableVertexAttribArray(6);
-		glVertexAttribPointer(2, 4, GL_FLOAT, 0, sizeof(SpriteInstanceEntry), ((void*)(OFFSET_OF(SpriteInstanceEntry, TransformMatrix))));
-		glVertexAttribPointer(3, 4, GL_FLOAT, 0, sizeof(SpriteInstanceEntry), ((void*)(OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4))));
-		glVertexAttribPointer(4, 4, GL_FLOAT, 0, sizeof(SpriteInstanceEntry), ((void*)(OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4) * 2)));
-		glVertexAttribPointer(5, 4, GL_FLOAT, 0, sizeof(SpriteInstanceEntry), ((void*)(OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4) * 3)));
-		glVertexAttribIPointer(6, 1, GL_UNSIGNED_INT, sizeof(SpriteInstanceEntry), ((void*)(OFFSET_OF(SpriteInstanceEntry, AtlasIndex))));
+		VertexArray_Alloc(&Mesh->VertexArray);
+		Buffer_VertexAlloc(&Mesh->VertexBuffer, 4 * sizeof(SpriteVertex), VertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexAlloc(&Mesh->InstanceBuffer, NumInstances * sizeof(SpriteInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexAlloc(&Mesh->IndexBuffer, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
+		VertexArray_Bind(Mesh->VertexArray);
+		Buffer_VertexBind(Mesh->VertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, TextureCoords));
+		Buffer_VertexBind(Mesh->InstanceBuffer);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexEnableAttrib(4);
+		Buffer_VertexEnableAttrib(5);
+		Buffer_VertexEnableAttrib(6);
+		Buffer_VertexAttribPointerReal32(2, 4, sizeof(SpriteInstanceEntry), OFFSET_OF(SpriteInstanceEntry, TransformMatrix));
+		Buffer_VertexAttribPointerReal32(3, 4, sizeof(SpriteInstanceEntry), OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4));
+		Buffer_VertexAttribPointerReal32(4, 4, sizeof(SpriteInstanceEntry), OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4) * 2);
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(SpriteInstanceEntry), OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4) * 3);
+		Buffer_VertexAttribPointerUInt32(6, 1, sizeof(SpriteInstanceEntry), OFFSET_OF(SpriteInstanceEntry, AtlasIndex));
 		glVertexAttribDivisor(2, 1);
 		glVertexAttribDivisor(3, 1);
 		glVertexAttribDivisor(4, 1);
 		glVertexAttribDivisor(5, 1);
 		glVertexAttribDivisor(6, 1);
-		glBufferData(GL_ARRAY_BUFFER, NumInstances * sizeof(SpriteInstanceEntry), 0, GL_DYNAMIC_DRAW);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Mesh->IndexBuffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		Buffer_IndexBind(Mesh->IndexBuffer);
+		VertexArray_UnBind();
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPrimitives += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	int unsigned Primitive_GetInstancedSpriteNumInstances(InstancedSprite* Mesh)
 	{
@@ -9680,23 +10302,28 @@ extern "C"
 	}
 	SpriteInstanceEntry* Primitive_InstancedSpriteMapBuffer(InstancedSprite* Mesh)
 	{
-		glBindBuffer(GL_ARRAY_BUFFER, Mesh->InstanceBuffer);
-		return (SpriteInstanceEntry*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		Buffer_VertexBind(Mesh->InstanceBuffer);
+		return (SpriteInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
 	void Primitive_InstancedSpriteUnMapBuffer(InstancedSprite* Mesh)
 	{
 		UNREFERENCED_PARAMETER(Mesh);
 
-		glUnmapBuffer(GL_ARRAY_BUFFER);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		Buffer_VertexUnMap();
+		Buffer_VertexUnBind();
 	}
 	void Primitive_InstancedSpriteFree(InstancedSprite* Mesh)
 	{
-		glDeleteBuffers(1, &Mesh->VertexBuffer);
-		glDeleteBuffers(1, &Mesh->InstanceBuffer);
-		glDeleteBuffers(1, &Mesh->IndexBuffer);
-		glDeleteVertexArrays(1, &Mesh->VertexArray);
+		Buffer_Free(Mesh->VertexBuffer);
+		Buffer_Free(Mesh->InstanceBuffer);
+		Buffer_Free(Mesh->IndexBuffer);
+		VertexArray_Free(Mesh->VertexArray);
+
 		memset(Mesh, 0, sizeof(InstancedSprite));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPrimitives -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -9710,6 +10337,10 @@ extern "C"
 		memset(Effect, 0, sizeof(PostProcessEffect));
 		Effect->Mesh = Mesh;
 		Shader_VertexFragmentAlloc(&Effect->Program, sPassThroughPostProcessVertexShader, FragmentSource);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPostProcessEffects += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void PostProcessEffect_Begin(PostProcessEffect* Effect)
 	{
@@ -9723,14 +10354,18 @@ extern "C"
 	void PostProcessEffect_End(PostProcessEffect* Effect)
 	{
 		int unsigned VertexArray = Primitive_GetPostProcessVertexArray(Effect->Mesh);
-		glBindVertexArray(VertexArray);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-		glBindVertexArray(0);
+		VertexArray_Bind(VertexArray);
+		VertexArray_DrawTriangleStrip(4);
+		VertexArray_UnBind();
 	}
 	void PostProcessEffect_Free(PostProcessEffect* Effect)
 	{
 		Shader_Free(Effect->Program);
 		memset(Effect, 0, sizeof(PostProcessEffect));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPostProcessEffects -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -9749,17 +10384,18 @@ extern "C"
 		Histgrm->ScaleType = ScaleType;
 		Histgrm->NumSamples = NumSamples;
 		Histgrm->Scale = Scale;
-		Histgrm->DisplayInterval = 1.0F / DisplayInterval;
+		Histgrm->DisplayInterval = 1.0F / (float)DisplayInterval;
 
 		for (int unsigned SampleIndex = 0; SampleIndex < NumSamples; SampleIndex++)
 		{
 			Histgrm->Samples[SampleIndex] = 0.0F;
 		}
 
-		glGenBuffers(1, &Histgrm->SampleBuffer);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, Histgrm->SampleBuffer);
-		glBufferData(GL_SHADER_STORAGE_BUFFER, NumSamples * sizeof(float), Histgrm->Samples, GL_DYNAMIC_DRAW);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+		Buffer_StorageAlloc(&Histgrm->SampleBuffer, NumSamples * sizeof(float), Histgrm->Samples, GL_DYNAMIC_DRAW);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedHistograms += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Histogram_PushSample(Histogram* Histgrm, double Sample)
 	{
@@ -9781,9 +10417,9 @@ extern "C"
 			Histgrm->SampleIndex = 0;
 		}
 
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, Histgrm->SampleBuffer);
-		glBufferData(GL_SHADER_STORAGE_BUFFER, Histgrm->NumSamples * sizeof(float), Histgrm->Samples, GL_DYNAMIC_DRAW);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+		Buffer_StorageBind(Histgrm->SampleBuffer);
+		Buffer_StorageSetData(Histgrm->Samples, Histgrm->NumSamples * sizeof(float));
+		Buffer_StorageUnBind();
 	}
 	void Histogram_Draw(Histogram* Histgrm, Matrix4 Projection, Matrix4 View, Vector2 Position, float Rotation, Vector2 Size)
 	{
@@ -9798,11 +10434,12 @@ extern "C"
 		Shader_SetUniformUInt32(sHistogramProgram, "CurrIndex", Histgrm->SampleIndex);
 		Shader_SetUniformUInt32(sHistogramProgram, "Scale", Histgrm->Scale);
 
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, Histgrm->SampleBuffer);
+		Buffer_StorageMount(Histgrm->SampleBuffer, 0);
 
-		glBindVertexArray(Histgrm->Mesh->VertexArray);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-		glBindVertexArray(0);
+		int unsigned VertexArray = Primitive_GetSpriteVertexArray(Histgrm->Mesh);
+		VertexArray_Bind(VertexArray);
+		VertexArray_DrawTriangleStrip(4);
+		VertexArray_UnBind();
 
 		float LineHeight = Font_LineHeight(&gDefaultFont) * 10.0F;
 
@@ -9815,7 +10452,7 @@ extern "C"
 		if (Histgrm->DisplayIntervalAcc > 1.0F)
 		{
 			Histgrm->DisplayIntervalAcc = 0.0F;
-			Histgrm->AvgDelta = (int unsigned)(Histgrm->Accumulator / Histgrm->NumSamples);
+			Histgrm->AvgDelta = (int unsigned)(Histgrm->Accumulator / (float)Histgrm->NumSamples);
 		}
 
 		Histgrm->DisplayIntervalAcc += Histgrm->DisplayInterval;
@@ -9835,11 +10472,12 @@ extern "C"
 		Shader_SetUniformUInt32(sHistogramProgram, "CurrIndex", Histgrm->SampleIndex);
 		Shader_SetUniformUInt32(sHistogramProgram, "Scale", Histgrm->Scale);
 
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, Histgrm->SampleBuffer);
+		Buffer_StorageMount(Histgrm->SampleBuffer, 0);
 
-		glBindVertexArray(Histgrm->Mesh->VertexArray);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-		glBindVertexArray(0);
+		int unsigned VertexArray = Primitive_GetSpriteVertexArray(Histgrm->Mesh);
+		VertexArray_Bind(VertexArray);
+		VertexArray_DrawTriangleStrip(4);
+		VertexArray_UnBind();
 
 		float LineHeight = Font_LineHeight(&gDefaultFont) * 10.0F;
 
@@ -9852,17 +10490,21 @@ extern "C"
 		if (Histgrm->DisplayIntervalAcc > 1.0F)
 		{
 			Histgrm->DisplayIntervalAcc = 0.0F;
-			Histgrm->AvgDelta = (int unsigned)(Histgrm->Accumulator / Histgrm->NumSamples);
+			Histgrm->AvgDelta = (int unsigned)(Histgrm->Accumulator / (float)Histgrm->NumSamples);
 		}
 
 		Histgrm->DisplayIntervalAcc += Histgrm->DisplayInterval;
 	}
 	void Histogram_Free(Histogram* Histgrm)
 	{
-		glDeleteBuffers(1, &Histgrm->SampleBuffer);
+		Buffer_Free(Histgrm->SampleBuffer);
 		Memory_Free(Histgrm->Samples);
 
 		memset(Histgrm, 0, sizeof(Histogram));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedHistograms -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -10101,9 +10743,23 @@ extern "C"
 		ReleaseDC(sWindowHandle, sDeviceContext);
 		DestroyWindow(sWindowHandle);
 
-#ifdef FAST_GL_DEBUG
-		Memory_CheckForLeaksInternal();
-#endif // FAST_GL_DEBUG
+#ifdef FAST_GL_REFERENCE_COUNT
+		assert(sAllocatedBytes == 0);
+		assert(sAllocatedVectors == 0);
+		assert(sAllocatedHashMaps == 0);
+		assert(sAllocatedTimers == 0);
+		assert(sAllocatedPrograms == 0);
+		assert(sAllocatedVertexArrays == 0);
+		assert(sAllocatedBuffers == 0);
+		assert(sAllocatedFonts == 0);
+		assert(sAllocatedTextCaches == 0);
+		assert(sAllocatedTexture2Ds == 0);
+		assert(sAllocatedFrameBuffers == 0);
+		assert(sAllocatedBitMaps == 0);
+		assert(sAllocatedPrimitives == 0);
+		assert(sAllocatedPostProcessEffects == 0);
+		assert(sAllocatedHistograms == 0);
+#endif FAST_GL_REFERENCE_COUNT
 	}
 	LRESULT Window_CallbackInternal(HWND WindowHandle, UINT Message, WPARAM WParam, LPARAM LParam)
 	{
@@ -10120,8 +10776,8 @@ extern "C"
 			RECT ClientRect = { 0 };
 			GetClientRect(WindowHandle, &ClientRect);
 
-			int unsigned Width = (int unsigned)(ClientRect.right - ClientRect.left);
-			int unsigned Height = (int unsigned)(ClientRect.bottom - ClientRect.top);
+			int Width = ClientRect.right - ClientRect.left;
+			int Height = ClientRect.bottom - ClientRect.top;
 
 			if ((Width > 0) && (Height > 0))
 			{
