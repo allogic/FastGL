@@ -1,4 +1,5 @@
 ﻿#pragma warning(disable : 4191)
+#pragma warning(disable : 4255)
 #pragma warning(disable : 4668)
 #pragma warning(disable : 4710)
 #pragma warning(disable : 4711)
