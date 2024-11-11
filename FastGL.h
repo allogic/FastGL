@@ -1,4 +1,5 @@
-﻿#pragma warning(disable : 4191)
+#pragma warning(disable : 4191)
+#pragma warning(disable : 4255)
 #pragma warning(disable : 4668)
 #pragma warning(disable : 4710)
 #pragma warning(disable : 4711)
@@ -60,7 +61,8 @@ extern "C"
 
 #define STATIC_ASSERT(EXPRESSION, MESSAGE) typedef char static_assertion_##MESSAGE[(EXPRESSION) ? 1 : -1]
 
-#define OFFSET_OF(TYPE, MEMBER) ((long long unsigned)&(((TYPE*)0)->MEMBER))
+#define OFFSET_OF(TYPE, MEMBER_NAME) ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))
+#define MEMBER_OF(INSTANCE, TYPE, MEMBER_NAME, MEMBER_TYPE) ((MEMBER_TYPE*)((long long unsigned)(INSTANCE) + ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))))
 
 #define MAX(A, B) (((A) > (B)) ? (A) : (B))
 #define MIN(A, B) (((A) < (B)) ? (A) : (B))
@@ -1341,16 +1343,6 @@ extern "C"
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
-	// Common Types Definition
-	///////////////////////////////////////////////////////////////
-
-	typedef enum
-	{
-		COORD_SPACE_WORLD,
-		COORD_SPACE_SCREEN,
-	} CoordSpace;
-
-	///////////////////////////////////////////////////////////////
 	// Math Definition
 	///////////////////////////////////////////////////////////////
 
@@ -1498,10 +1490,26 @@ extern "C"
 	extern float Math_StepTowards(float Current, float Target, float Step);
 
 	///////////////////////////////////////////////////////////////
+	// List Definition
+	///////////////////////////////////////////////////////////////
+
+	typedef struct _ListEntry
+	{
+		struct _ListEntry* Next;
+		struct _ListEntry* Prev;
+	} ListEntry;
+
+	extern void List_InitHead(ListEntry* List);
+	extern void List_InsertTail(ListEntry* List, ListEntry* Entry);
+	extern bool List_IsEmpty(ListEntry* List);
+	extern ListEntry* List_RemoveHead(ListEntry* List);
+	extern long long unsigned List_Num(ListEntry* List);
+
+	///////////////////////////////////////////////////////////////
 	// Vector Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef struct
+	typedef struct _Vector
 	{
 		char unsigned* Buffer;
 		long long unsigned ValueSize;
@@ -1535,15 +1543,15 @@ extern "C"
 	// HashMap Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef struct
+	typedef struct _HashMapPair
 	{
-		void* Next;
+		struct _HashMapPair* Next;
 		void* Key;
 		void* Value;
 		long long unsigned KeySize;
 		long long unsigned ValueSize;
 	} HashMapPair;
-	typedef struct
+	typedef struct _HashMap
 	{
 		HashMapPair** Table;
 		long long unsigned TableSize;
@@ -1582,7 +1590,7 @@ extern "C"
 	// FileReader Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef struct
+	typedef struct _FileReader
 	{
 		char unsigned const* Buffer;
 		int unsigned BufferSize;
@@ -1640,12 +1648,12 @@ extern "C"
 	// Timer Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef enum
+	typedef enum _TimerType
 	{
 		TIMER_TYPE_CPU,
 		TIMER_TYPE_GPU,
 	} TimerType;
-	typedef struct
+	typedef struct _Timer
 	{
 		TimerType Type;
 		int unsigned ComputeQuery;
@@ -1655,8 +1663,8 @@ extern "C"
 		double ElapsedNanoTime;
 	} Timer;
 
-	extern void Timer_AllocCpu(Timer* Timr);
-	extern void Timer_AllocGpu(Timer* Timr);
+	extern void Timer_CpuAlloc(Timer* Timr);
+	extern void Timer_GpuAlloc(Timer* Timr);
 	extern void Timer_BeginMeasure(Timer* Timr);
 	extern void Timer_EndMeasure(Timer* Timr);
 	extern double Timer_ElapsedNanoSeconds(Timer* Timr);
@@ -1672,9 +1680,9 @@ extern "C"
 	// Transform Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef struct
+	typedef struct _Transform
 	{
-		void* Parent;
+		struct _Transform* Parent;
 		Vector3 LocalRight;
 		Vector3 LocalUp;
 		Vector3 LocalForward;
@@ -1689,7 +1697,7 @@ extern "C"
 		Vector3 WorldScale;
 	} Transform;
 
-	extern void Transform_Alloc(Transform* Trans);
+	extern void Transform_Init(Transform* Trans);
 	extern void Transform_GetWorldPosition(Transform* Trans, Vector3 Position);
 	extern void Transform_GetWorldRotation(Transform* Trans, Quaternion Rotation);
 	extern void Transform_GetWorldEulerAngles(Transform* Trans, Vector3 Rotation);
@@ -1714,6 +1722,7 @@ extern "C"
 	extern void Transform_SetScaleSimple(Transform* Trans, float ScaleX, float ScaleY, float ScaleZ);
 	extern void Transform_SetRelativeScale(Transform* Trans, Vector3 Scale);
 	extern void Transform_SetRelativeScaleSimple(Transform* Trans, float ScaleX, float ScaleY, float ScaleZ);
+	extern void Transform_ComputeModelMatrix(Transform* Trans, Matrix4 Model);
 
 	extern void Transform_ComputeWorldPositionInternal(Transform* Trans);
 	extern void Transform_ComputeWorldRotationInternal(Transform* Trans);
@@ -1732,7 +1741,7 @@ extern "C"
 	// Controller Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef struct
+	typedef struct _FirstPersonController
 	{
 		Transform Transform;
 		float KeyboardMovementSpeed;
@@ -1743,7 +1752,7 @@ extern "C"
 		Vector2 MousePositionStart;
 		Vector2 MousePositionEnd;
 	} FirstPersonController;
-	typedef struct
+	typedef struct _OrbitController
 	{
 		Transform Transform;
 		float KeyboardMovementSpeed;
@@ -1778,10 +1787,9 @@ extern "C"
 	extern void Shader_SetUniformVector4(int unsigned Program, char const* UniformName, Vector4 Value);
 	extern void Shader_SetUniformMatrix4(int unsigned Program, char const* UniformName, Matrix4 Value);
 	extern void Shader_ExecuteCompute(int unsigned NumGroupsX, int unsigned NumGroupsY, int unsigned NumGroupsZ);
-	extern void Shader_Free(int unsigned Program);
-
 	extern void Shader_CheckCompileStatus(int unsigned Shader);
 	extern void Shader_CheckLinkStatus(int unsigned Program);
+	extern void Shader_Free(int unsigned Program);
 
 #ifdef FAST_GL_IMPLEMENTATION
 #ifdef FAST_GL_REFERENCE_COUNT
@@ -1818,10 +1826,14 @@ extern "C"
 	// Buffer Definition
 	///////////////////////////////////////////////////////////////
 
-	extern void Buffer_VertexAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
-	extern void Buffer_IndexAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
-	extern void Buffer_UniformAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
-	extern void Buffer_StorageAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
+	extern void Buffer_VertexAlloc(int unsigned* Buffer);
+	extern void Buffer_IndexAlloc(int unsigned* Buffer);
+	extern void Buffer_UniformAlloc(int unsigned* Buffer);
+	extern void Buffer_StorageAlloc(int unsigned* Buffer);
+	extern void Buffer_VertexAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
+	extern void Buffer_IndexAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
+	extern void Buffer_UniformAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
+	extern void Buffer_StorageAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage);
 	extern void Buffer_VertexBind(int unsigned Buffer);
 	extern void Buffer_IndexBind(int unsigned Buffer);
 	extern void Buffer_UniformBind(int unsigned Buffer);
@@ -1830,6 +1842,10 @@ extern "C"
 	extern void Buffer_IndexUnBind(void);
 	extern void Buffer_UniformUnBind(void);
 	extern void Buffer_StorageUnBind(void);
+	extern void Buffer_VertexResize(long long unsigned Size, void* Data, int unsigned Usage);
+	extern void Buffer_IndexResize(long long unsigned Size, void* Data, int unsigned Usage);
+	extern void Buffer_UniformResize(long long unsigned Size, void* Data, int unsigned Usage);
+	extern void Buffer_StorageResize(long long unsigned Size, void* Data, int unsigned Usage);
 	extern void Buffer_VertexEnableAttrib(int unsigned Index);
 	extern void Buffer_VertexAttribPointerReal32(int unsigned Index, int unsigned Size, long long unsigned Stride, long long unsigned Offset);
 	extern void Buffer_VertexAttribPointerUInt32(int unsigned Index, int unsigned Size, long long unsigned Stride, long long unsigned Offset);
@@ -1874,164 +1890,203 @@ extern "C"
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
-	// Gizmo Definition
+	// Batch Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef enum
+	typedef struct _BatchWorldCircleVertex
 	{
-		GIZMO_DIR_XY,
-		GIZMO_DIR_XZ,
-		GIZMO_DIR_ZY,
-	} GizmoDir;
-	typedef struct
+		Vector2 Position;
+		Vector2 TextureCoords;
+	} BatchWorldCircleVertex;
+	typedef struct _BatchWorldLineVertex
 	{
 		Vector3 Position;
+		Vector3 Rotation;
 		float Thickness;
 		Vector4 Color;
-		int unsigned Direction;
-	} LineVertex;
-	typedef struct
+	} BatchWorldLineVertex;
+	typedef struct _BatchWorldRectangleVertex
+	{
+		Vector2 Position;
+		Vector2 TextureCoords;
+	} BatchWorldRectangleVertex;
+	typedef struct _BatchScreenCircleVertex
+	{
+		Vector2 Position;
+		Vector2 TextureCoords;
+	} BatchScreenCircleVertex;
+	typedef struct _BatchScreenLineVertex
+	{
+		Vector2 Position;
+		float Rotation;
+		float Thickness;
+		Vector4 Color;
+	} BatchScreenLineVertex;
+	typedef struct _BatchScreenRectangleVertex
+	{
+		Vector2 Position;
+		Vector2 TextureCoords;
+	} BatchScreenRectangleVertex;
+	typedef struct _BatchWorldCircleInstanceEntry
 	{
 		Vector3 Position;
-	} QuadVertex;
-	typedef struct
-	{
-		Vector3 Position;
+		Vector3 Rotation;
 		float Radius;
 		Vector4 Color;
-		int unsigned Direction;
-	} PointInstanceEntry;
-	typedef struct
+	} BatchWorldCircleInstanceEntry;
+	typedef struct _BatchWorldRectangleInstanceEntry
 	{
 		Vector3 Position;
-		Vector3 Size;
+		Vector3 Rotation;
+		Vector2 Size;
 		Vector4 Color;
-		int unsigned Direction;
-	} QuadInstanceEntry;
+	} BatchWorldRectangleInstanceEntry;
+	typedef struct _BatchScreenCircleInstanceEntry
+	{
+		Vector2 Position;
+		float Rotation;
+		float Radius;
+		Vector4 Color;
+	} BatchScreenCircleInstanceEntry;
+	typedef struct _BatchScreenRectangleInstanceEntry
+	{
+		Vector2 Position;
+		float Rotation;
+		Vector2 Size;
+		Vector4 Color;
+	} BatchScreenRectangleInstanceEntry;
+	typedef struct _Batch
+	{
+		int unsigned NumWorldCircles;
+		int unsigned NumWorldLines;
+		int unsigned NumWorldRectangles;
+		int unsigned NumScreenCircles;
+		int unsigned NumScreenLines;
+		int unsigned NumScreenRectangles;
+		int unsigned WorldCircleVertexArray;
+		int unsigned WorldCircleVertexBuffer;
+		int unsigned WorldCircleInstanceBuffer;
+		int unsigned WorldCircleInstanceOffset;
+		int unsigned WorldCircleIndexBuffer;
+		int unsigned ScreenCircleVertexArray;
+		int unsigned ScreenCircleVertexBuffer;
+		int unsigned ScreenCircleInstanceBuffer;
+		int unsigned ScreenCircleInstanceOffset;
+		int unsigned ScreenCircleIndexBuffer;
+		int unsigned WorldLineVertexArray;
+		int unsigned WorldLineVertexBuffer;
+		int unsigned WorldLineVertexOffset;
+		int unsigned WorldLineIndexBuffer;
+		int unsigned WorldLineIndexOffset;
+		int unsigned ScreenLineVertexArray;
+		int unsigned ScreenLineVertexBuffer;
+		int unsigned ScreenLineVertexOffset;
+		int unsigned ScreenLineIndexBuffer;
+		int unsigned ScreenLineIndexOffset;
+		int unsigned WorldRectangleVertexArray;
+		int unsigned WorldRectangleVertexBuffer;
+		int unsigned WorldRectangleInstanceBuffer;
+		int unsigned WorldRectangleInstanceOffset;
+		int unsigned WorldRectangleIndexBuffer;
+		int unsigned ScreenRectangleVertexArray;
+		int unsigned ScreenRectangleVertexBuffer;
+		int unsigned ScreenRectangleInstanceBuffer;
+		int unsigned ScreenRectangleInstanceOffset;
+		int unsigned ScreenRectangleIndexBuffer;
+	} Batch;
 
-	extern void Gizmo_Alloc(int unsigned NumPoints, int unsigned NumLines, int unsigned NumQuads);
-	extern void Gizmo_BeginPoints(void);
-	extern void Gizmo_DrawPoint(GizmoDir Direction, Vector3 Position, float Radius, Vector4 Color);
-	extern void Gizmo_DrawPointSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Gizmo_DrawPointGrid(GizmoDir Direction, Vector3 Position, int unsigned Num, float Scale, float Radius, Vector4 Color);
-	extern void Gizmo_DrawPointGridSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Gizmo_EndPoints(Matrix4 Projection, Matrix4 View);
-	extern void Gizmo_BeginLines(void);
-	extern void Gizmo_DrawLine(GizmoDir Direction, Vector3 From, Vector3 To, float Thickness, Vector4 Color);
-	extern void Gizmo_DrawLineSimple(GizmoDir Direction, float FromX, float FromY, float FromZ, float ToX, float ToY, float ToZ, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Gizmo_DrawLineRect(GizmoDir Direction, Vector3 Position, Vector3 Size, float Thickness, Vector4 Color);
-	extern void Gizmo_DrawLineRectSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, float SizeX, float SizeY, float SizeZ, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Gizmo_DrawLineCircle(GizmoDir Direction, Vector3 Position, int unsigned NumSegments, float Radius, float Thickness, Vector4 Color);
-	extern void Gizmo_DrawLineCircleSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, int unsigned NumSegments, float Radius, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Gizmo_DrawLineGrid(GizmoDir Direction, Vector3 Position, int unsigned Num, float Scale, float Thickness, Vector4 Color);
-	extern void Gizmo_DrawLineGridSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Gizmo_DrawLineBezierQuadratic(GizmoDir Direction, Vector3 From, Vector3 Ctrl, Vector3 To, int unsigned NumSegments, float Thickness, Vector4 Color);
-	extern void Gizmo_DrawLineBezierQuadraticSimple(GizmoDir Direction, float FromX, float FromY, float FromZ, float CtrlX, float CtrlY, float CtrlZ, float ToX, float ToY, float ToZ, int unsigned NumSegments, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Gizmo_DrawLineBezierCubic(GizmoDir Direction, Vector3 From, Vector3 CtrlA, Vector3 CtrlB, Vector3 To, int unsigned NumSegments, float Thickness, Vector4 Color);
-	extern void Gizmo_DrawLineBezierCubicSimple(GizmoDir Direction, float FromX, float FromY, float FromZ, float CtrlAX, float CtrlAY, float CtrlAZ, float CtrlBX, float CtrlBY, float CtrlBZ, float ToX, float ToY, float ToZ, int unsigned NumSegments, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Gizmo_EndLines(Matrix4 Projection, Matrix4 View);
-	extern void Gizmo_BeginQuads(void);
-	extern void Gizmo_DrawQuad(GizmoDir Direction, Vector3 Position, Vector3 Size, Vector4 Color);
-	extern void Gizmo_DrawQuadSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, float SizeX, float SizeY, float SizeZ, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Gizmo_EndQuads(Matrix4 Projection, Matrix4 View);
-	extern void Gizmo_Free(void);
+	extern void Batch_Alloc(Batch* Bat);
+	extern void Batch_Free(Batch* Bat);
+
+	extern void Batch_BeginWorldCircles(Batch* Bat);
+	extern void Batch_DrawWorldCircle(Vector3 Position, Vector3 Rotation, float Radius, Vector4 Color);
+	extern void Batch_DrawWorldCircleSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_DrawWorldCircleGrid(Vector3 Position, Vector3 Rotation, int unsigned Num, float Scale, float Radius, Vector4 Color);
+	extern void Batch_DrawWorldCircleGridSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_EndWorldCircles(Matrix4 Projection, Matrix4 View);
+
+	extern void Batch_BeginScreenCircles(Batch* Bat);
+	extern void Batch_DrawScreenCircle(Vector2 Position, float Rotation, float Radius, Vector4 Color);
+	extern void Batch_DrawScreenCircleSimple(float PositionX, float PositionY, float Rotation, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_DrawScreenCircleGrid(Vector2 Position, float Rotation, int unsigned Num, float Scale, float Radius, Vector4 Color);
+	extern void Batch_DrawScreenCircleGridSimple(float PositionX, float PositionY, float Rotation, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_EndScreenCircles(void);
+
+	extern void Batch_BeginWorldLines(Batch* Bat);
+	extern void Batch_DrawWorldLine(Vector3 From, Vector3 To, Vector3 Rotation, float Thickness, Vector4 Color);
+	extern void Batch_DrawWorldLineSimple(float FromX, float FromY, float FromZ, float ToX, float ToY, float ToZ, float Pitch, float Yaw, float Roll, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_DrawWorldLineGrid(Vector3 Position, Vector3 Rotation, int unsigned Num, float Scale, float Thickness, Vector4 Color);
+	extern void Batch_DrawWorldLineGridSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_EndWorldLines(Matrix4 Projection, Matrix4 View);
+
+	extern void Batch_BeginScreenLines(Batch* Bat);
+	extern void Batch_DrawScreenLine(Vector2 From, Vector2 To, float Rotation, float Thickness, Vector4 Color);
+	extern void Batch_DrawScreenLineSimple(float FromX, float FromY, float ToX, float ToY, float Rotation, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_DrawScreenLineGrid(Vector2 Position, float Rotation, int unsigned Num, float Scale, float Thickness, Vector4 Color);
+	extern void Batch_DrawScreenLineGridSimple(float PositionX, float PositionY, float Rotation, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_EndScreenLines(void);
+
+	extern void Batch_BeginWorldRectangles(Batch* Bat);
+	extern void Batch_DrawWorldRectangle(Vector3 Position, Vector3 Rotation, Vector2 Size, Vector4 Color);
+	extern void Batch_DrawWorldRectangleSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_EndWorldRectangles(Matrix4 Projection, Matrix4 View);
+
+	extern void Batch_BeginScreenRectangles(Batch* Bat);
+	extern void Batch_DrawScreenRectangle(Vector2 Position, float Rotation, Vector2 Size, Vector4 Color);
+	extern void Batch_DrawScreenRectangleSimple(float PositionX, float PositionY, float Rotation, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_EndScreenRectangles(void);
 
 #ifdef FAST_GL_IMPLEMENTATION
-	static char const sPointVertexShader[] =
+	static int unsigned sWorldCircleProgram = 0;
+	static int unsigned sWorldLineProgram = 0;
+	static int unsigned sWorldRectangleProgram = 0;
+	static int unsigned sScreenCircleProgram = 0;
+	static int unsigned sScreenLineProgram = 0;
+	static int unsigned sScreenRectangleProgram = 0;
+	static Batch* sCurrBatch = 0;
+	static BatchWorldCircleInstanceEntry* sMappedWorldCircleInstanceBuffer = 0;
+	static BatchWorldLineVertex* sMappedWorldLineVertexBuffer = 0;
+	static int unsigned* sMappedWorldLineIndexBuffer = 0;
+	static BatchWorldRectangleInstanceEntry* sMappedWorldRectangleInstanceBuffer = 0;
+	static BatchScreenCircleInstanceEntry* sMappedScreenCircleInstanceBuffer = 0;
+	static BatchScreenLineVertex* sMappedScreenLineVertexBuffer = 0;
+	static int unsigned* sMappedScreenLineIndexBuffer = 0;
+	static BatchScreenRectangleInstanceEntry* sMappedScreenRectangleInstanceBuffer = 0;
+	static char const sWorldCircleVertexShader[] =
 		GLSL_GL_VERSION
-		"layout (location = 0) in vec3 InstancePosition;"
-		"layout (location = 1) in float InstanceRadius;"
-		"layout (location = 2) in vec4 InstanceColor;"
-		"layout (location = 3) in uint InstanceDirection;"
+		"layout (location = 0) in vec2 VertexPosition;"
+		"layout (location = 1) in vec2 VertexTextureCoords;"
+		"layout (location = 2) in vec3 InstancePosition;"
+		"layout (location = 3) in vec3 InstanceRotation;"
+		"layout (location = 4) in float InstanceRadius;"
+		"layout (location = 5) in vec4 InstanceColor;"
 		"out VS_OUT {"
 		"	vec3 Position;"
+		"	vec2 TextureCoords;"
 		"	float Radius;"
 		"	vec4 Color;"
-		"	flat uint Direction;"
 		"} VertexOutput;"
-		"void main() {"
-		"	VertexOutput.Position = InstancePosition;"
-		"	VertexOutput.Radius = InstanceRadius;"
-		"	VertexOutput.Color = InstanceColor;"
-		"	VertexOutput.Direction = InstanceDirection;"
-		"}";
-	static char const sPointGeometryShader[] =
-		GLSL_GL_VERSION
-		"layout (points) in;"
-		"layout (triangle_strip) out;"
-		"layout (max_vertices = 3) out;"
-		"in VS_OUT {"
-		"	vec3 Position;"
-		"	float Radius;"
-		"	vec4 Color;"
-		"	flat uint Direction;"
-		"} GeometryInput[];"
-		"out GS_OUT {"
-		"	vec3 Position;"
-		"	float Radius;"
-		"	vec4 Color;"
-		"} GeometryOutput;"
 		"uniform mat4 ProjectionMatrix;"
 		"uniform mat4 ViewMatrix;"
-		"const float SQRT_3 = 1.7320508;"
-		"const uint GIZMO_DIR_XY = 0;"
-		"const uint GIZMO_DIR_XZ = 1;"
-		"const uint GIZMO_DIR_ZY = 2;"
+		GLSL_ROTATION_IMPLEMENTATION
 		"void main() {"
-		"	vec3 Position = GeometryInput[0].Position;"
-		"	float Radius = GeometryInput[0].Radius;"
-		"	vec4 Color = GeometryInput[0].Color;"
-		"	uint Direction = GeometryInput[0].Direction;"
-		"	vec3 O0 = vec3(0.0);"
-		"	vec3 O1 = vec3(0.0);"
-		"	vec3 O2 = vec3(0.0);"
-		"	switch (Direction) {"
-		"		case GIZMO_DIR_XY: {"
-		"			O0 = vec3(-SQRT_3, -1.0, 0.0);"
-		"			O1 = vec3(SQRT_3, -1.0, 0.0);"
-		"			O2 = vec3(0.0, 2.0, 0.0);"
-		"			break;"
-		"		}"
-		"		case GIZMO_DIR_XZ: {"
-		"			O0 = vec3(-SQRT_3, 0.0, -1.0);"
-		"			O1 = vec3(SQRT_3, 0.0, -1.0);"
-		"			O2 = vec3(0.0, 0.0, 2.0);"
-		"			break;"
-		"		}"
-		"		case GIZMO_DIR_ZY: {"
-		"			O0 = vec3(0.0, -1.0, -SQRT_3);"
-		"			O1 = vec3(0.0, -1.0, SQRT_3);"
-		"			O2 = vec3(0.0, 2.0, 0.0);"
-		"			break;"
-		"		}"
-		"	}"
-		"	O0 *= Radius;"
-		"	O1 *= Radius;"
-		"	O2 *= Radius;"
-		"	vec3 P0 = Position + O0;"
-		"	vec3 P1 = Position + O1;"
-		"	vec3 P2 = Position + O2;"
-		"	gl_Position = ProjectionMatrix * ViewMatrix * vec4(P0, 1.0);"
-		"	GeometryOutput.Position = O0;"
-		"	GeometryOutput.Radius = Radius;"
-		"	GeometryOutput.Color = Color;"
-		"	EmitVertex();"
-		"	gl_Position = ProjectionMatrix * ViewMatrix * vec4(P1, 1.0);"
-		"	GeometryOutput.Position = O1;"
-		"	GeometryOutput.Radius = Radius;"
-		"	GeometryOutput.Color = Color;"
-		"	EmitVertex();"
-		"	gl_Position = ProjectionMatrix * ViewMatrix * vec4(P2, 1.0);"
-		"	GeometryOutput.Position = O2;"
-		"	GeometryOutput.Radius = Radius;"
-		"	GeometryOutput.Color = Color;"
-		"	EmitVertex();"
-		"	EndPrimitive();"
+		"	vec3 EulerAngles = radians(InstanceRotation);"
+		"	vec4 Rotation = EulerAnglesToQuaternion(EulerAngles.x, EulerAngles.y, EulerAngles.z);"
+		"	vec3 LocalPosition = RotateVector3D(vec3(VertexPosition, 0.0) * InstanceRadius, Rotation);"
+		"	vec3 WorldPosition = RotateVector3D(InstancePosition , Rotation);"
+		"	vec4 ViewPosition = ViewMatrix * vec4(WorldPosition + LocalPosition, 1.0);"
+		"	vec4 ClipPosition = ProjectionMatrix * ViewPosition;"
+		"	gl_Position = ClipPosition;"
+		"	VertexOutput.Position = LocalPosition;"
+		"	VertexOutput.TextureCoords = VertexTextureCoords;"
+		"	VertexOutput.Radius = InstanceRadius;"
+		"	VertexOutput.Color = InstanceColor;"
 		"}";
-	static char const sPointFragmentShader[] =
+	static char const sWorldCircleFragmentShader[] =
 		GLSL_GL_VERSION
-		"in GS_OUT {"
+		"in VS_OUT {"
 		"	vec3 Position;"
+		"	vec2 TextureCoords;"
 		"	float Radius;"
 		"	vec4 Color;"
 		"} FragmentInput;"
@@ -2040,82 +2095,62 @@ extern "C"
 		"	if (dot(FragmentInput.Position, FragmentInput.Position) > (FragmentInput.Radius * FragmentInput.Radius)) discard;"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
-	static char const sLineVertexShader[] =
+	static char const sWorldLineVertexShader[] =
 		GLSL_GL_VERSION
-		"layout (location = 0) in vec3 InputPosition;"
-		"layout (location = 1) in float InputThickness;"
-		"layout (location = 2) in vec4 InputColor;"
-		"layout (location = 3) in uint InputDirection;"
+		"layout (location = 0) in vec3 VertexPosition;"
+		"layout (location = 1) in vec3 VertexRotation;"
+		"layout (location = 2) in float VertexThickness;"
+		"layout (location = 3) in vec4 VertexColor;"
 		"out VS_OUT {"
+		"	vec3 Rotation;"
 		"	float Thickness;"
 		"	vec4 Color;"
-		"	flat uint Direction;"
 		"} VertexOutput;"
 		"void main() {"
-		"	gl_Position = vec4(InputPosition, 1.0);"
-		"	VertexOutput.Thickness = InputThickness;"
-		"	VertexOutput.Color = InputColor;"
-		"	VertexOutput.Direction = InputDirection;"
+		"	gl_Position = vec4(VertexPosition, 1.0);"
+		"	VertexOutput.Rotation = VertexRotation;"
+		"	VertexOutput.Thickness = VertexThickness;"
+		"	VertexOutput.Color = VertexColor;"
 		"}";
-	static char const sLineGeometryShader[] =
+	static char const sWorldLineGeometryShader[] =
 		GLSL_GL_VERSION
 		"layout (lines) in;"
 		"layout (triangle_strip) out;"
 		"layout (max_vertices = 4) out;"
 		"in VS_OUT {"
+		"	vec3 Rotation;"
 		"	float Thickness;"
 		"	vec4 Color;"
-		"	flat uint Direction;"
 		"} GeometryInput[];"
 		"out GS_OUT {"
 		"	vec4 Color;"
 		"} GeometryOutput;"
 		"uniform mat4 ProjectionMatrix;"
 		"uniform mat4 ViewMatrix;"
-		"const uint GIZMO_DIR_XY = 0;"
-		"const uint GIZMO_DIR_XZ = 1;"
-		"const uint GIZMO_DIR_ZY = 2;"
+		GLSL_ROTATION_IMPLEMENTATION
 		"void main() {"
-		"	vec3 Start = gl_in[0].gl_Position.xyz;"
-		"	vec3 End = gl_in[1].gl_Position.xyz;"
-		"	float Thickness = GeometryInput[0].Thickness;"
-		"	vec4 Color = GeometryInput[0].Color;"
-		"	uint Direction = GeometryInput[0].Direction;"
-		"	vec3 CurrDir = normalize(End - Start);"
-		"	vec3 OffsetDir = vec3(0.0);"
-		"	switch (Direction) {"
-		"		case GIZMO_DIR_XY: {"
-		"			OffsetDir = normalize(cross(CurrDir, vec3(0.0, 0.0, 1.0))) * Thickness;"
-		"			break;"
-		"		}"
-		"		case GIZMO_DIR_XZ: {"
-		"			OffsetDir = normalize(cross(CurrDir, vec3(0.0, 1.0, 0.0))) * Thickness;"
-		"			break;"
-		"		}"
-		"		case GIZMO_DIR_ZY: {"
-		"			OffsetDir = normalize(cross(CurrDir, vec3(1.0, 0.0, 0.0))) * Thickness;"
-		"			break;"
-		"		}"
-		"	}"
-		"	vec3 P0 = Start + OffsetDir;"
-		"	vec3 P1 = Start - OffsetDir;"
-		"	vec3 P2 = End + OffsetDir;"
-		"	vec3 P3 = End - OffsetDir;"
+		"	vec3 PositionStart = gl_in[0].gl_Position.xyz;"
+		"	vec3 PositionEnd = gl_in[1].gl_Position.xyz;"
+		"	vec3 CurrDir = normalize(PositionEnd - PositionStart);"
+		"	vec3 DirectionOffset = normalize(cross(CurrDir, vec3(0.0, 0.0, 1.0))) * GeometryInput[0].Thickness;"
+		"	vec3 EulerAngles = radians(GeometryInput[0].Rotation);"
+		"	vec4 Rotation = EulerAnglesToQuaternion(EulerAngles.x, EulerAngles.y, EulerAngles.z);"
+		"	vec3 P0 = RotateVector3D((PositionStart - CurrDir * GeometryInput[0].Thickness) + DirectionOffset, Rotation);"
+		"	vec3 P1 = RotateVector3D((PositionStart - CurrDir * GeometryInput[0].Thickness) - DirectionOffset, Rotation);"
+		"	vec3 P2 = RotateVector3D((PositionEnd + CurrDir * GeometryInput[0].Thickness) + DirectionOffset, Rotation);"
+		"	vec3 P3 = RotateVector3D((PositionEnd + CurrDir * GeometryInput[0].Thickness) - DirectionOffset, Rotation);"
+		"	GeometryOutput.Color = GeometryInput[0].Color;"
 		"	gl_Position = ProjectionMatrix * ViewMatrix * vec4(P0, 1.0);"
-		"	GeometryOutput.Color = Color;"
 		"	EmitVertex();"
 		"	gl_Position = ProjectionMatrix * ViewMatrix * vec4(P1, 1.0);"
-		"	GeometryOutput.Color = Color;"
 		"	EmitVertex();"
 		"	gl_Position = ProjectionMatrix * ViewMatrix * vec4(P2, 1.0);"
-		"	GeometryOutput.Color = Color;"
 		"	EmitVertex();"
 		"	gl_Position = ProjectionMatrix * ViewMatrix * vec4(P3, 1.0);"
-		"	GeometryOutput.Color = Color;"
 		"	EmitVertex();"
 		"	EndPrimitive();"
 		"}";
-	static char const sLineFragmentShader[] =
+	static char const sWorldLineFragmentShader[] =
 		GLSL_GL_VERSION
 		"in GS_OUT {"
 		"	vec4 Color;"
@@ -2124,86 +2159,137 @@ extern "C"
 		"void main() {"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
-	static char const sQuadVertexShader[] =
+	static char const sWorldRectangleVertexShader[] =
 		GLSL_GL_VERSION
-		"layout (location = 0) in vec3 InstancePosition;"
-		"layout (location = 1) in vec3 InstanceSize;"
-		"layout (location = 2) in vec4 InstanceColor;"
-		"layout (location = 3) in uint InstanceDirection;"
+		"layout (location = 0) in vec2 VertexPosition;"
+		"layout (location = 1) in vec2 VertexTextureCoords;"
+		"layout (location = 2) in vec3 InstancePosition;"
+		"layout (location = 3) in vec3 InstanceRotation;"
+		"layout (location = 4) in vec2 InstanceSize;"
+		"layout (location = 5) in vec4 InstanceColor;"
 		"out VS_OUT {"
-		"	vec3 Position;"
-		"	vec3 Size;"
+		"	vec2 TextureCoords;"
 		"	vec4 Color;"
-		"	flat uint Direction;"
+		"} VertexOutput;"
+		"uniform mat4 ProjectionMatrix;"
+		"uniform mat4 ViewMatrix;"
+		GLSL_ROTATION_IMPLEMENTATION
+		"void main() {"
+		"	vec3 EulerAngles = radians(InstanceRotation);"
+		"	vec4 Rotation = EulerAnglesToQuaternion(EulerAngles.x, EulerAngles.y, EulerAngles.z);"
+		"	vec3 LocalPosition = RotateVector3D(vec3(VertexPosition * InstanceSize, 0.0), Rotation);"
+		"	vec3 WorldPosition = RotateVector3D(InstancePosition , Rotation);"
+		"	vec4 ViewPosition = ViewMatrix * vec4(WorldPosition + LocalPosition, 1.0);"
+		"	vec4 ClipPosition = ProjectionMatrix * ViewPosition;"
+		"	gl_Position = ClipPosition;"
+		"	VertexOutput.TextureCoords = VertexTextureCoords;"
+		"	VertexOutput.Color = InstanceColor;"
+		"}";
+	static char const sWorldRectangleFragmentShader[] =
+		GLSL_GL_VERSION
+		"in VS_OUT {"
+		"	vec2 TextureCoords;"
+		"	vec4 Color;"
+		"} FragmentInput;"
+		"layout (location = 0) out vec4 BaseColor;"
+		"void main() {"
+		"	BaseColor = FragmentInput.Color;"
+		"}";
+	static char const sScreenCircleVertexShader[] =
+		GLSL_GL_VERSION
+		"layout (location = 0) in vec2 VertexPosition;"
+		"layout (location = 1) in vec2 VertexTextureCoords;"
+		"layout (location = 2) in vec2 InstancePosition;"
+		"layout (location = 3) in float InstanceRotation;"
+		"layout (location = 4) in float InstanceRadius;"
+		"layout (location = 5) in vec4 InstanceColor;"
+		"out VS_OUT {"
+		"	vec2 Position;"
+		"	vec2 TextureCoords;"
+		"	float Radius;"
+		"	vec4 Color;"
+		"} VertexOutput;"
+		"uniform vec2 ScreenSize;"
+		GLSL_SCREEN_SPACE_IMPLEMENTATION
+		GLSL_ROTATION_IMPLEMENTATION
+		"void main() {"
+		"	float Roll = radians(InstanceRotation);"
+		"	vec2 RotatedScreenPosition = RotateVector2D(VertexPosition * InstanceRadius, Roll);"
+		"	vec2 ScreenPosition = InstancePosition + RotatedScreenPosition;"
+		"	gl_Position = ScreenToClipSpace(ScreenPosition, ScreenSize);"
+		"	VertexOutput.Position = RotatedScreenPosition;"
+		"	VertexOutput.TextureCoords = VertexTextureCoords;"
+		"	VertexOutput.Radius = InstanceRadius;"
+		"	VertexOutput.Color = InstanceColor;"
+		"}";
+	static char const sScreenCircleFragmentShader[] =
+		GLSL_GL_VERSION
+		"in VS_OUT {"
+		"	vec2 Position;"
+		"	vec2 TextureCoords;"
+		"	float Radius;"
+		"	vec4 Color;"
+		"} FragmentInput;"
+		"layout (location = 0) out vec4 BaseColor;"
+		"void main() {"
+		"	if (dot(FragmentInput.Position, FragmentInput.Position) > (FragmentInput.Radius * FragmentInput.Radius)) discard;"
+		"	BaseColor = FragmentInput.Color;"
+		"}";
+	static char const sScreenLineVertexShader[] =
+		GLSL_GL_VERSION
+		"layout (location = 0) in vec2 VertexPosition;"
+		"layout (location = 1) in float VertexRotation;"
+		"layout (location = 2) in float VertexThickness;"
+		"layout (location = 3) in vec4 VertexColor;"
+		"out VS_OUT {"
+		"	float Rotation;"
+		"	float Thickness;"
+		"	vec4 Color;"
 		"} VertexOutput;"
 		"void main() {"
-		"	VertexOutput.Position = InstancePosition;"
-		"	VertexOutput.Size = InstanceSize;"
-		"	VertexOutput.Color = InstanceColor;"
-		"	VertexOutput.Direction = InstanceDirection;"
+		"	gl_Position = vec4(VertexPosition, 0.0, 1.0);"
+		"	VertexOutput.Rotation = VertexRotation;"
+		"	VertexOutput.Thickness = VertexThickness;"
+		"	VertexOutput.Color = VertexColor;"
 		"}";
-	static char const sQuadGeometryShader[] =
+	static char const sScreenLineGeometryShader[] =
 		GLSL_GL_VERSION
-		"layout (points) in;"
+		"layout (lines) in;"
 		"layout (triangle_strip) out;"
 		"layout (max_vertices = 4) out;"
 		"in VS_OUT {"
-		"	vec3 Position;"
-		"	vec3 Size;"
+		"	float Rotation;"
+		"	float Thickness;"
 		"	vec4 Color;"
-		"	flat uint Direction;"
 		"} GeometryInput[];"
 		"out GS_OUT {"
 		"	vec4 Color;"
 		"} GeometryOutput;"
-		"uniform mat4 ProjectionMatrix;"
-		"uniform mat4 ViewMatrix;"
-		"const uint GIZMO_DIR_XY = 0;"
-		"const uint GIZMO_DIR_XZ = 1;"
-		"const uint GIZMO_DIR_ZY = 2;"
+		"uniform vec2 ScreenSize;"
+		GLSL_SCREEN_SPACE_IMPLEMENTATION
+		GLSL_ROTATION_IMPLEMENTATION
 		"void main() {"
-		"	vec3 Position = GeometryInput[0].Position;"
-		"	vec3 Size = GeometryInput[0].Size;"
-		"	vec4 Color = GeometryInput[0].Color;"
-		"	uint Direction = GeometryInput[0].Direction;"
-		"	vec3 OffsetADir = vec3(0.0);"
-		"	vec3 OffsetBDir = vec3(0.0);"
-		"	switch (Direction) {"
-		"		case GIZMO_DIR_XY: {"
-		"			OffsetADir = vec3(Size.x, 0.0, 0.0);"
-		"			OffsetBDir = vec3(0.0, Size.y, 0.0);"
-		"			break;"
-		"		}"
-		"		case GIZMO_DIR_XZ: {"
-		"			OffsetADir = vec3(Size.x, 0.0, 0.0);"
-		"			OffsetBDir = vec3(0.0, 0.0, Size.z);"
-		"			break;"
-		"		}"
-		"		case GIZMO_DIR_ZY: {"
-		"			OffsetADir = vec3(0.0, Size.y, 0.0);"
-		"			OffsetBDir = vec3(0.0, 0.0, Size.z);"
-		"			break;"
-		"		}"
-		"	}"
-		"	vec3 P0 = Position;"
-		"	vec3 P1 = Position + OffsetADir;"
-		"	vec3 P2 = Position + OffsetBDir;"
-		"	vec3 P3 = Position + OffsetADir + OffsetBDir;"
-		"	gl_Position = ProjectionMatrix * ViewMatrix * vec4(P0, 1.0);"
-		"	GeometryOutput.Color = Color;"
+		"	vec2 PositionStart = gl_in[0].gl_Position.xy;"
+		"	vec2 PositionEnd = gl_in[1].gl_Position.xy;"
+		"	vec2 CurrDir = normalize(PositionEnd - PositionStart);"
+		"	vec2 DirectionOffset = vec2(normalize(cross(vec3(CurrDir, 0.0), vec3(0.0, 0.0, 1.0))) * GeometryInput[0].Thickness);"
+		"	float Roll = radians(GeometryInput[0].Rotation);"
+		"	vec2 P0 = RotateVector2D((PositionStart - CurrDir * GeometryInput[0].Thickness) + DirectionOffset, Roll);"
+		"	vec2 P1 = RotateVector2D((PositionStart - CurrDir * GeometryInput[0].Thickness) - DirectionOffset, Roll);"
+		"	vec2 P2 = RotateVector2D((PositionEnd + CurrDir * GeometryInput[0].Thickness) + DirectionOffset, Roll);"
+		"	vec2 P3 = RotateVector2D((PositionEnd + CurrDir * GeometryInput[0].Thickness) - DirectionOffset, Roll);"
+		"	GeometryOutput.Color = GeometryInput[0].Color;"
+		"	gl_Position = ScreenToClipSpace(P0, ScreenSize);"
 		"	EmitVertex();"
-		"	gl_Position = ProjectionMatrix * ViewMatrix * vec4(P1, 1.0);"
-		"	GeometryOutput.Color = Color;"
+		"	gl_Position = ScreenToClipSpace(P1, ScreenSize);"
 		"	EmitVertex();"
-		"	gl_Position = ProjectionMatrix * ViewMatrix * vec4(P2, 1.0);"
-		"	GeometryOutput.Color = Color;"
+		"	gl_Position = ScreenToClipSpace(P2, ScreenSize);"
 		"	EmitVertex();"
-		"	gl_Position = ProjectionMatrix * ViewMatrix * vec4(P3, 1.0);"
-		"	GeometryOutput.Color = Color;"
+		"	gl_Position = ScreenToClipSpace(P3, ScreenSize);"
 		"	EmitVertex();"
 		"	EndPrimitive();"
 		"}";
-	static char const sQuadFragmentShader[] =
+	static char const sScreenLineFragmentShader[] =
 		GLSL_GL_VERSION
 		"in GS_OUT {"
 		"	vec4 Color;"
@@ -2212,27 +2298,39 @@ extern "C"
 		"void main() {"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
-	static int unsigned sNumPoints = 0;
-	static int unsigned sNumLines = 0;
-	static int unsigned sNumQuads = 0;
-	static int unsigned sPointProgram = 0;
-	static int unsigned sLineProgram = 0;
-	static int unsigned sQuadProgram = 0;
-	static int unsigned sPointVertexArray = 0;
-	static int unsigned sPointInstanceBuffer = 0;
-	static int unsigned sPointInstanceOffset = 0;
-	static int unsigned sLineVertexArray = 0;
-	static int unsigned sLineVertexBuffer = 0;
-	static int unsigned sLineIndexBuffer = 0;
-	static int unsigned sLineVertexOffset = 0;
-	static int unsigned sLineIndexOffset = 0;
-	static int unsigned sQuadVertexArray = 0;
-	static int unsigned sQuadInstanceBuffer = 0;
-	static int unsigned sQuadInstanceOffset = 0;
-	static PointInstanceEntry* sMappedPointInstanceBuffer = 0;
-	static LineVertex* sMappedLineVertexBuffer = 0;
-	static int unsigned* sMappedLineIndexBuffer = 0;
-	static QuadInstanceEntry* sMappedQuadInstanceBuffer = 0;
+	static char const sScreenRectangleVertexShader[] =
+		GLSL_GL_VERSION
+		"layout (location = 0) in vec2 VertexPosition;"
+		"layout (location = 1) in vec2 VertexTextureCoords;"
+		"layout (location = 2) in vec2 InstancePosition;"
+		"layout (location = 3) in float InstanceRotation;"
+		"layout (location = 4) in vec2 InstanceSize;"
+		"layout (location = 5) in vec4 InstanceColor;"
+		"out VS_OUT {"
+		"	vec2 TextureCoords;"
+		"	vec4 Color;"
+		"} VertexOutput;"
+		"uniform vec2 ScreenSize;"
+		GLSL_SCREEN_SPACE_IMPLEMENTATION
+		GLSL_ROTATION_IMPLEMENTATION
+		"void main() {"
+		"	float Roll = radians(InstanceRotation);"
+		"	vec2 RotatedScreenPosition = RotateVector2D(VertexPosition * InstanceSize, Roll);"
+		"	vec2 ScreenPosition = InstancePosition + RotatedScreenPosition;"
+		"	gl_Position = ScreenToClipSpace(ScreenPosition, ScreenSize);"
+		"	VertexOutput.TextureCoords = VertexTextureCoords;"
+		"	VertexOutput.Color = InstanceColor;"
+		"}";
+	static char const sScreenRectangleFragmentShader[] =
+		GLSL_GL_VERSION
+		"in VS_OUT {"
+		"	vec2 TextureCoords;"
+		"	vec4 Color;"
+		"} FragmentInput;"
+		"layout (location = 0) out vec4 BaseColor;"
+		"void main() {"
+		"	BaseColor = FragmentInput.Color;"
+		"}";
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
@@ -2246,13 +2344,51 @@ extern "C"
 #define X_IS_SAME_OR_POSITIVE_SHORT_VECTOR_BIT (4ULL)
 #define Y_IS_SAME_OR_POSITIVE_SHORT_VECTOR_BIT (5ULL)
 
-	typedef struct
+	typedef struct _FontWorldGlyphVertex
+	{
+		Vector2 Position;
+		int unsigned Index;
+	} FontWorldGlyphVertex;
+	typedef struct _FontScreenGlyphVertex
+	{
+		Vector2 Position;
+		int unsigned Index;
+	} FontScreenGlyphVertex;
+	typedef struct _FontWorldGlyphInstanceEntry
+	{
+		Vector3 Pivot;
+		Vector3 Position;
+		Vector3 Rotation;
+		Vector2 Scale;
+		Vector2 Bearing;
+		float UnitsPerEm;
+		float FontSize;
+		Vector2 GlyphSize;
+		Vector4 Color;
+		int unsigned GlyphIndex;
+		int unsigned LineHeight;
+	} FontWorldGlyphInstanceEntry;
+	typedef struct _FontScreenGlyphInstanceEntry
+	{
+		Vector2 Pivot;
+		Vector2 Position;
+		float Rotation;
+		Vector2 Scale;
+		Vector2 Bearing;
+		float UnitsPerEm;
+		float FontSize;
+		Vector2 GlyphSize;
+		Vector4 Color;
+		int unsigned GlyphIndex;
+		int unsigned LineHeight;
+	} FontScreenGlyphInstanceEntry;
+	typedef struct _FontGlyphPoint
 	{
 		short X;
 		short Y;
 		bool OnCurve;
-	} GlyphPoint;
-	typedef struct
+	} FontGlyphPoint;
+	typedef struct _FontGlyph
 	{
 		bool IsCompound;
 		int unsigned GlyphIndex;
@@ -2267,7 +2403,7 @@ extern "C"
 		short unsigned BearingX;
 		short unsigned BearingY;
 		short unsigned* ContourEndIndices;
-		GlyphPoint* Points;
+		FontGlyphPoint* Points;
 		short unsigned NumPoints;
 		char unsigned* Flags;
 		char unsigned* Instructions;
@@ -2276,28 +2412,8 @@ extern "C"
 		Vector BezierPoints;
 		Vector BezierOffsets;
 		Vector BezierCurves;
-	} Glyph;
-	typedef struct
-	{
-		Vector2 Position;
-		int unsigned Index;
-	} GlyphVertex;
-	typedef struct
-	{
-		CoordSpace Space;
-		Vector3 Pivot;
-		Vector3 Position;
-		Vector3 Rotation;
-		Vector2 Scale;
-		Vector2 Bearing;
-		float UnitsPerEm;
-		float FontSize;
-		Vector2 GlyphSize;
-		Vector4 Color;
-		int unsigned GlyphIndex;
-		int unsigned LineHeight;
-	} GlyphInstanceEntry;
-	typedef struct
+	} FontGlyph;
+	typedef struct _FontOffsetTable
 	{
 		int unsigned ScalerType;
 		short unsigned NumTables;
@@ -2305,14 +2421,14 @@ extern "C"
 		short unsigned EntrySelector;
 		short unsigned RangeShift;
 	} FontOffsetTable;
-	typedef struct
+	typedef struct _FontTableDirectory
 	{
 		char Tag[4];
 		int unsigned CheckSum;
 		int unsigned Offset;
 		int unsigned Length;
 	} FontTableDirectory;
-	typedef struct
+	typedef struct _FontHeadTable
 	{
 		int unsigned Version;
 		int unsigned FontRevision;
@@ -2332,7 +2448,7 @@ extern "C"
 		short IndexToLocFormat;
 		short GlyphDataFormat;
 	} FontHeadTable;
-	typedef struct
+	typedef struct _FontMaxpTable
 	{
 		int unsigned Version;
 		short unsigned NumGlyphs;
@@ -2350,18 +2466,18 @@ extern "C"
 		short unsigned MaxComponentElements;
 		short unsigned MaxComponentDepth;
 	} FontMaxpTable;
-	typedef struct
+	typedef struct _FontCmapTable
 	{
 		short unsigned Version;
 		short unsigned NumberSubTables;
 	} FontCmapTable;
-	typedef struct
+	typedef struct _FontCmapSubTable
 	{
 		short unsigned PlatformID;
 		short unsigned PlatformSpecificID;
 		int unsigned Offset;
 	} FontCmapSubTable;
-	typedef struct
+	typedef struct _FontHheaTable
 	{
 		int unsigned Version;
 		short Ascent;
@@ -2381,7 +2497,7 @@ extern "C"
 		short MetricDataFormt;
 		short unsigned NumOfLongHorMetrics;
 	} FontHheaTable;
-	typedef struct
+	typedef struct _FontOS2Table
 	{
 		short unsigned Version;
 		short AvgCharWidth;
@@ -2420,7 +2536,7 @@ extern "C"
 		short unsigned LowerPointSize;
 		short unsigned UpperPointSize;
 	} FontOS2Table;
-	typedef struct
+	typedef struct _Font
 	{
 		FontOffsetTable OffsetTable;
 		FontTableDirectory HeadTableDir;
@@ -2441,59 +2557,66 @@ extern "C"
 		short unsigned LineHeight;
 		int unsigned* GlyphOffsets;
 		HashMap GlyphMapping;
-		Glyph* Glyphs;
-		int unsigned GlyphVertexArray;
-		int unsigned GlyphVertexBuffer;
-		int unsigned GlyphInstanceBuffer;
-		int unsigned GlyphIndexBuffer;
-		int unsigned GlyphInstanceOffset;
+		FontGlyph* Glyphs;
+		int unsigned WorldGlyphVertexArray;
+		int unsigned WorldGlyphVertexBuffer;
+		int unsigned WorldGlyphInstanceBuffer;
+		int unsigned WorldGlyphIndexBuffer;
+		int unsigned WorldGlyphInstanceOffset;
+		int unsigned ScreenGlyphVertexArray;
+		int unsigned ScreenGlyphVertexBuffer;
+		int unsigned ScreenGlyphInstanceBuffer;
+		int unsigned ScreenGlyphIndexBuffer;
+		int unsigned ScreenGlyphInstanceOffset;
 		int unsigned BezierOffsetBuffer;
 		int unsigned BezierCurveBuffer;
-		GlyphInstanceEntry* MappedGlyphInstanceBuffer;
 		Vector BezierOffsets;
 		Vector BezierCurves;
 	} Font;
-	typedef struct
+	typedef struct _FontIDRangeOffsetMap
 	{
 		int unsigned ReadLocation;
 		short unsigned RangeOffset;
-	} IDRangeOffsetMap;
-	typedef struct
+	} FontIDRangeOffsetMap;
+	typedef struct _FontPointOffsetEntry
 	{
 		int unsigned Start;
 		int unsigned Num;
-	} PointOffsetEntry;
-	typedef struct
+	} FontPointOffsetEntry;
+	typedef struct _FontBezierOffsetEntry
 	{
 		int unsigned Start;
 		int unsigned Num;
-	} BezierOffsetEntry;
-	typedef struct
+	} FontBezierOffsetEntry;
+	typedef struct _FontBezierCurveEntry
 	{
 		Vector2 P0;
 		Vector2 P1;
 		Vector2 P2;
-	} BezierCurveEntry;
+	} FontBezierCurveEntry;
 
 	extern void Font_AllocFromFile(Font* Fnt, int unsigned NumChars, char const* FilePath);
 	extern void Font_AllocFromMemory(Font* Fnt, int unsigned NumChars, char unsigned* Buffer, int unsigned BufferSize);
-	extern Glyph* Font_GlyphByGlyphIndex(Font* Fnt, short unsigned GlyphIndex);
-	extern Glyph* Font_GlyphByUnicode(Font* Fnt, int unsigned Unicode);
+	extern FontGlyph* Font_GlyphByGlyphIndex(Font* Fnt, short unsigned GlyphIndex);
+	extern FontGlyph* Font_GlyphByUnicode(Font* Fnt, int unsigned Unicode);
 	extern float Font_LineHeight(Font* Fnt);
 	extern short unsigned Font_NumGlyphs(Font* Fnt);
 	extern void Font_Free(Font* Fnt);
 
+	extern Font* Font_GetDefault(void);
+
 	extern void Font_AllocInternal(Font* Fnt, int unsigned NumChars, char unsigned* Buffer, int unsigned BufferSize);
-	extern void Font_ReadGlyphInternal(Font* Fnt, FileReader* Reader, short unsigned GlyphIndex, Glyph* Result);
-	extern void Font_ReadSimpleGlyphInternal(Font* Fnt, FileReader* Reader, Glyph* Result);
-	extern void Font_ReadCompoundGlyphInternal(Font* Fnt, FileReader* Reader, short unsigned GlyphIndex, Glyph* Result);
+	extern void Font_ReadGlyphInternal(Font* Fnt, FileReader* Reader, short unsigned GlyphIndex, FontGlyph* Result);
+	extern void Font_ReadSimpleGlyphInternal(Font* Fnt, FileReader* Reader, FontGlyph* Result);
+	extern void Font_ReadCompoundGlyphInternal(Font* Fnt, FileReader* Reader, short unsigned GlyphIndex, FontGlyph* Result);
 	extern void Font_ApplyLayoutInfosInternal(Font* Fnt, FileReader* Reader);
 	extern void Font_UnicodeToGlyphMappingsInternal(Font* Fnt, FileReader* Reader);
-	extern void Font_CreateBezierInternal(Font* Fnt, Glyph* Glyph);
-	extern void Font_DebugGlyphsInternal(Font* Fnt, int unsigned UnicodeFrom, int unsigned UnicodeTo, Matrix4 Projection, Matrix4 View);
+	extern void Font_CreateBezierInternal(Font* Fnt, FontGlyph* Glyph);
 
 #ifdef FAST_GL_IMPLEMENTATION
-	Font gDefaultFont = { 0 };
+	static Font sDefaultFont = { 0 };
+	static FontWorldGlyphInstanceEntry* sMappedWorldGlyphInstanceBuffer = 0;
+	static FontScreenGlyphInstanceEntry* sMappedScreenGlyphInstanceBuffer = 0;
 	static char unsigned sDefaultFontBytes[] =
 	{
 		0x00, 0x01, 0x00, 0x00, 0x00, 0x0D, 0x00, 0x80, 0x00, 0x03, 0x00, 0x50, 0x46, 0x46, 0x54, 0x4D, 0x86, 0x9F, 0xA7, 0x1D, 0x00, 0x00, 0x36, 0x98, 0x00, 0x00, 0x00, 0x1C, 0x47, 0x44, 0x45, 0x46,
@@ -2935,71 +3058,47 @@ extern "C"
 		0x00, 0x01, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
 		0xDA, 0x53, 0x99, 0xF0, 0x00, 0x00, 0x00, 0x00, 0xD6, 0x26, 0x06, 0x96, 0x00, 0x00, 0x00, 0x00, 0xD6, 0x26, 0x06, 0x96,
 	};
-	static int unsigned sFontProgram = 0;
-	static char const sFontVertexShader[] =
+	static int unsigned sWorldFontProgram = 0;
+	static int unsigned sScreenFontProgram = 0;
+	static char const sWorldFontVertexShader[] =
 		GLSL_GL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in uint VertexIndex;"
-		"layout (location = 2) in uint InstanceSpace;"
-		"layout (location = 3) in vec3 InstancePivot;"
-		"layout (location = 4) in vec3 InstancePosition;"
-		"layout (location = 5) in vec3 InstanceRotation;"
-		"layout (location = 6) in vec2 InstanceScale;"
-		"layout (location = 7) in vec2 InstanceBearing;"
-		"layout (location = 8) in float InstanceUnitsPerEm;"
-		"layout (location = 9) in float InstanceFontSize;"
-		"layout (location = 10) in vec2 InstanceGlyphSize;"
-		"layout (location = 11) in vec4 InstanceColor;"
-		"layout (location = 12) in uint InstanceGlyphIndex;"
-		"layout (location = 13) in uint InstanceLineHeight;"
+		"layout (location = 2) in vec3 InstancePivot;"
+		"layout (location = 3) in vec3 InstancePosition;"
+		"layout (location = 4) in vec3 InstanceRotation;"
+		"layout (location = 5) in vec2 InstanceScale;"
+		"layout (location = 6) in vec2 InstanceBearing;"
+		"layout (location = 7) in float InstanceUnitsPerEm;"
+		"layout (location = 8) in float InstanceFontSize;"
+		"layout (location = 9) in vec2 InstanceGlyphSize;"
+		"layout (location = 10) in vec4 InstanceColor;"
+		"layout (location = 11) in uint InstanceGlyphIndex;"
+		"layout (location = 12) in uint InstanceLineHeight;"
 		"out VS_OUT {"
 		"	vec2 TextureCoords;"
 		"	flat uint GlyphIndex;"
 		"	vec4 Color;"
 		"} VertexOutput;"
-		"const uint COORD_SPACE_WORLD = 0;"
-		"const uint COORD_SPACE_SCREEN = 1;"
-		"uniform vec2 ScreenSize;"
 		"uniform mat4 ProjectionMatrix;"
 		"uniform mat4 ViewMatrix;"
-		GLSL_SCREEN_SPACE_IMPLEMENTATION
 		GLSL_ROTATION_IMPLEMENTATION
 		"void main() {"
-		"	float U0, V0;"
-		"	float U1, V1;"
-		"	switch (InstanceSpace) {"
-		"		case COORD_SPACE_WORLD: {"
-		"			vec2 BearingSize = InstanceBearing / InstanceUnitsPerEm;"
-		"			vec2 GlyphSize = InstanceGlyphSize / InstanceUnitsPerEm;"
-		"			U0 = BearingSize.x;"
-		"			V0 = (BearingSize.y - GlyphSize.y);"
-		"			U1 = (BearingSize.x + GlyphSize.x);"
-		"			V1 = BearingSize.y;"
-		"			vec4 Rotation = EulerAnglesToQuaternion(radians(InstanceRotation.x), radians(InstanceRotation.y), radians(InstanceRotation.z));"
-		"			Rotation = normalize(Rotation);"
-		"			vec3 Position = InstancePosition + vec3(VertexPosition * GlyphSize, 0.0);"
-		"			Position = RotateVector3D(Position, Rotation);"
-		"			Position *= vec3(InstanceScale, 1.0);"
-		"			vec4 WorldPosition = vec4(Position, 1.0);"
-		"			vec4 ViewPosition = ViewMatrix * WorldPosition;"
-		"			vec4 ClipPosition = ProjectionMatrix * ViewPosition;"
-		"			gl_Position = ClipPosition;"
-		"			break;"
-		"		}"
-		"		case COORD_SPACE_SCREEN: {"
-		"			vec2 BearingSize = InstanceBearing / InstanceUnitsPerEm;"
-		"			vec2 GlyphSize = InstanceGlyphSize / InstanceUnitsPerEm;"
-		"			float LineHeight = InstanceLineHeight / InstanceUnitsPerEm;"
-		"			U0 = BearingSize.x;"
-		"			V0 = (BearingSize.y + GlyphSize.y);"
-		"			U1 = (BearingSize.x + GlyphSize.x);"
-		"			V1 = BearingSize.y;"
-		"			vec2 P = vec2(InstancePosition.x, InstancePosition.y + LineHeight);"
-		"			vec2 ScreenPosition = RotateVector2D(P + (VertexPosition * InstanceFontSize * GlyphSize), radians(InstanceRotation.z));"
-		"			gl_Position = ScreenToClipSpace(ScreenPosition, ScreenSize);"
-		"			break;"
-		"		}"
-		"	}"
+		"	vec2 BearingSize = InstanceBearing / InstanceUnitsPerEm;"
+		"	vec2 GlyphSize = InstanceGlyphSize / InstanceUnitsPerEm;"
+		"	float U0 = BearingSize.x;"
+		"	float V0 = (BearingSize.y - GlyphSize.y);"
+		"	float U1 = (BearingSize.x + GlyphSize.x);"
+		"	float V1 = BearingSize.y;"
+		"	vec4 Rotation = EulerAnglesToQuaternion(radians(InstanceRotation.x), radians(InstanceRotation.y), radians(InstanceRotation.z));"
+		"	Rotation = normalize(Rotation);"
+		"	vec3 Position = InstancePosition + vec3(VertexPosition * GlyphSize, 0.0);"
+		"	Position = RotateVector3D(Position, Rotation);"
+		"	Position *= vec3(InstanceScale, 1.0);"
+		"	vec4 WorldPosition = vec4(Position, 1.0);"
+		"	vec4 ViewPosition = ViewMatrix * WorldPosition;"
+		"	vec4 ClipPosition = ProjectionMatrix * ViewPosition;"
+		"	gl_Position = ClipPosition;"
 		"	vec2 TextureCoords;"
 		"	switch (VertexIndex) {"
 		"		case 0: TextureCoords = vec2(U0, V0); break;"
@@ -3011,7 +3110,7 @@ extern "C"
 		"	VertexOutput.GlyphIndex = InstanceGlyphIndex;"
 		"	VertexOutput.Color = InstanceColor;"
 		"}";
-	static char const sFontFragmentShader[] =
+	static char const sWorldFontFragmentShader[] =
 		GLSL_GL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
@@ -3035,7 +3134,152 @@ extern "C"
 		"	BezierCurveEntry Curves[];"
 		"} BezierCurves;"
 		"uniform float AntiAliasingWindowSize = 1.0;"
-		"uniform bool EnableSuperSamplingAntiAliasing = true;"
+		"uniform bool EnableSuperSamplingAntiAliasing = false;"
+		"vec2 Rotate(vec2 V)"
+		"{"
+		"	return vec2(V.y, -V.x);"
+		"}"
+		"float ComputeCoverage(float InverseDiameter, vec2 P0, vec2 P1, vec2 P2)"
+		"{"
+		"	if (P0.y > 0.0 && P1.y > 0.0 && P2.y > 0.0) return 0.0;"
+		"	if (P0.y < 0.0 && P1.y < 0.0 && P2.y < 0.0) return 0.0;"
+		"	vec2 A = P0 - 2.0 * P1 + P2;"
+		"	vec2 B = P0 - P1;"
+		"	vec2 C = P0;"
+		"	float T0 = 0.0;"
+		"	float T1 = 0.0;"
+		"	if (abs(A.y) >= 1e-5)"
+		"	{"
+		"		float Radicand = B.y * B.y - A.y * C.y;"
+		"		if (Radicand <= 0.0) return 0.0;"
+		"		float S = sqrt(Radicand);"
+		"		T0 = (B.y - S) / A.y;"
+		"		T1 = (B.y + S) / A.y;"
+		"	}"
+		"	else"
+		"	{"
+		"		float T = P0.y / (P0.y - P2.y);"
+		"		if (P0.y < P2.y)"
+		"		{"
+		"			T0 = -1.0;"
+		"			T1 = T;"
+		"		}"
+		"		else"
+		"		{"
+		"			T0 = T;"
+		"			T1 = -1.0;"
+		"		}"
+		"	}"
+		"	float Alpha = 0.0;"
+		"	if (T0 >= 0.0 && T0 < 1.0)"
+		"	{"
+		"		float X = (A.x * T0 - 2.0 * B.x) * T0 + C.x;"
+		"		Alpha += clamp(X * InverseDiameter + 0.5, 0.0, 1.0);"
+		"	}"
+		"	if (T1 >= 0.0 && T1 < 1.0)"
+		"	{"
+		"		float X = (A.x * T1 - 2.0 * B.x) * T1 + C.x;"
+		"		Alpha -= clamp(X * InverseDiameter + 0.5, 0.0, 1.0);"
+		"	}"
+		"	return Alpha;"
+		"}"
+		"void main() {"
+		"	float Alpha = 0.0;"
+		"	vec2 InverseDiameter = 1.0 / (AntiAliasingWindowSize * fwidth(FragmentInput.TextureCoords));"
+		"	BezierOffsetEntry BezierOffset = BezierOffsets.Offsets[FragmentInput.GlyphIndex];"
+		"	for (uint CurveIndex = BezierOffset.Start; CurveIndex < (BezierOffset.Start + BezierOffset.Num); CurveIndex++)"
+		"	{"
+		"		BezierCurveEntry BezierCurve = BezierCurves.Curves[CurveIndex];"
+		"		vec2 P0 = BezierCurve.P0 - FragmentInput.TextureCoords;"
+		"		vec2 P1 = BezierCurve.P1 - FragmentInput.TextureCoords;"
+		"		vec2 P2 = BezierCurve.P2 - FragmentInput.TextureCoords;"
+		"		Alpha += ComputeCoverage(InverseDiameter.x, P0, P1, P2);"
+		"		if (EnableSuperSamplingAntiAliasing)"
+		"		{"
+		"			Alpha += ComputeCoverage(InverseDiameter.y, Rotate(P0), Rotate(P1), Rotate(P2));"
+		"		}"
+		"	}"
+		"	if (EnableSuperSamplingAntiAliasing)"
+		"	{"
+		"		Alpha *= 0.5;"
+		"	}"
+		"	Alpha = clamp(Alpha, 0.0, 1.0);"
+		"	if (Alpha <= 0.0) discard;"
+		"	BaseColor = FragmentInput.Color * Alpha;"
+		"}";
+	static char const sScreenFontVertexShader[] =
+		GLSL_GL_VERSION
+		"layout (location = 0) in vec2 VertexPosition;"
+		"layout (location = 1) in uint VertexIndex;"
+		"layout (location = 2) in vec2 InstancePivot;"
+		"layout (location = 3) in vec2 InstancePosition;"
+		"layout (location = 4) in float InstanceRotation;"
+		"layout (location = 5) in vec2 InstanceScale;"
+		"layout (location = 6) in vec2 InstanceBearing;"
+		"layout (location = 7) in float InstanceUnitsPerEm;"
+		"layout (location = 8) in float InstanceFontSize;"
+		"layout (location = 9) in vec2 InstanceGlyphSize;"
+		"layout (location = 10) in vec4 InstanceColor;"
+		"layout (location = 11) in uint InstanceGlyphIndex;"
+		"layout (location = 12) in uint InstanceLineHeight;"
+		"out VS_OUT {"
+		"	vec2 TextureCoords;"
+		"	flat uint GlyphIndex;"
+		"	vec4 Color;"
+		"} VertexOutput;"
+		"uniform vec2 ScreenSize;"
+		"uniform mat4 ProjectionMatrix;"
+		"uniform mat4 ViewMatrix;"
+		GLSL_SCREEN_SPACE_IMPLEMENTATION
+		GLSL_ROTATION_IMPLEMENTATION
+		"void main() {"
+		"	vec2 BearingSize = InstanceBearing / InstanceUnitsPerEm; "
+		"	vec2 GlyphSize = InstanceGlyphSize / InstanceUnitsPerEm;"
+		"	vec2 LineHeight = vec2(0.0, InstanceLineHeight) / InstanceUnitsPerEm;"
+		"	float Roll = radians(InstanceRotation);"
+		"	float U0 = BearingSize.x;"
+		"	float V0 = (BearingSize.y + GlyphSize.y);"
+		"	float U1 = (BearingSize.x + GlyphSize.x);"
+		"	float V1 = BearingSize.y;"
+		"	vec2 ScreenPosition = RotateVector2D(InstancePosition - InstancePivot + (VertexPosition * GlyphSize * InstanceFontSize), Roll);"
+		"	ScreenPosition += InstancePivot;"
+		"	gl_Position = ScreenToClipSpace(ScreenPosition, ScreenSize);"
+		"	vec2 TextureCoords;"
+		"	switch (VertexIndex) {"
+		"		case 0: TextureCoords = vec2(U0, V0); break;"
+		"		case 1: TextureCoords = vec2(U1, V0); break;"
+		"		case 2: TextureCoords = vec2(U0, V1); break;"
+		"		case 3: TextureCoords = vec2(U1, V1); break;"
+		"	}"
+		"	VertexOutput.TextureCoords = TextureCoords;"
+		"	VertexOutput.GlyphIndex = InstanceGlyphIndex;"
+		"	VertexOutput.Color = InstanceColor;"
+		"}";
+	static char const sScreenFontFragmentShader[] =
+		GLSL_GL_VERSION
+		"in VS_OUT {"
+		"	vec2 TextureCoords;"
+		"	flat uint GlyphIndex;"
+		"	vec4 Color;"
+		"} FragmentInput;"
+		"layout (location = 0) out vec4 BaseColor;"
+		"struct BezierOffsetEntry {"
+		"	uint Start;"
+		"	uint Num;"
+		"};"
+		"struct BezierCurveEntry {"
+		"	vec2 P0;"
+		"	vec2 P1;"
+		"	vec2 P2;"
+		"};"
+		"layout (std430, binding = 0) buffer BezierOffset {"
+		"	BezierOffsetEntry Offsets[];"
+		"} BezierOffsets;"
+		"layout (std430, binding = 1) buffer BezierCurve {"
+		"	BezierCurveEntry Curves[];"
+		"} BezierCurves;"
+		"uniform float AntiAliasingWindowSize = 1.0;"
+		"uniform bool EnableSuperSamplingAntiAliasing = false;"
 		"vec2 Rotate(vec2 V)"
 		"{"
 		"	return vec2(V.y, -V.x);"
@@ -3111,40 +3355,56 @@ extern "C"
 #ifdef FAST_GL_REFERENCE_COUNT
 	static long long unsigned sAllocatedFonts = 0;
 #endif // FAST_GL_REFERENCE_COUNT
-#else
-	extern Font gDefaultFont;
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Text Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef struct
+	typedef struct _TextWorldCache
 	{
 		int unsigned GlyphVertexArray;
 		int unsigned GlyphVertexBuffer;
 		int unsigned GlyphInstanceBuffer;
 		int unsigned GlyphIndexBuffer;
 		int unsigned GlyphInstanceOffset;
-		GlyphInstanceEntry* MappedGlyphInstanceBuffer;
-	} TextCache;
+	} TextWorldCache;
+	typedef struct _TextScreenCache
+	{
+		int unsigned GlyphVertexArray;
+		int unsigned GlyphVertexBuffer;
+		int unsigned GlyphInstanceBuffer;
+		int unsigned GlyphIndexBuffer;
+		int unsigned GlyphInstanceOffset;
+	} TextScreenCache;
 
-	extern void Text_Begin(Font* Fnt);
+	extern void Text_BeginWorld(Font* Fnt);
 	extern void Text_DrawWorld(Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...);
-	extern void Text_DrawScreen(Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...);
 	extern void Text_DrawWorldSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float ScaleX, float ScaleY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
-	extern void Text_DrawScreenSimple(float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
-	extern void Text_End(Matrix4 Projection, Matrix4 View);
+	extern void Text_EndWorld(Matrix4 Projection, Matrix4 View);
 
-	extern void Text_CacheAlloc(TextCache* Cache, int unsigned NumChars);
-	extern void Text_BeginCache(TextCache* Cache, Font* Fnt);
-	extern void Text_CacheDrawWorld(TextCache* Cache, Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...);
-	extern void Text_CacheDrawScreen(TextCache* Cache, Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...);
-	extern void Text_CacheDrawWorldSimple(TextCache* Cache, float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float ScaleX, float ScaleY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
-	extern void Text_CacheDrawScreenSimple(TextCache* Cache, float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
-	extern void Text_EndCache(TextCache* Cache);
-	extern void Text_DrawCache(TextCache* Cache, Matrix4 Projection, Matrix4 View);
-	extern void Text_CacheFree(TextCache* Cache);
+	extern void Text_BeginScreen(Font* Fnt);
+	extern void Text_DrawScreen(Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...);
+	extern void Text_DrawScreenSimple(float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
+	extern void Text_EndScreen(void);
+
+	extern void TextCache_WorldAlloc(TextWorldCache* Cache, int unsigned NumChars);
+	extern void TextCache_DrawWorldCache(TextWorldCache* Cache, Matrix4 Projection, Matrix4 View);
+	extern void TextCache_WorldFree(TextWorldCache* Cache);
+
+	extern void TextCache_ScreenAlloc(TextScreenCache* Cache, int unsigned NumChars);
+	extern void TextCache_DrawScreenCache(TextScreenCache* Cache);
+	extern void TextCache_ScreenFree(TextScreenCache* Cache);
+
+	extern void TextCache_BeginWorldCache(TextWorldCache* Cache, Font* Fnt);
+	extern void TextCache_DrawWorld(TextWorldCache* Cache, Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...);
+	extern void TextCache_DrawWorldSimple(TextWorldCache* Cache, float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float ScaleX, float ScaleY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
+	extern void TextCache_EndWorldCache(TextWorldCache* Cache);
+
+	extern void TextCache_BeginScreenCache(TextScreenCache* Cache, Font* Fnt);
+	extern void TextCache_DrawScreen(TextScreenCache* Cache, Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...);
+	extern void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
+	extern void TextCache_EndScreenCache(TextScreenCache* Cache);
 
 #ifdef FAST_GL_IMPLEMENTATION
 	static Font* sCurrFont = 0;
@@ -3157,26 +3417,26 @@ extern "C"
 	// Texture Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef enum
+	typedef enum _TextureWrap
 	{
 		TEXTURE_WRAP_REPEAT = GL_REPEAT,
 		TEXTURE_WRAP_MIRRORED_REPEAT = GL_MIRRORED_REPEAT,
 		TEXTURE_WRAP_CLAMP_TO_EDGE = GL_CLAMP_TO_EDGE,
 		TEXTURE_WRAP_CLAMP_TO_BORDER = GL_CLAMP_TO_BORDER,
 	} TextureWrap;
-	typedef enum
+	typedef enum _TextureFilter
 	{
 		TEXTURE_FILTER_NEAREST = GL_NEAREST,
 		TEXTURE_FILTER_LINEAR = GL_LINEAR,
 		TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR = GL_LINEAR_MIPMAP_LINEAR,
 	} TextureFilter;
-	typedef enum
+	typedef enum _TextureType
 	{
 		TEXTURE_TYPE_UINT8 = GL_UNSIGNED_BYTE,
 		TEXTURE_TYPE_REAL32 = GL_FLOAT,
 		TEXTURE_TYPE_UINT24_UINT8 = GL_UNSIGNED_INT_24_8,
 	} TextureType;
-	typedef enum
+	typedef enum _TextureFormat
 	{
 		TEXTURE_FORMAT_RGBA = GL_RGBA,
 		TEXTURE_FORMAT_RGB = GL_RGB,
@@ -3184,7 +3444,7 @@ extern "C"
 		TEXTURE_FORMAT_R = GL_RED,
 		TEXTURE_FORMAT_DEPTH_STENCIL = GL_DEPTH_STENCIL,
 	} TextureFormat;
-	typedef enum
+	typedef enum _TextureInternalFormat
 	{
 		TEXTURE_INTERNAL_FORMAT_RGBA = GL_RGBA,
 		TEXTURE_INTERNAL_FORMAT_RGB = GL_RGB,
@@ -3198,7 +3458,7 @@ extern "C"
 		TEXTURE_INTERNAL_FORMAT_RGBA_REAL32 = GL_RGBA32F,
 		TEXTURE_INTERNAL_FORMAT_DEPTH24_STENCIL8 = GL_DEPTH24_STENCIL8,
 	} TextureInternalFormat;
-	typedef struct
+	typedef struct _Texture2D
 	{
 		int unsigned Texture;
 		int unsigned Width;
@@ -3245,7 +3505,7 @@ extern "C"
 	// FrameBuffer Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef struct
+	typedef struct _FrameBuffer
 	{
 		int unsigned FrameBuffer;
 		int unsigned Width;
@@ -3284,7 +3544,7 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 
 #pragma pack(push, 1)
-	typedef struct
+	typedef struct _BitMapHeader
 	{
 		short unsigned Type;
 		int unsigned Size;
@@ -3292,7 +3552,7 @@ extern "C"
 		short unsigned Reserved1;
 		int unsigned OffBits;
 	} BitMapHeader;
-	typedef struct
+	typedef struct _BitMapInfoHeader
 	{
 		int unsigned Size;
 		int Width;
@@ -3321,18 +3581,18 @@ extern "C"
 	// Primitive Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef struct
+	typedef struct _SpriteVertex
 	{
 		Vector2 Position;
 		Vector2 TextureCoords;
 	} SpriteVertex;
-	typedef struct
+	typedef struct _SpriteMesh
 	{
 		int unsigned VertexArray;
 		int unsigned VertexBuffer;
 		int unsigned IndexBuffer;
 	} SpriteMesh;
-	typedef struct
+	typedef struct _InstancedSprite
 	{
 		int unsigned NumInstances;
 		int unsigned VertexArray;
@@ -3340,17 +3600,17 @@ extern "C"
 		int unsigned InstanceBuffer;
 		int unsigned IndexBuffer;
 	} InstancedSprite;
-	typedef struct
+	typedef struct _SpriteInstanceEntry
 	{
 		Matrix4 TransformMatrix;
 		int unsigned AtlasIndex;
 	} SpriteInstanceEntry;
-	typedef struct
+	typedef struct _PostProcessVertex
 	{
 		Vector2 Position;
 		Vector2 TextureCoords;
 	} PostProcessVertex;
-	typedef struct
+	typedef struct _PostProcessMesh
 	{
 		int unsigned VertexArray;
 		int unsigned VertexBuffer;
@@ -3382,7 +3642,7 @@ extern "C"
 	// SpritePlayer Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef struct
+	typedef struct _SpritePlayer
 	{
 		Texture2D* Atlas;
 	} SpritePlayer;
@@ -3398,7 +3658,7 @@ extern "C"
 	// PostProcessEffect Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef struct
+	typedef struct _PostProcessEffect
 	{
 		int unsigned Program;
 		PostProcessMesh* Mesh;
@@ -3409,6 +3669,9 @@ extern "C"
 	extern void PostProcessEffect_SetColorAttachment(PostProcessEffect* Effect, Texture2D* ColorAttachment, int unsigned ColorAttachmentMountIndex);
 	extern void PostProcessEffect_End(PostProcessEffect* Effect);
 	extern void PostProcessEffect_Free(PostProcessEffect* Effect);
+
+	extern char const* PostProcessEffect_GetPassThroughFragmentShader(void);
+	extern char const* PostProcessEffect_GetWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader(void);
 
 #ifdef FAST_GL_IMPLEMENTATION
 	static char const sPassThroughPostProcessVertexShader[] =
@@ -3422,7 +3685,7 @@ extern "C"
 		"	gl_Position = vec4(VertexPosition, 0.0, 1.0);"
 		"	VertexOutput.TextureCoords = VertexTextureCoords;"
 		"}";
-	char const gPassThroughPostProcessFragmentShader[] =
+	char const sPassThroughPostProcessFragmentShader[] =
 		GLSL_GL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
@@ -3432,7 +3695,7 @@ extern "C"
 		"void main() {"
 		"	FinalColor = texelFetch(BaseColorSampler, ivec2(gl_FragCoord.xy), 0);"
 		"}";
-	char const gWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader[] =
+	char const sWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader[] =
 		GLSL_GL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
@@ -3460,27 +3723,183 @@ extern "C"
 #ifdef FAST_GL_REFERENCE_COUNT
 	static long long unsigned sAllocatedPostProcessEffects = 0;
 #endif // FAST_GL_REFERENCE_COUNT
-#else
-	extern char const gPassThroughPostProcessFragmentShader[];
-	extern char const gWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader[];
+#endif // FAST_GL_IMPLEMENTATION
+
+	///////////////////////////////////////////////////////////////
+	// Kek Definition
+	///////////////////////////////////////////////////////////////
+
+	typedef struct _KekVertex
+	{
+		Vector3 Position;
+		Vector2 TextureCoords;
+	} KekVertex;
+	typedef struct _KekRect
+	{
+		float Left;
+		float Right;
+		float Top;
+		float Bottom;
+	} KekRect;
+	typedef enum _KekNodeClass
+	{
+		KEK_NODE_CLASS_DOCK_ROOT,
+		KEK_NODE_CLASS_LIST_LAYOUT,
+		KEK_NODE_CLASS_GRID_LAYOUT,
+		KEK_NODE_CLASS_TOOL_BAR,
+		KEK_NODE_CLASS_IMAGE,
+		KEK_NODE_CLASS_BUTTON,
+		KEK_NODE_CLASS_SLIDER,
+		KEK_NODE_CLASS_VIEW_PORT,
+	} KekNodeClass;
+	typedef struct _KekNode
+	{
+		ListEntry Entry;
+		KekNodeClass Class;
+		KekRect Rect;
+	} KekNode;
+	typedef enum _KekDockLayoutType
+	{
+		KEK_DOCK_LAYOUT_TYPE_WINDOW,
+		KEK_DOCK_LAYOUT_TYPE_HORIZONTAL,
+		KEK_DOCK_LAYOUT_TYPE_VERTICAL,
+	} KekDockLayoutType;
+	typedef struct _KekDockLayout
+	{
+		KekDockLayoutType Type;
+		KekRect Rect;
+		struct _KekDockLayout* ParentLayout;
+		struct _KekDockLayout* FirstLayout;
+		struct _KekDockLayout* SecondLayout;
+		KekNode* Node;
+	} KekDockLayout;
+	typedef struct _KekDockRoot
+	{
+		KekNode Base;
+		KekDockLayout* RootLayout;
+		KekDockLayout* CurrLayout;
+	} KekDockRoot;
+	typedef struct _KekListLayout
+	{
+		KekNode Base;
+	} KekListLayout;
+	typedef struct _KekGridLayout
+	{
+		KekNode Base;
+	} KekGridLayout;
+	typedef struct _KekToolBar
+	{
+		KekNode Base;
+	} KekToolBar;
+	typedef struct _KekImage
+	{
+		KekNode Base;
+	} KekImage;
+	typedef struct _KekButton
+	{
+		KekNode Base;
+	} KekButton;
+	typedef struct _KekSlider
+	{
+		KekNode Base;
+	} KekSlider;
+	typedef struct _KekViewPort
+	{
+		KekNode Base;
+	} KekViewPort;
+
+	extern void Kek_Alloc(void);
+	extern void Kek_SetRootNode(void* Node);
+	extern void Kek_Draw(void* Node);
+	extern void Kek_Free(void);
+
+	extern void KekRect_Copy(KekRect* Destination, KekRect* Source);
+
+	extern void KekNode_Draw(KekNode* Node);
+	
+	extern KekDockLayout* KekDockLayout_Alloc(KekDockLayout* DockLayout);
+	extern void KekDockLayout_InsertLeft(KekDockLayout* DockLayout, void* Node);
+	extern void KekDockLayout_InsertRight(KekDockLayout* DockLayout, void* Node);
+	extern void KekDockLayout_InsertTop(KekDockLayout* DockLayout, void* Node);
+	extern void KekDockLayout_InsertBottom(KekDockLayout* DockLayout, void* Node);
+	extern void KekDockLayout_Draw(KekDockLayout* DockLayout);
+
+	extern void KekDockRoot_Alloc(KekDockRoot* DockRoot);
+	extern void KekDockRoot_InsertLeft(KekDockRoot* DockRoot, void* Node);
+	extern void KekDockRoot_InsertRight(KekDockRoot* DockRoot, void* Node);
+	extern void KekDockRoot_InsertTop(KekDockRoot* DockRoot, void* Node);
+	extern void KekDockRoot_InsertBottom(KekDockRoot* DockRoot, void* Node);
+	extern void KekDockRoot_Draw(KekDockRoot* DockRoot);
+	extern void KekDockRoot_Free(KekDockRoot* DockRoot);
+
+	extern void KekListLayout_Alloc(KekListLayout* ListLayout);
+	extern void KekListLayout_Draw(KekListLayout* ListLayout);
+	extern void KekListLayout_Free(KekListLayout* ListLayout);
+
+	extern void KekGridLayout_Alloc(KekGridLayout* GridLayout);
+	extern void KekGridLayout_Draw(KekGridLayout* GridLayout);
+	extern void KekGridLayout_Free(KekGridLayout* GridLayout);
+
+	extern void KekToolBar_Alloc(KekToolBar* ToolBar);
+	extern void KekToolBar_Draw(KekToolBar* ToolBar);
+	extern void KekToolBar_Free(KekToolBar* ToolBar);
+
+	extern void KekImage_Alloc(KekImage* Image);
+	extern void KekImage_Draw(KekImage* Image);
+	extern void KekImage_Free(KekImage* Image);
+
+	extern void KekButton_Alloc(KekButton* Button);
+	extern void KekButton_Draw(KekButton* Button);
+	extern void KekButton_Free(KekButton* Button);
+
+	extern void KekSlider_Alloc(KekSlider* Slider);
+	extern void KekSlider_Draw(KekSlider* Slider);
+	extern void KekSlider_Free(KekSlider* Slider);
+
+	extern void KekViewPort_Alloc(KekViewPort* ViewPort);
+	extern void KekViewPort_Draw(KekViewPort* ViewPort);
+	extern void KekViewPort_Free(KekViewPort* ViewPort);
+
+#ifdef FAST_GL_IMPLEMENTATION
+	static void* sKekRootNode = 0;
+	static char const sKekVertexShader[] =
+		GLSL_GL_VERSION
+		"layout (location = 0) in vec2 VertexPosition;"
+		"layout (location = 1) in vec2 VertexTextureCoords;"
+		"out VS_OUT {"
+		"	vec2 TextureCoords;"
+		"} VertexOutput;"
+		"void main() {"
+		"	gl_Position = vec4(VertexPosition, 0.0, 1.0);"
+		"	VertexOutput.TextureCoords = VertexTextureCoords;"
+		"}";
+	char const gKekFragmentShader[] =
+		GLSL_GL_VERSION
+		"in VS_OUT {"
+		"	vec2 TextureCoords;"
+		"} FragmentInput;"
+		"layout (location = 0) out vec4 FinalColor;"
+		"void main() {"
+		"	FinalColor = vec4(TextureCoords, 0.0, 1.0);"
+		"}";
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Histogram Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef enum
+	typedef enum _HistogramScaleType
 	{
 		HISTOGRAM_SCALE_NS,
 		HISTOGRAM_SCALE_US,
 		HISTOGRAM_SCALE_MS,
 	} HistogramScaleType;
-	typedef struct
+	typedef struct _HistogramVertex
 	{
 		Vector2 Position;
 		Vector2 TextureCoords;
 	} HistogramVertex;
-	typedef struct
+	typedef struct _Histogram
 	{
 		SpriteMesh* Mesh;
 		float* Samples;
@@ -3498,8 +3917,8 @@ extern "C"
 
 	extern void Histogram_Alloc(Histogram* Histgrm, SpriteMesh* Mesh, char* Name, HistogramScaleType ScaleType, int unsigned NumSamples, int unsigned Scale, int unsigned DisplayInterval);
 	extern void Histogram_PushSample(Histogram* Histgrm, double Sample);
-	extern void Histogram_Draw(Histogram* Histgrm, Matrix4 Projection, Matrix4 View, Vector2 Position, float Rotation, Vector2 Size);
-	extern void Histogram_DrawSimple(Histogram* Histgrm, Matrix4 Projection, Matrix4 View, float PositionX, float PositionY, float Rotation, float Width, float Height);
+	extern void Histogram_Draw(Histogram* Histgrm, Vector2 Position, float Rotation, Vector2 Size);
+	extern void Histogram_DrawSimple(Histogram* Histgrm, float PositionX, float PositionY, float Rotation, float Width, float Height);
 	extern void Histogram_Free(Histogram* Histgrm);
 
 #ifdef FAST_GL_IMPLEMENTATION
@@ -3568,7 +3987,7 @@ extern "C"
 	// Window Definition
 	///////////////////////////////////////////////////////////////
 
-	typedef enum
+	typedef enum _KeyboardKey
 	{
 		KEYBOARD_KEY_BACK = VK_BACK,
 		KEYBOARD_KEY_TAB = VK_TAB,
@@ -3676,20 +4095,20 @@ extern "C"
 		KEYBOARD_KEY_LEFT_CONTROL = VK_LCONTROL,
 		KEYBOARD_KEY_RIGHT_CONTROL = VK_RCONTROL,
 	} KeyboardKey;
-	typedef enum
+	typedef enum _MouseKey
 	{
 		MOUSE_KEY_LEFT,
 		MOUSE_KEY_MIDDLE,
 		MOUSE_KEY_RIGHT,
 	} MouseKey;
-	typedef enum
+	typedef enum _KeyboardKeyState
 	{
 		KEYBOARD_KEY_STATE_UP,
 		KEYBOARD_KEY_STATE_PRESSED,
 		KEYBOARD_KEY_STATE_DOWN,
 		KEYBOARD_KEY_STATE_RELEASED,
 	} KeyboardKeyState;
-	typedef enum
+	typedef enum _MouseKeyState
 	{
 		MOUSE_KEY_STATE_UP,
 		MOUSE_KEY_STATE_PRESSED,
@@ -4596,6 +5015,60 @@ extern "C"
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
+	// List Declaration
+	///////////////////////////////////////////////////////////////
+
+#ifdef FAST_GL_IMPLEMENTATION
+	void List_InitHead(ListEntry* List)
+	{
+		List->Next = List;
+		List->Prev = List;
+	}
+	void List_InsertTail(ListEntry* List, ListEntry* Entry)
+	{
+		Entry->Next = List;
+		Entry->Prev = List->Prev;
+
+		List->Prev->Next = Entry;
+		List->Prev = Entry;
+	}
+	bool List_IsEmpty(ListEntry* List)
+	{
+		return (List->Next == List) && (List->Prev == List);
+	}
+	ListEntry* List_RemoveHead(ListEntry* List)
+	{
+		ListEntry* Entry = 0;
+		if (List_IsEmpty(List))
+		{
+			return 0;
+		}
+
+		Entry = List->Next;
+
+		List->Next = Entry->Next;
+		Entry->Next->Prev = List;
+
+		Entry->Next = Entry->Prev = 0;
+
+		return Entry;
+	}
+	long long unsigned List_Num(ListEntry* List)
+	{
+		long long unsigned NumEntries = 0;
+
+		ListEntry* Entry = List->Next;
+		while (Entry != List)
+		{
+			NumEntries++;
+			Entry = Entry->Next;
+		}
+
+		return NumEntries;
+	}
+#endif // FAST_GL_IMPLEMENTATION
+
+	///////////////////////////////////////////////////////////////
 	// Vector Definition
 	///////////////////////////////////////////////////////////////
 
@@ -4774,7 +5247,7 @@ extern "C"
 				}
 				else
 				{
-					Map->Table[Hash] = (HashMapPair*)Pair->Next;
+					Map->Table[Hash] = Pair->Next;
 				}
 				Memory_Free(Pair->Key);
 				Memory_Free(Pair->Value);
@@ -4783,7 +5256,7 @@ extern "C"
 				return;
 			}
 			Prev = Pair;
-			Pair = (HashMapPair*)Pair->Next;
+			Pair = Pair->Next;
 		}
 	}
 	void HashMap_RemoveSimple(HashMap* Map, char const* Key)
@@ -5226,7 +5699,7 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 
 #ifdef FAST_GL_IMPLEMENTATION
-	void Timer_AllocCpu(Timer* Timr)
+	void Timer_CpuAlloc(Timer* Timr)
 	{
 		memset(Timr, 0, sizeof(Timer));
 
@@ -5240,7 +5713,7 @@ extern "C"
 		sAllocatedTimers += 1;
 #endif // FAST_GL_REFERENCE_COUNT
 	}
-	void Timer_AllocGpu(Timer* Timr)
+	void Timer_GpuAlloc(Timer* Timr)
 	{
 		memset(Timr, 0, sizeof(Timer));
 
@@ -5329,7 +5802,7 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 
 #ifdef FAST_GL_IMPLEMENTATION
-	void Transform_Alloc(Transform* Trans)
+	void Transform_Init(Transform* Trans)
 	{
 		memset(Trans, 0, sizeof(Transform));
 
@@ -5938,6 +6411,42 @@ extern "C"
 
 		Transform_ComputeWorldScaleInternal(Trans);
 	}
+	void Transform_ComputeModelMatrix(Transform* Trans, Matrix4 Model)
+	{
+		float X2 = Trans->WorldRotation[0] + Trans->WorldRotation[0];
+		float Y2 = Trans->WorldRotation[1] + Trans->WorldRotation[1];
+		float Z2 = Trans->WorldRotation[2] + Trans->WorldRotation[2];
+
+		float XX = Trans->WorldRotation[0] * X2;
+		float YY = Trans->WorldRotation[1] * Y2;
+		float ZZ = Trans->WorldRotation[2] * Z2;
+		float XY = Trans->WorldRotation[0] * Y2;
+		float XZ = Trans->WorldRotation[0] * Z2;
+		float YZ = Trans->WorldRotation[1] * Z2;
+		float WX = Trans->WorldRotation[3] * X2;
+		float WY = Trans->WorldRotation[3] * Y2;
+		float WZ = Trans->WorldRotation[3] * Z2;
+
+		Model[0][0] = (1.0F - (YY + ZZ)) * Trans->WorldScale[0];
+		Model[0][1] = (XY - WZ) * Trans->WorldScale[0];
+		Model[0][2] = (XZ + WY) * Trans->WorldScale[0];
+		Model[0][3] = 0.0F;
+
+		Model[1][0] = (XY + WZ) * Trans->WorldScale[1];
+		Model[1][1] = (1.0F - (XX + ZZ)) * Trans->WorldScale[1];
+		Model[1][2] = (YZ - WX) * Trans->WorldScale[1];
+		Model[1][3] = 0.0F;
+
+		Model[2][0] = (XZ - WY) * Trans->WorldScale[2];
+		Model[2][1] = (YZ + WX) * Trans->WorldScale[2];
+		Model[2][2] = (1.0F - (XX + YY)) * Trans->WorldScale[2];
+		Model[2][3] = 0.0F;
+
+		Model[3][0] = Trans->WorldPosition[0];
+		Model[3][1] = Trans->WorldPosition[1];
+		Model[3][2] = Trans->WorldPosition[2];
+		Model[3][3] = 1.0F;
+	}
 	void Transform_ComputeWorldPositionInternal(Transform* Trans)
 	{
 		Transform* ParentTrans = (Transform*)Trans->Parent;
@@ -5999,7 +6508,7 @@ extern "C"
 	{
 		memset(Controller, 0, sizeof(FirstPersonController));
 
-		Transform_Alloc(&Controller->Transform);
+		Transform_Init(&Controller->Transform);
 		Transform_SetPositionSimple(&Controller->Transform, 0.0F, 0.0F, -10.0F);
 		Controller->KeyboardMovementSpeed = 5.0F;
 		Controller->MouseMovementSpeed = 10.0F;
@@ -6013,7 +6522,7 @@ extern "C"
 	{
 		memset(Controller, 0, sizeof(OrbitController));
 
-		Transform_Alloc(&Controller->Transform);
+		Transform_Init(&Controller->Transform);
 		Transform_SetPositionSimple(&Controller->Transform, 0.0F, 0.0F, -10.0F);
 		Controller->KeyboardMovementSpeed = 5.0F;
 		Controller->MouseMovementSpeed = 10.0F;
@@ -6337,14 +6846,6 @@ extern "C"
 	{
 		glDispatchCompute(NumGroupsX, NumGroupsY, NumGroupsZ);
 	}
-	void Shader_Free(int unsigned Program)
-	{
-		glDeleteProgram(Program);
-
-#ifdef FAST_GL_REFERENCE_COUNT
-		sAllocatedPrograms -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
-	}
 	void Shader_CheckCompileStatus(int unsigned Shader)
 	{
 #ifdef FAST_GL_DEBUG
@@ -6386,6 +6887,14 @@ extern "C"
 #else
 		UNREFERENCED_PARAMETER(Program);
 #endif // FAST_GL_DEBUG
+	}
+	void Shader_Free(int unsigned Program)
+	{
+		glDeleteProgram(Program);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedPrograms -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -6465,9 +6974,42 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 
 #ifdef FAST_GL_IMPLEMENTATION
-	void Buffer_VertexAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
+	void Buffer_VertexAlloc(int unsigned* Buffer)
 	{
 		glGenBuffers(1, Buffer);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBuffers += 1;
+#endif // FAST_GL_REFERENCE_COUNT
+	}
+	void Buffer_IndexAlloc(int unsigned* Buffer)
+	{
+		glGenBuffers(1, Buffer);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBuffers += 1;
+#endif // FAST_GL_REFERENCE_COUNT
+	}
+	void Buffer_UniformAlloc(int unsigned* Buffer)
+	{
+		glGenBuffers(1, Buffer);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBuffers += 1;
+#endif // FAST_GL_REFERENCE_COUNT
+	}
+	void Buffer_StorageAlloc(int unsigned* Buffer)
+	{
+		glGenBuffers(1, Buffer);
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBuffers += 1;
+#endif // FAST_GL_REFERENCE_COUNT
+	}
+	void Buffer_VertexAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
+	{
+		glGenBuffers(1, Buffer);
+
 		glBindBuffer(GL_ARRAY_BUFFER, (*Buffer));
 		glBufferData(GL_ARRAY_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -6476,9 +7018,10 @@ extern "C"
 		sAllocatedBuffers += 1;
 #endif // FAST_GL_REFERENCE_COUNT
 	}
-	void Buffer_IndexAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
+	void Buffer_IndexAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
 	{
 		glGenBuffers(1, Buffer);
+
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (*Buffer));
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -6487,9 +7030,10 @@ extern "C"
 		sAllocatedBuffers += 1;
 #endif // FAST_GL_REFERENCE_COUNT
 	}
-	void Buffer_UniformAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
+	void Buffer_UniformAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
 	{
 		glGenBuffers(1, Buffer);
+
 		glBindBuffer(GL_UNIFORM_BUFFER, (*Buffer));
 		glBufferData(GL_UNIFORM_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
@@ -6498,9 +7042,10 @@ extern "C"
 		sAllocatedBuffers += 1;
 #endif // FAST_GL_REFERENCE_COUNT
 	}
-	void Buffer_StorageAlloc(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
+	void Buffer_StorageAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
 	{
 		glGenBuffers(1, Buffer);
+
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, (*Buffer));
 		glBufferData(GL_SHADER_STORAGE_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -6540,6 +7085,22 @@ extern "C"
 	void Buffer_StorageUnBind(void)
 	{
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+	}
+	void Buffer_VertexResize(long long unsigned Size, void* Data, int unsigned Usage)
+	{
+		glBufferData(GL_ARRAY_BUFFER, (int unsigned)Size, Data, Usage);
+	}
+	void Buffer_IndexResize(long long unsigned Size, void* Data, int unsigned Usage)
+	{
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (int unsigned)Size, Data, Usage);
+	}
+	void Buffer_UniformResize(long long unsigned Size, void* Data, int unsigned Usage)
+	{
+		glBufferData(GL_UNIFORM_BUFFER, (int unsigned)Size, Data, Usage);
+	}
+	void Buffer_StorageResize(long long unsigned Size, void* Data, int unsigned Usage)
+	{
+		glBufferData(GL_SHADER_STORAGE_BUFFER, (int unsigned)Size, Data, Usage);
 	}
 	void Buffer_VertexEnableAttrib(int unsigned Index)
 	{
@@ -6696,1206 +7257,1048 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 
 #ifdef FAST_GL_IMPLEMENTATION
-	void Gizmo_Alloc(int unsigned NumPoints, int unsigned NumLines, int unsigned NumQuads)
+	void Batch_Alloc(Batch* Bat)
 	{
-		sNumPoints = NumPoints;
-		sNumLines = NumLines;
-		sNumQuads = NumQuads;
+		memset(Bat, 0, sizeof(Batch));
 
-		Shader_VertexGeometryFragmentAlloc(&sPointProgram, sPointVertexShader, sPointGeometryShader, sPointFragmentShader);
-		Shader_VertexGeometryFragmentAlloc(&sLineProgram, sLineVertexShader, sLineGeometryShader, sLineFragmentShader);
-		Shader_VertexGeometryFragmentAlloc(&sQuadProgram, sQuadVertexShader, sQuadGeometryShader, sQuadFragmentShader);
+		Bat->NumWorldCircles = 1000;
+		Bat->NumWorldLines = 1000;
+		Bat->NumWorldRectangles = 1000;
 
-		VertexArray_Alloc(&sPointVertexArray);
-		Buffer_VertexAlloc(&sPointInstanceBuffer, NumPoints * sizeof(PointInstanceEntry), 0, GL_STATIC_DRAW);
-		VertexArray_Bind(sPointVertexArray);
-		Buffer_VertexBind(sPointInstanceBuffer);
+		Bat->NumScreenCircles = 1000;
+		Bat->NumScreenLines = 1000;
+		Bat->NumScreenRectangles = 1000;
+
+		static BatchWorldCircleVertex WorldCircleVertexBuffer[3] = { 0 };
+		static int unsigned WorldCircleIndexBuffer[3] = { 0 };
+
+		WorldCircleVertexBuffer[0].Position[0] = -SQRT_3;
+		WorldCircleVertexBuffer[0].Position[1] = -1.0F;
+		WorldCircleVertexBuffer[0].TextureCoords[0] = 0.0F;
+		WorldCircleVertexBuffer[0].TextureCoords[1] = 0.0F;
+		WorldCircleVertexBuffer[1].Position[0] = SQRT_3;
+		WorldCircleVertexBuffer[1].Position[1] = -1.0F;
+		WorldCircleVertexBuffer[1].TextureCoords[0] = 1.0F;
+		WorldCircleVertexBuffer[1].TextureCoords[1] = 0.0F;
+		WorldCircleVertexBuffer[2].Position[0] = 0.0F;
+		WorldCircleVertexBuffer[2].Position[1] = 2.0F;
+		WorldCircleVertexBuffer[2].TextureCoords[0] = 0.5F;
+		WorldCircleVertexBuffer[2].TextureCoords[1] = 1.0F;
+
+		WorldCircleIndexBuffer[0] = 0;
+		WorldCircleIndexBuffer[1] = 1;
+		WorldCircleIndexBuffer[2] = 2;
+
+		static BatchScreenCircleVertex ScreenCircleVertexBuffer[3] = { 0 };
+		static int unsigned ScreenCircleIndexBuffer[3] = { 0 };
+
+		ScreenCircleVertexBuffer[0].Position[0] = -SQRT_3;
+		ScreenCircleVertexBuffer[0].Position[1] = -1.0F;
+		ScreenCircleVertexBuffer[0].TextureCoords[0] = 0.0F;
+		ScreenCircleVertexBuffer[0].TextureCoords[1] = 0.0F;
+		ScreenCircleVertexBuffer[1].Position[0] = SQRT_3;
+		ScreenCircleVertexBuffer[1].Position[1] = -1.0F;
+		ScreenCircleVertexBuffer[1].TextureCoords[0] = 1.0F;
+		ScreenCircleVertexBuffer[1].TextureCoords[1] = 0.0F;
+		ScreenCircleVertexBuffer[2].Position[0] = 0.0F;
+		ScreenCircleVertexBuffer[2].Position[1] = 2.0F;
+		ScreenCircleVertexBuffer[2].TextureCoords[0] = 0.5F;
+		ScreenCircleVertexBuffer[2].TextureCoords[1] = 1.0F;
+
+		ScreenCircleIndexBuffer[0] = 0;
+		ScreenCircleIndexBuffer[1] = 1;
+		ScreenCircleIndexBuffer[2] = 2;
+
+		static BatchWorldRectangleVertex WorldRectangleVertexBuffer[4] = { 0 };
+		static int unsigned WorldRectangleIndexBuffer[6] = { 0 };
+
+		WorldRectangleVertexBuffer[0].Position[0] = 0.0F;
+		WorldRectangleVertexBuffer[0].Position[1] = 0.0F;
+		WorldRectangleVertexBuffer[0].TextureCoords[0] = 0.0F;
+		WorldRectangleVertexBuffer[0].TextureCoords[1] = 0.0F;
+		WorldRectangleVertexBuffer[1].Position[0] = 1.0F;
+		WorldRectangleVertexBuffer[1].Position[1] = 0.0F;
+		WorldRectangleVertexBuffer[1].TextureCoords[0] = 1.0F;
+		WorldRectangleVertexBuffer[1].TextureCoords[1] = 0.0F;
+		WorldRectangleVertexBuffer[2].Position[0] = 0.0F;
+		WorldRectangleVertexBuffer[2].Position[1] = 1.0F;
+		WorldRectangleVertexBuffer[2].TextureCoords[0] = 0.0F;
+		WorldRectangleVertexBuffer[2].TextureCoords[1] = 1.0F;
+		WorldRectangleVertexBuffer[3].Position[0] = 1.0F;
+		WorldRectangleVertexBuffer[3].Position[1] = 1.0F;
+		WorldRectangleVertexBuffer[3].TextureCoords[0] = 1.0F;
+		WorldRectangleVertexBuffer[3].TextureCoords[1] = 1.0F;
+
+		WorldRectangleIndexBuffer[0] = 0;
+		WorldRectangleIndexBuffer[1] = 1;
+		WorldRectangleIndexBuffer[2] = 2;
+		WorldRectangleIndexBuffer[3] = 2;
+		WorldRectangleIndexBuffer[4] = 3;
+		WorldRectangleIndexBuffer[5] = 1;
+
+		static BatchScreenRectangleVertex ScreenRectangleVertexBuffer[4] = { 0 };
+		static int unsigned ScreenRectangleIndexBuffer[6] = { 0 };
+
+		ScreenRectangleVertexBuffer[0].Position[0] = 0.0F;
+		ScreenRectangleVertexBuffer[0].Position[1] = 0.0F;
+		ScreenRectangleVertexBuffer[0].TextureCoords[0] = 0.0F;
+		ScreenRectangleVertexBuffer[0].TextureCoords[1] = 0.0F;
+		ScreenRectangleVertexBuffer[1].Position[0] = 1.0F;
+		ScreenRectangleVertexBuffer[1].Position[1] = 0.0F;
+		ScreenRectangleVertexBuffer[1].TextureCoords[0] = 1.0F;
+		ScreenRectangleVertexBuffer[1].TextureCoords[1] = 0.0F;
+		ScreenRectangleVertexBuffer[2].Position[0] = 0.0F;
+		ScreenRectangleVertexBuffer[2].Position[1] = 1.0F;
+		ScreenRectangleVertexBuffer[2].TextureCoords[0] = 0.0F;
+		ScreenRectangleVertexBuffer[2].TextureCoords[1] = 1.0F;
+		ScreenRectangleVertexBuffer[3].Position[0] = 1.0F;
+		ScreenRectangleVertexBuffer[3].Position[1] = 1.0F;
+		ScreenRectangleVertexBuffer[3].TextureCoords[0] = 1.0F;
+		ScreenRectangleVertexBuffer[3].TextureCoords[1] = 1.0F;
+
+		ScreenRectangleIndexBuffer[0] = 0;
+		ScreenRectangleIndexBuffer[1] = 1;
+		ScreenRectangleIndexBuffer[2] = 2;
+		ScreenRectangleIndexBuffer[3] = 2;
+		ScreenRectangleIndexBuffer[4] = 3;
+		ScreenRectangleIndexBuffer[5] = 1;
+
+		VertexArray_Alloc(&Bat->WorldCircleVertexArray);
+		Buffer_VertexAlloc(&Bat->WorldCircleVertexBuffer);
+		Buffer_VertexAlloc(&Bat->WorldCircleInstanceBuffer);
+		Buffer_IndexAlloc(&Bat->WorldCircleIndexBuffer);
+
+		VertexArray_Alloc(&Bat->ScreenCircleVertexArray);
+		Buffer_VertexAlloc(&Bat->ScreenCircleVertexBuffer);
+		Buffer_VertexAlloc(&Bat->ScreenCircleInstanceBuffer);
+		Buffer_IndexAlloc(&Bat->ScreenCircleIndexBuffer);
+
+		VertexArray_Alloc(&Bat->WorldLineVertexArray);
+		Buffer_VertexAlloc(&Bat->WorldLineVertexBuffer);
+		Buffer_IndexAlloc(&Bat->WorldLineIndexBuffer);
+
+		VertexArray_Alloc(&Bat->ScreenLineVertexArray);
+		Buffer_VertexAlloc(&Bat->ScreenLineVertexBuffer);
+		Buffer_IndexAlloc(&Bat->ScreenLineIndexBuffer);
+
+		VertexArray_Alloc(&Bat->WorldRectangleVertexArray);
+		Buffer_VertexAlloc(&Bat->WorldRectangleVertexBuffer);
+		Buffer_VertexAlloc(&Bat->WorldRectangleInstanceBuffer);
+		Buffer_IndexAlloc(&Bat->WorldRectangleIndexBuffer);
+
+		VertexArray_Alloc(&Bat->ScreenRectangleVertexArray);
+		Buffer_VertexAlloc(&Bat->ScreenRectangleVertexBuffer);
+		Buffer_VertexAlloc(&Bat->ScreenRectangleInstanceBuffer);
+		Buffer_IndexAlloc(&Bat->ScreenRectangleIndexBuffer);
+
+		VertexArray_Bind(Bat->WorldCircleVertexArray);
+		Buffer_VertexBind(Bat->WorldCircleVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchWorldCircleVertex), OFFSET_OF(BatchWorldCircleVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchWorldCircleVertex), OFFSET_OF(BatchWorldCircleVertex, TextureCoords));
+		Buffer_VertexResize(3 * sizeof(BatchWorldCircleVertex), WorldCircleVertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexBind(Bat->WorldCircleInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
-		Buffer_VertexAttribPointerReal32(0, 3, sizeof(PointInstanceEntry), OFFSET_OF(PointInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(1, 1, sizeof(PointInstanceEntry), OFFSET_OF(PointInstanceEntry, Radius));
-		Buffer_VertexAttribPointerUInt32(2, 4, sizeof(PointInstanceEntry), OFFSET_OF(PointInstanceEntry, Color));
-		Buffer_VertexAttribPointerUInt32(3, 1, sizeof(PointInstanceEntry), OFFSET_OF(PointInstanceEntry, Direction));
-		Buffer_VertexAttribDivisor(0, 1);
-		Buffer_VertexAttribDivisor(0, 1);
-		Buffer_VertexAttribDivisor(1, 1);
+		Buffer_VertexEnableAttrib(4);
+		Buffer_VertexEnableAttrib(5);
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(BatchWorldCircleInstanceEntry), OFFSET_OF(BatchWorldCircleInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(3, 3, sizeof(BatchWorldCircleInstanceEntry), OFFSET_OF(BatchWorldCircleInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(4, 1, sizeof(BatchWorldCircleInstanceEntry), OFFSET_OF(BatchWorldCircleInstanceEntry, Radius));
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchWorldCircleInstanceEntry), OFFSET_OF(BatchWorldCircleInstanceEntry, Color));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
+		Buffer_VertexAttribDivisor(4, 1);
+		Buffer_VertexAttribDivisor(5, 1);
+		Buffer_VertexResize(Bat->NumWorldCircles * sizeof(BatchWorldCircleInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexBind(Bat->WorldCircleIndexBuffer);
+		Buffer_IndexResize(3 * sizeof(int unsigned), WorldCircleIndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
-		VertexArray_Alloc(&sLineVertexArray);
-		Buffer_VertexAlloc(&sLineVertexBuffer, NumLines * 2 * sizeof(LineVertex), 0, GL_DYNAMIC_DRAW);
-		Buffer_IndexAlloc(&sLineIndexBuffer, NumLines * 2 * sizeof(int unsigned), 0, GL_DYNAMIC_DRAW);
-		VertexArray_Bind(sLineVertexArray);
-		Buffer_VertexBind(sLineVertexBuffer);
+		VertexArray_Bind(Bat->ScreenCircleVertexArray);
+		Buffer_VertexBind(Bat->ScreenCircleVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchScreenCircleVertex), OFFSET_OF(BatchScreenCircleVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchScreenCircleVertex), OFFSET_OF(BatchScreenCircleVertex, TextureCoords));
+		Buffer_VertexResize(3 * sizeof(BatchScreenCircleVertex), ScreenCircleVertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexBind(Bat->ScreenCircleInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
-		Buffer_VertexAttribPointerReal32(0, 3, sizeof(LineVertex), OFFSET_OF(LineVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 1, sizeof(LineVertex), OFFSET_OF(LineVertex, Thickness));
-		Buffer_VertexAttribPointerReal32(2, 4, sizeof(LineVertex), OFFSET_OF(LineVertex, Color));
-		Buffer_VertexAttribPointerUInt32(3, 1, sizeof(LineVertex), OFFSET_OF(LineVertex, Direction));
-		Buffer_IndexBind(sLineIndexBuffer);
-		VertexArray_UnBind();
-
-		VertexArray_Alloc(&sQuadVertexArray);
-		Buffer_VertexAlloc(&sQuadInstanceBuffer, NumQuads * sizeof(QuadInstanceEntry), 0, GL_DYNAMIC_DRAW);
-		VertexArray_Bind(sQuadVertexArray);
-		Buffer_VertexBind(sQuadInstanceBuffer);
-		Buffer_VertexEnableAttrib(0);
-		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexEnableAttrib(2);
-		Buffer_VertexEnableAttrib(3);
-		Buffer_VertexAttribPointerReal32(0, 3, sizeof(QuadInstanceEntry), OFFSET_OF(QuadInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(1, 3, sizeof(QuadInstanceEntry), OFFSET_OF(QuadInstanceEntry, Size));
-		Buffer_VertexAttribPointerReal32(2, 4, sizeof(QuadInstanceEntry), OFFSET_OF(QuadInstanceEntry, Color));
-		Buffer_VertexAttribPointerUInt32(3, 1, sizeof(QuadInstanceEntry), OFFSET_OF(QuadInstanceEntry, Direction));
-		Buffer_VertexAttribDivisor(0, 1);
-		Buffer_VertexAttribDivisor(1, 1);
+		Buffer_VertexEnableAttrib(4);
+		Buffer_VertexEnableAttrib(5);
+		Buffer_VertexAttribPointerReal32(2, 2, sizeof(BatchScreenCircleInstanceEntry), OFFSET_OF(BatchScreenCircleInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(3, 1, sizeof(BatchScreenCircleInstanceEntry), OFFSET_OF(BatchScreenCircleInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(4, 1, sizeof(BatchScreenCircleInstanceEntry), OFFSET_OF(BatchScreenCircleInstanceEntry, Radius));
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchScreenCircleInstanceEntry), OFFSET_OF(BatchScreenCircleInstanceEntry, Color));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
+		Buffer_VertexAttribDivisor(4, 1);
+		Buffer_VertexAttribDivisor(5, 1);
+		Buffer_VertexResize(Bat->NumScreenCircles * sizeof(BatchScreenCircleInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexBind(Bat->ScreenCircleIndexBuffer);
+		Buffer_IndexResize(3 * sizeof(int unsigned), ScreenCircleIndexBuffer, GL_STATIC_DRAW);
+		VertexArray_UnBind();
+
+		VertexArray_Bind(Bat->WorldLineVertexArray);
+		Buffer_VertexBind(Bat->WorldLineVertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexAttribPointerReal32(0, 3, sizeof(BatchWorldLineVertex), OFFSET_OF(BatchWorldLineVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 3, sizeof(BatchWorldLineVertex), OFFSET_OF(BatchWorldLineVertex, Rotation));
+		Buffer_VertexAttribPointerReal32(2, 1, sizeof(BatchWorldLineVertex), OFFSET_OF(BatchWorldLineVertex, Thickness));
+		Buffer_VertexAttribPointerReal32(3, 4, sizeof(BatchWorldLineVertex), OFFSET_OF(BatchWorldLineVertex, Color));
+		Buffer_VertexResize(Bat->NumWorldLines * 2 * sizeof(BatchWorldLineVertex), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexBind(Bat->WorldLineIndexBuffer);
+		Buffer_IndexResize(Bat->NumWorldLines * 2 * sizeof(int unsigned), 0, GL_DYNAMIC_DRAW);
+		VertexArray_UnBind();
+
+		VertexArray_Bind(Bat->ScreenLineVertexArray);
+		Buffer_VertexBind(Bat->ScreenLineVertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchScreenLineVertex), OFFSET_OF(BatchScreenLineVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 1, sizeof(BatchScreenLineVertex), OFFSET_OF(BatchScreenLineVertex, Rotation));
+		Buffer_VertexAttribPointerReal32(2, 1, sizeof(BatchScreenLineVertex), OFFSET_OF(BatchScreenLineVertex, Thickness));
+		Buffer_VertexAttribPointerReal32(3, 4, sizeof(BatchScreenLineVertex), OFFSET_OF(BatchScreenLineVertex, Color));
+		Buffer_VertexResize(Bat->NumScreenLines * 2 * sizeof(BatchScreenLineVertex), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexBind(Bat->ScreenLineIndexBuffer);
+		Buffer_IndexResize(Bat->NumScreenLines * 2 * sizeof(int unsigned), 0, GL_DYNAMIC_DRAW);
+		VertexArray_UnBind();
+
+		VertexArray_Bind(Bat->WorldRectangleVertexArray);
+		Buffer_VertexBind(Bat->WorldRectangleVertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchWorldRectangleVertex), OFFSET_OF(BatchWorldRectangleVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchWorldRectangleVertex), OFFSET_OF(BatchWorldRectangleVertex, TextureCoords));
+		Buffer_VertexResize(4 * sizeof(BatchWorldRectangleVertex), WorldRectangleVertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexBind(Bat->WorldRectangleInstanceBuffer);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexEnableAttrib(4);
+		Buffer_VertexEnableAttrib(5);
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(BatchWorldRectangleInstanceEntry), OFFSET_OF(BatchWorldRectangleInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(3, 3, sizeof(BatchWorldRectangleInstanceEntry), OFFSET_OF(BatchWorldRectangleInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(4, 2, sizeof(BatchWorldRectangleInstanceEntry), OFFSET_OF(BatchWorldRectangleInstanceEntry, Size));
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchWorldRectangleInstanceEntry), OFFSET_OF(BatchWorldRectangleInstanceEntry, Color));
+		Buffer_VertexAttribDivisor(2, 1);
+		Buffer_VertexAttribDivisor(3, 1);
+		Buffer_VertexAttribDivisor(4, 1);
+		Buffer_VertexAttribDivisor(5, 1);
+		Buffer_VertexResize(Bat->NumWorldRectangles * sizeof(BatchWorldRectangleInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexBind(Bat->WorldRectangleIndexBuffer);
+		Buffer_IndexResize(6 * sizeof(int unsigned), WorldRectangleIndexBuffer, GL_STATIC_DRAW);
+		VertexArray_UnBind();
+
+		VertexArray_Bind(Bat->ScreenRectangleVertexArray);
+		Buffer_VertexBind(Bat->ScreenRectangleVertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchScreenRectangleVertex), OFFSET_OF(BatchScreenRectangleVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchScreenRectangleVertex), OFFSET_OF(BatchScreenRectangleVertex, TextureCoords));
+		Buffer_VertexResize(4 * sizeof(BatchScreenRectangleVertex), ScreenRectangleVertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexBind(Bat->ScreenRectangleInstanceBuffer);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexEnableAttrib(4);
+		Buffer_VertexEnableAttrib(5);
+		Buffer_VertexAttribPointerReal32(2, 2, sizeof(BatchScreenRectangleInstanceEntry), OFFSET_OF(BatchScreenRectangleInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(3, 1, sizeof(BatchScreenRectangleInstanceEntry), OFFSET_OF(BatchScreenRectangleInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(4, 2, sizeof(BatchScreenRectangleInstanceEntry), OFFSET_OF(BatchScreenRectangleInstanceEntry, Size));
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchScreenRectangleInstanceEntry), OFFSET_OF(BatchScreenRectangleInstanceEntry, Color));
+		Buffer_VertexAttribDivisor(2, 1);
+		Buffer_VertexAttribDivisor(3, 1);
+		Buffer_VertexAttribDivisor(4, 1);
+		Buffer_VertexAttribDivisor(5, 1);
+		Buffer_VertexResize(Bat->NumScreenRectangles * sizeof(BatchScreenRectangleInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexBind(Bat->ScreenRectangleIndexBuffer);
+		Buffer_IndexResize(6 * sizeof(int unsigned), ScreenRectangleIndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 	}
-	void Gizmo_BeginPoints(void)
+	void Batch_Free(Batch* Bat)
 	{
-		Buffer_VertexBind(sPointInstanceBuffer);
-		sMappedPointInstanceBuffer = (PointInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
-		sPointInstanceOffset = 0;
-	}
-	void Gizmo_DrawPoint(GizmoDir Direction, Vector3 Position, float Radius, Vector4 Color)
-	{
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Position[0] = Position[0];
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Position[1] = Position[1];
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Position[2] = Position[2];
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Radius = Radius;
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Color[0] = Color[0];
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Color[1] = Color[1];
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Color[2] = Color[2];
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Color[3] = Color[3];
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Direction = (int unsigned)Direction;
+		VertexArray_Free(Bat->WorldCircleVertexArray);
+		Buffer_Free(Bat->WorldCircleVertexBuffer);
+		Buffer_Free(Bat->WorldCircleInstanceBuffer);
+		Buffer_Free(Bat->WorldCircleIndexBuffer);
 
-		sPointInstanceOffset += 1;
-	}
-	void Gizmo_DrawPointSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
-	{
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Position[0] = PositionX;
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Position[1] = PositionY;
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Position[2] = PositionZ;
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Radius = Radius;
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Color[0] = ColorR;
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Color[1] = ColorG;
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Color[2] = ColorB;
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Color[3] = ColorA;
-		sMappedPointInstanceBuffer[sPointInstanceOffset].Direction = (int unsigned)Direction;
+		VertexArray_Free(Bat->ScreenCircleVertexArray);
+		Buffer_Free(Bat->ScreenCircleVertexBuffer);
+		Buffer_Free(Bat->ScreenCircleInstanceBuffer);
+		Buffer_Free(Bat->ScreenCircleIndexBuffer);
 
-		sPointInstanceOffset += 1;
+		VertexArray_Free(Bat->WorldLineVertexArray);
+		Buffer_Free(Bat->WorldLineVertexBuffer);
+		Buffer_Free(Bat->WorldLineIndexBuffer);
+
+		VertexArray_Free(Bat->ScreenLineVertexArray);
+		Buffer_Free(Bat->ScreenLineVertexBuffer);
+		Buffer_Free(Bat->ScreenLineIndexBuffer);
+
+		VertexArray_Free(Bat->WorldRectangleVertexArray);
+		Buffer_Free(Bat->WorldRectangleVertexBuffer);
+		Buffer_Free(Bat->WorldRectangleInstanceBuffer);
+		Buffer_Free(Bat->WorldRectangleIndexBuffer);
+
+		VertexArray_Free(Bat->ScreenRectangleVertexArray);
+		Buffer_Free(Bat->ScreenRectangleVertexBuffer);
+		Buffer_Free(Bat->ScreenRectangleInstanceBuffer);
+		Buffer_Free(Bat->ScreenRectangleIndexBuffer);
+
+		memset(Bat, 0, sizeof(Batch));
 	}
-	void Gizmo_DrawPointGrid(GizmoDir Direction, Vector3 Position, int unsigned Num, float Scale, float Radius, Vector4 Color)
+	void Batch_BeginWorldCircles(Batch* Bat)
+	{
+		sCurrBatch = Bat;
+
+		Buffer_VertexBind(sCurrBatch->WorldCircleInstanceBuffer);
+		sCurrBatch->WorldCircleInstanceOffset = 0;
+
+		sMappedWorldCircleInstanceBuffer = (BatchWorldCircleInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
+	}
+	void Batch_DrawWorldCircle(Vector3 Position, Vector3 Rotation, float Radius, Vector4 Color)
+	{
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[0] = Position[0];
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[1] = Position[1];
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[2] = Position[2];
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[0] = Rotation[0];
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[1] = Rotation[1];
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[2] = Rotation[2];
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Radius = Radius;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[0] = Color[0];
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[1] = Color[1];
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[2] = Color[2];
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[3] = Color[3];
+
+		sCurrBatch->WorldCircleInstanceOffset += 1;
+	}
+	void Batch_DrawWorldCircleSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
+	{
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[0] = PositionX;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[1] = PositionY;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[2] = PositionZ;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[0] = Pitch;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[1] = Yaw;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[2] = Roll;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Radius = Radius;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[0] = ColorR;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[1] = ColorG;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[2] = ColorB;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[3] = ColorA;
+
+		sCurrBatch->WorldCircleInstanceOffset += 1;
+	}
+	void Batch_DrawWorldCircleGrid(Vector3 Position, Vector3 Rotation, int unsigned Num, float Scale, float Radius, Vector4 Color)
 	{
 		float SizeStep = ((float)Num * Scale) / (float)Num;
 
-		for (int unsigned I = 0; I <= Num; I++)
+		for (int unsigned X = 0; X <= Num; X++)
 		{
-			for (int unsigned J = 0; J <= Num; J++)
+			for (int unsigned Y = 0; Y <= Num; Y++)
 			{
-				float StepI = (float)I * SizeStep;
-				float StepJ = (float)J * SizeStep;
+				float StepX = (float)X * SizeStep;
+				float StepY = (float)Y * SizeStep;
 
-				switch (Direction)
-				{
-				case GIZMO_DIR_XY:
-				{
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[0] = Position[0] + StepI;
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[1] = Position[1] + StepJ;
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[2] = Position[2];
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[0] = Position[0] + StepX;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[1] = Position[1] + StepY;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[2] = Position[2];
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[0] = Rotation[0];
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[1] = Rotation[1];
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[2] = Rotation[2];
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Radius = Radius;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[0] = Color[0];
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[1] = Color[1];
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[2] = Color[2];
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[3] = Color[3];
 
-					break;
-				}
-				case GIZMO_DIR_XZ:
-				{
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[0] = Position[0] + StepI;
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[1] = Position[1];
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[2] = Position[2] + StepJ;
-
-					break;
-				}
-				case GIZMO_DIR_ZY:
-				{
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[0] = Position[0];
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[1] = Position[1] + StepI;
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[2] = Position[2] + StepJ;
-
-					break;
-				}
-				}
-
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Radius = Radius;
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Color[0] = Color[0];
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Color[1] = Color[1];
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Color[2] = Color[2];
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Color[3] = Color[3];
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Direction = Direction;
-
-				sPointInstanceOffset += 1;
+				sCurrBatch->WorldCircleInstanceOffset += 1;
 			}
 		}
 	}
-	void Gizmo_DrawPointGridSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_DrawWorldCircleGridSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
 		float SizeStep = ((float)Num * Scale) / (float)Num;
 
-		for (int unsigned I = 0; I <= Num; I++)
+		for (int unsigned X = 0; X <= Num; X++)
 		{
-			for (int unsigned J = 0; J <= Num; J++)
+			for (int unsigned Y = 0; Y <= Num; Y++)
 			{
-				float StepI = (float)I * SizeStep;
-				float StepJ = (float)J * SizeStep;
+				float StepX = (float)X * SizeStep;
+				float StepY = (float)Y * SizeStep;
 
-				switch (Direction)
-				{
-				case GIZMO_DIR_XY:
-				{
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[0] = PositionX + StepI;
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[1] = PositionY + StepJ;
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[2] = PositionZ;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[0] = PositionX + StepX;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[1] = PositionY + StepY;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[2] = PositionZ;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[0] = Pitch;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[1] = Yaw;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[2] = Roll;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Radius = Radius;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[0] = ColorR;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[1] = ColorG;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[2] = ColorB;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[3] = ColorA;
 
-					break;
-				}
-				case GIZMO_DIR_XZ:
-				{
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[0] = PositionX + StepI;
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[1] = PositionY;
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[2] = PositionZ + StepJ;
-
-					break;
-				}
-				case GIZMO_DIR_ZY:
-				{
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[0] = PositionX;
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[1] = PositionY + StepI;
-					sMappedPointInstanceBuffer[sPointInstanceOffset].Position[2] = PositionZ + StepJ;
-
-					break;
-				}
-				}
-
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Radius = Radius;
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Color[0] = ColorR;
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Color[1] = ColorG;
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Color[2] = ColorB;
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Color[3] = ColorA;
-				sMappedPointInstanceBuffer[sPointInstanceOffset].Direction = Direction;
-
-				sPointInstanceOffset += 1;
+				sCurrBatch->WorldCircleInstanceOffset += 1;
 			}
 		}
 	}
-	void Gizmo_EndPoints(Matrix4 Projection, Matrix4 View)
+	void Batch_EndWorldCircles(Matrix4 Projection, Matrix4 View)
 	{
 		Buffer_VertexUnMap();
 		Buffer_VertexUnBind();
-		Shader_Bind(sPointProgram);
-		Shader_SetUniformMatrix4(sPointProgram, "ProjectionMatrix", Projection);
-		Shader_SetUniformMatrix4(sPointProgram, "ViewMatrix", View);
-		VertexArray_Bind(sPointVertexArray);
-		VertexArray_DrawPointsInstanced(1, sPointInstanceOffset);
+		Shader_Bind(sWorldCircleProgram);
+		Shader_SetUniformMatrix4(sWorldCircleProgram, "ProjectionMatrix", Projection);
+		Shader_SetUniformMatrix4(sWorldCircleProgram, "ViewMatrix", View);
+		VertexArray_Bind(sCurrBatch->WorldCircleVertexArray);
+		VertexArray_DrawTriangleStripInstanced(3, sCurrBatch->WorldCircleInstanceOffset);
 		VertexArray_UnBind();
+
+		sCurrBatch = 0;
+		sMappedWorldCircleInstanceBuffer = 0;
 	}
-	void Gizmo_BeginLines(void)
+	void Batch_BeginScreenCircles(Batch* Bat)
 	{
-		Buffer_VertexBind(sLineVertexBuffer);
-		Buffer_IndexBind(sLineIndexBuffer);
-		sMappedLineVertexBuffer = (LineVertex*)Buffer_VertexMap(GL_WRITE_ONLY);
-		sMappedLineIndexBuffer = (int unsigned*)Buffer_IndexMap(GL_WRITE_ONLY);
-		sLineVertexOffset = 0;
-		sLineIndexOffset = 0;
+		sCurrBatch = Bat;
+
+		Buffer_VertexBind(sCurrBatch->ScreenCircleInstanceBuffer);
+		sCurrBatch->ScreenCircleInstanceOffset = 0;
+
+		sMappedScreenCircleInstanceBuffer = (BatchScreenCircleInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void Gizmo_DrawLine(GizmoDir Direction, Vector3 From, Vector3 To, float Thickness, Vector4 Color)
+	void Batch_DrawScreenCircle(Vector2 Position, float Rotation, float Radius, Vector4 Color)
 	{
-		sMappedLineVertexBuffer[sLineVertexOffset].Position[0] = From[0];
-		sMappedLineVertexBuffer[sLineVertexOffset].Position[1] = From[1];
-		sMappedLineVertexBuffer[sLineVertexOffset].Position[2] = From[2];
-		sMappedLineVertexBuffer[sLineVertexOffset].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[0] = Color[0];
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[1] = Color[1];
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[2] = Color[2];
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[3] = Color[3];
-		sMappedLineVertexBuffer[sLineVertexOffset].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[0] = To[0];
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[1] = To[1];
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[2] = To[2];
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[0] = Color[0];
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[1] = Color[1];
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[2] = Color[2];
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[3] = Color[3];
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Direction = Direction;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[0] = Position[0];
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[1] = Position[1];
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[0] = Color[0];
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[1] = Color[1];
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[2] = Color[2];
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[3] = Color[3];
 
-		sMappedLineIndexBuffer[sLineIndexOffset] = sLineVertexOffset;
-		sMappedLineIndexBuffer[sLineIndexOffset + 1] = sLineVertexOffset + 1;
-
-		sLineVertexOffset += 2;
-		sLineIndexOffset += 2;
+		sCurrBatch->ScreenCircleInstanceOffset += 1;
 	}
-	void Gizmo_DrawLineSimple(GizmoDir Direction, float FromX, float FromY, float FromZ, float ToX, float ToY, float ToZ, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_DrawScreenCircleSimple(float PositionX, float PositionY, float Rotation, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
-		sMappedLineVertexBuffer[sLineVertexOffset].Position[0] = FromX;
-		sMappedLineVertexBuffer[sLineVertexOffset].Position[1] = FromY;
-		sMappedLineVertexBuffer[sLineVertexOffset].Position[2] = FromZ;
-		sMappedLineVertexBuffer[sLineVertexOffset].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[0] = ColorR;
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[1] = ColorG;
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[2] = ColorB;
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[3] = ColorA;
-		sMappedLineVertexBuffer[sLineVertexOffset].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[0] = ToX;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[1] = ToY;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[2] = ToZ;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[0] = ColorR;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[1] = ColorG;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[2] = ColorB;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[3] = ColorA;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Direction = Direction;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[0] = PositionX;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[1] = PositionY;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[0] = ColorR;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[1] = ColorG;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[2] = ColorB;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[3] = ColorA;
 
-		sMappedLineIndexBuffer[sLineIndexOffset] = sLineVertexOffset;
-		sMappedLineIndexBuffer[sLineIndexOffset + 1] = sLineVertexOffset + 1;
-
-		sLineVertexOffset += 2;
-		sLineIndexOffset += 2;
+		sCurrBatch->ScreenCircleInstanceOffset += 1;
 	}
-	void Gizmo_DrawLineRect(GizmoDir Direction, Vector3 Position, Vector3 Size, float Thickness, Vector4 Color)
+	void Batch_DrawScreenCircleGrid(Vector2 Position, float Rotation, int unsigned Num, float Scale, float Radius, Vector4 Color)
 	{
-		switch (Direction)
+		float SizeStep = ((float)Num * Scale) / (float)Num;
+
+		for (int unsigned X = 0; X <= Num; X++)
 		{
-		case GIZMO_DIR_XY:
-		{
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[0] = Position[0] + Size[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[0] = Position[0] + Size[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[0] = Position[0] + Size[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[1] = Position[1] + Size[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[0] = Position[0] + Size[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[1] = Position[1] + Size[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[1] = Position[1] + Size[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[1] = Position[1] + Size[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[2] = Position[2];
+			for (int unsigned Y = 0; Y <= Num; Y++)
+			{
+				float StepX = (float)X * SizeStep;
+				float StepY = (float)Y * SizeStep;
 
-			break;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[0] = Position[0] + StepX;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[1] = Position[1] + StepY;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[0] = Color[0];
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[1] = Color[1];
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[2] = Color[2];
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[3] = Color[3];
+
+				sCurrBatch->ScreenCircleInstanceOffset += 1;
+			}
 		}
-		case GIZMO_DIR_XZ:
-		{
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[0] = Position[0] + Size[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[0] = Position[0] + Size[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[0] = Position[0] + Size[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[2] = Position[2] + Size[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[0] = Position[0] + Size[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[2] = Position[2] + Size[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[2] = Position[2] + Size[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[2] = Position[2] + Size[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[2] = Position[2];
-
-			break;
-		}
-		case GIZMO_DIR_ZY:
-		{
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[1] = Position[1] + Size[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[1] = Position[1] + Size[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[2] = Position[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[1] = Position[1] + Size[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[2] = Position[2] + Size[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[1] = Position[1] + Size[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[2] = Position[2] + Size[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[2] = Position[2] + Size[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[2] = Position[2] + Size[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[0] = Position[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[1] = Position[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[2] = Position[2];
-
-			break;
-		}
-		}
-
-		sMappedLineVertexBuffer[sLineVertexOffset].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[0] = Color[0];
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[1] = Color[1];
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[2] = Color[2];
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[3] = Color[3];
-		sMappedLineVertexBuffer[sLineVertexOffset].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[0] = Color[0];
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[1] = Color[1];
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[2] = Color[2];
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[3] = Color[3];
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Color[0] = Color[0];
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Color[1] = Color[1];
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Color[2] = Color[2];
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Color[3] = Color[3];
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Color[0] = Color[0];
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Color[1] = Color[1];
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Color[2] = Color[2];
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Color[3] = Color[3];
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Color[0] = Color[0];
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Color[1] = Color[1];
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Color[2] = Color[2];
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Color[3] = Color[3];
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Color[0] = Color[0];
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Color[1] = Color[1];
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Color[2] = Color[2];
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Color[3] = Color[3];
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Color[0] = Color[0];
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Color[1] = Color[1];
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Color[2] = Color[2];
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Color[3] = Color[3];
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Color[0] = Color[0];
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Color[1] = Color[1];
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Color[2] = Color[2];
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Color[3] = Color[3];
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Direction = Direction;
-
-		sMappedLineIndexBuffer[sLineIndexOffset] = sLineVertexOffset;
-		sMappedLineIndexBuffer[sLineIndexOffset + 1] = sLineVertexOffset + 1;
-		sMappedLineIndexBuffer[sLineIndexOffset + 2] = sLineVertexOffset + 2;
-		sMappedLineIndexBuffer[sLineIndexOffset + 3] = sLineVertexOffset + 3;
-		sMappedLineIndexBuffer[sLineIndexOffset + 4] = sLineVertexOffset + 4;
-		sMappedLineIndexBuffer[sLineIndexOffset + 5] = sLineVertexOffset + 5;
-		sMappedLineIndexBuffer[sLineIndexOffset + 6] = sLineVertexOffset + 6;
-		sMappedLineIndexBuffer[sLineIndexOffset + 7] = sLineVertexOffset;
-
-		sLineVertexOffset += 8;
-		sLineIndexOffset += 8;
 	}
-	void Gizmo_DrawLineRectSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, float SizeX, float SizeY, float SizeZ, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_DrawScreenCircleGridSimple(float PositionX, float PositionY, float Rotation, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
-		switch (Direction)
+		float SizeStep = ((float)Num * Scale) / (float)Num;
+
+		for (int unsigned X = 0; X <= Num; X++)
 		{
-		case GIZMO_DIR_XY:
-		{
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[0] = PositionX + SizeX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[0] = PositionX + SizeX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[0] = PositionX + SizeX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[1] = PositionY + SizeY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[0] = PositionX + SizeX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[1] = PositionY + SizeY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[1] = PositionY + SizeY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[1] = PositionY + SizeY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[2] = PositionZ;
+			for (int unsigned Y = 0; Y <= Num; Y++)
+			{
+				float StepX = (float)X * SizeStep;
+				float StepY = (float)Y * SizeStep;
 
-			break;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[0] = PositionX + StepX;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[1] = PositionY + StepY;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[0] = ColorR;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[1] = ColorG;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[2] = ColorB;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[3] = ColorA;
+
+				sCurrBatch->ScreenCircleInstanceOffset += 1;
+			}
 		}
-		case GIZMO_DIR_XZ:
-		{
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[0] = PositionX + SizeX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[0] = PositionX + SizeX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[0] = PositionX + SizeX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[2] = PositionZ + SizeZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[0] = PositionX + SizeX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[2] = PositionZ + SizeZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[2] = PositionZ + SizeZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[2] = PositionZ + SizeZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[2] = PositionZ;
-
-			break;
-		}
-		case GIZMO_DIR_ZY:
-		{
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[1] = PositionY + SizeY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 1].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[1] = PositionY + SizeY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 2].Position[2] = PositionZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[1] = PositionY + SizeY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 3].Position[2] = PositionZ + SizeZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[1] = PositionY + SizeY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 4].Position[2] = PositionZ + SizeZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 5].Position[2] = PositionZ + SizeZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 6].Position[2] = PositionZ + SizeZ;
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[0] = PositionX;
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[1] = PositionY;
-			sMappedLineVertexBuffer[sLineVertexOffset + 7].Position[2] = PositionZ;
-
-			break;
-		}
-		}
-
-		sMappedLineVertexBuffer[sLineVertexOffset].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[0] = ColorR;
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[1] = ColorG;
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[2] = ColorB;
-		sMappedLineVertexBuffer[sLineVertexOffset].Color[3] = ColorA;
-		sMappedLineVertexBuffer[sLineVertexOffset].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[0] = ColorR;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[1] = ColorG;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[2] = ColorB;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Color[3] = ColorA;
-		sMappedLineVertexBuffer[sLineVertexOffset + 1].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Color[0] = ColorR;
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Color[1] = ColorG;
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Color[2] = ColorB;
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Color[3] = ColorA;
-		sMappedLineVertexBuffer[sLineVertexOffset + 2].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Color[0] = ColorR;
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Color[1] = ColorG;
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Color[2] = ColorB;
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Color[3] = ColorA;
-		sMappedLineVertexBuffer[sLineVertexOffset + 3].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Color[0] = ColorR;
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Color[1] = ColorG;
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Color[2] = ColorB;
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Color[3] = ColorA;
-		sMappedLineVertexBuffer[sLineVertexOffset + 4].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Color[0] = ColorR;
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Color[1] = ColorG;
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Color[2] = ColorB;
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Color[3] = ColorA;
-		sMappedLineVertexBuffer[sLineVertexOffset + 5].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Color[0] = ColorR;
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Color[1] = ColorG;
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Color[2] = ColorB;
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Color[3] = ColorA;
-		sMappedLineVertexBuffer[sLineVertexOffset + 6].Direction = Direction;
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Thickness = Thickness;
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Color[0] = ColorR;
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Color[1] = ColorG;
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Color[2] = ColorB;
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Color[3] = ColorA;
-		sMappedLineVertexBuffer[sLineVertexOffset + 7].Direction = Direction;
-
-		sMappedLineIndexBuffer[sLineIndexOffset] = sLineVertexOffset;
-		sMappedLineIndexBuffer[sLineIndexOffset + 1] = sLineVertexOffset + 1;
-		sMappedLineIndexBuffer[sLineIndexOffset + 2] = sLineVertexOffset + 2;
-		sMappedLineIndexBuffer[sLineIndexOffset + 3] = sLineVertexOffset + 3;
-		sMappedLineIndexBuffer[sLineIndexOffset + 4] = sLineVertexOffset + 4;
-		sMappedLineIndexBuffer[sLineIndexOffset + 5] = sLineVertexOffset + 5;
-		sMappedLineIndexBuffer[sLineIndexOffset + 6] = sLineVertexOffset + 6;
-		sMappedLineIndexBuffer[sLineIndexOffset + 7] = sLineVertexOffset;
-
-		sLineVertexOffset += 8;
-		sLineIndexOffset += 8;
 	}
-	void Gizmo_DrawLineCircle(GizmoDir Direction, Vector3 Position, int unsigned NumSegments, float Radius, float Thickness, Vector4 Color)
+	void Batch_EndScreenCircles(void)
 	{
-		int unsigned NumSegments2 = NumSegments * 2;
-		int unsigned ElementIndex = 0;
+		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
 
-		for (int unsigned SegmentIndex = 0; SegmentIndex < NumSegments; SegmentIndex++)
-		{
-			float T0 = 2.0F * PI * (float)SegmentIndex / (float)NumSegments;
-			float T1 = 2.0F * PI * (float)(SegmentIndex + 1) / (float)NumSegments;
+		Buffer_VertexUnMap();
+		Buffer_VertexUnBind();
+		Shader_Bind(sScreenCircleProgram);
+		Shader_SetUniformVector2(sScreenCircleProgram, "ScreenSize", ScreenSize);
+		VertexArray_Bind(sCurrBatch->ScreenCircleVertexArray);
+		VertexArray_DrawTriangleStripInstanced(3, sCurrBatch->ScreenCircleInstanceOffset);
+		VertexArray_UnBind();
 
-			float Theta0 = Radius * cosf(T0);
-			float Phi0 = Radius * sinf(T0);
-
-			float Theta1 = Radius * cosf(T1);
-			float Phi1 = Radius * sinf(T1);
-
-			switch (Direction)
-			{
-			case GIZMO_DIR_XY:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[0] = Position[0] + Theta0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[1] = Position[1] + Phi0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[2] = Position[2];
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[0] = Position[0] + Theta1;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[1] = Position[1] + Phi1;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[2] = Position[2];
-
-				break;
-			}
-			case GIZMO_DIR_XZ:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[0] = Position[0] + Theta0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[1] = Position[1];
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[2] = Position[2] + Phi0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[0] = Position[0] + Theta1;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[1] = Position[1];
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[2] = Position[2] + Phi1;
-
-				break;
-			}
-			case GIZMO_DIR_ZY:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[0] = Position[0];
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[1] = Position[1] + Phi0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[2] = Position[2] + Theta0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[0] = Position[0];
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[1] = Position[1] + Phi1;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[2] = Position[2] + Theta1;
-
-				break;
-			}
-			}
-
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Color[0] = Color[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Color[1] = Color[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Color[2] = Color[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Color[3] = Color[3];
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Color[0] = Color[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Color[1] = Color[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Color[2] = Color[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Color[3] = Color[3];
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Direction = Direction;
-
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex] = sLineVertexOffset + SegmentIndex;
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex + 1] = sLineVertexOffset + SegmentIndex + 1;
-
-			ElementIndex += 2;
-		}
-
-		sLineVertexOffset += NumSegments2;
-		sLineIndexOffset += NumSegments2;
+		sCurrBatch = 0;
+		sMappedScreenCircleInstanceBuffer = 0;
 	}
-	void Gizmo_DrawLineCircleSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, int unsigned NumSegments, float Radius, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_BeginWorldLines(Batch* Bat)
 	{
-		int unsigned NumSegments2 = NumSegments * 2;
-		int unsigned ElementIndex = 0;
+		sCurrBatch = Bat;
 
-		for (int unsigned SegmentIndex = 0; SegmentIndex < NumSegments; SegmentIndex++)
-		{
-			float T0 = 2.0F * PI * (float)SegmentIndex / (float)NumSegments;
-			float T1 = 2.0F * PI * (float)(SegmentIndex + 1) / (float)NumSegments;
+		Buffer_VertexBind(sCurrBatch->WorldLineVertexBuffer);
+		Buffer_IndexBind(sCurrBatch->WorldLineIndexBuffer);
+		sCurrBatch->WorldLineVertexOffset = 0;
+		sCurrBatch->WorldLineIndexOffset = 0;
 
-			float Theta0 = Radius * cosf(T0);
-			float Phi0 = Radius * sinf(T0);
-
-			float Theta1 = Radius * cosf(T1);
-			float Phi1 = Radius * sinf(T1);
-
-			switch (Direction)
-			{
-			case GIZMO_DIR_XY:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[0] = PositionX + Theta0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[1] = PositionY + Phi0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[2] = PositionZ;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[0] = PositionX + Theta1;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[1] = PositionY + Phi1;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[2] = PositionZ;
-
-				break;
-			}
-			case GIZMO_DIR_XZ:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[0] = PositionX + Theta0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[1] = PositionY;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[2] = PositionZ + Phi0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[0] = PositionX + Theta1;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[1] = PositionY;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[2] = PositionZ + Phi1;
-
-				break;
-			}
-			case GIZMO_DIR_ZY:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[0] = PositionX;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[1] = PositionY + Phi0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Position[2] = PositionZ + Theta0;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[0] = PositionX;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[1] = PositionY + Phi1;
-				sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Position[2] = PositionZ + Theta1;
-
-				break;
-			}
-			}
-
-
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Color[0] = ColorR;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Color[1] = ColorG;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Color[2] = ColorB;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Color[3] = ColorA;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Color[0] = ColorR;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Color[1] = ColorG;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Color[2] = ColorB;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Color[3] = ColorA;
-			sMappedLineVertexBuffer[sLineVertexOffset + ElementIndex + 1].Direction = Direction;
-
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex] = sLineVertexOffset + SegmentIndex;
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex + 1] = sLineVertexOffset + SegmentIndex + 1;
-
-			ElementIndex += 2;
-		}
-
-		sLineVertexOffset += NumSegments2;
-		sLineIndexOffset += NumSegments2;
+		sMappedWorldLineVertexBuffer = (BatchWorldLineVertex*)Buffer_VertexMap(GL_WRITE_ONLY);
+		sMappedWorldLineIndexBuffer = (int unsigned*)Buffer_IndexMap(GL_WRITE_ONLY);
 	}
-	void Gizmo_DrawLineGrid(GizmoDir Direction, Vector3 Position, int unsigned Num, float Scale, float Thickness, Vector4 Color)
+	void Batch_DrawWorldLine(Vector3 From, Vector3 To, Vector3 Rotation, float Thickness, Vector4 Color)
+	{
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[0] = From[0];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[1] = From[1];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[2] = From[2];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[0] = Rotation[0];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[1] = Rotation[1];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[2] = Rotation[2];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Thickness = Thickness;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[0] = Color[0];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[1] = Color[1];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[2] = Color[2];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[3] = Color[3];
+
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[0] = To[0];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[1] = To[1];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[2] = To[2];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[0] = Rotation[0];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[1] = Rotation[1];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[2] = Rotation[2];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Thickness = Thickness;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[0] = Color[0];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[1] = Color[1];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[2] = Color[2];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[3] = Color[3];
+
+		sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset] = sCurrBatch->WorldLineVertexOffset;
+		sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + 1] = sCurrBatch->WorldLineVertexOffset + 1;
+
+		sCurrBatch->WorldLineVertexOffset += 2;
+		sCurrBatch->WorldLineIndexOffset += 2;
+	}
+	void Batch_DrawWorldLineSimple(float FromX, float FromY, float FromZ, float ToX, float ToY, float ToZ, float Pitch, float Yaw, float Roll, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
+	{
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[0] = FromX;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[1] = FromY;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[2] = FromZ;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[0] = Pitch;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[1] = Yaw;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[2] = Roll;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Thickness = Thickness;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[0] = ColorR;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[1] = ColorG;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[2] = ColorB;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[3] = ColorA;
+
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[0] = ToX;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[1] = ToY;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[2] = ToZ;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[0] = Pitch;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[1] = Yaw;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[2] = Roll;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Thickness = Thickness;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[0] = ColorR;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[1] = ColorG;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[2] = ColorB;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[3] = ColorA;
+
+		sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset] = sCurrBatch->WorldLineVertexOffset;
+		sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + 1] = sCurrBatch->WorldLineVertexOffset + 1;
+
+		sCurrBatch->WorldLineVertexOffset += 2;
+		sCurrBatch->WorldLineIndexOffset += 2;
+	}
+	void Batch_DrawWorldLineGrid(Vector3 Position, Vector3 Rotation, int unsigned Num, float Scale, float Thickness, Vector4 Color)
 	{
 		int unsigned Num4 = Num * 4;
 		int unsigned SegmentIndex = 0;
 		float SizeStep = ((float)Num * Scale) / (float)Num;
 		float Size = (float)Num * Scale;
 
-		for (int unsigned LineIndex = 0; LineIndex <= Num; LineIndex++)
+		for (int unsigned I = 0; I <= Num; I++)
 		{
-			float Step = (float)LineIndex * SizeStep;
+			float Step = (float)I * SizeStep;
 
-			switch (Direction)
-			{
-			case GIZMO_DIR_XY:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[0] = Position[0] + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[1] = Position[1];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[2] = Position[2];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[0] = Position[0] + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[1] = Position[1] + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[2] = Position[2];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[0] = Position[0];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[1] = Position[1] + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[2] = Position[2];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[0] = Position[0] + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[1] = Position[1] + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[2] = Position[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[0] = Position[0] + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[1] = Position[1];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[2] = Position[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[0] = Rotation[0];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[1] = Rotation[1];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[2] = Rotation[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Thickness = Thickness;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[0] = Color[0];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[1] = Color[1];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[2] = Color[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[3] = Color[3];
 
-				break;
-			}
-			case GIZMO_DIR_XZ:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[0] = Position[0] + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[1] = Position[1];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[2] = Position[2];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[0] = Position[0] + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[1] = Position[1];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[2] = Position[2] + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[0] = Position[0];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[1] = Position[1];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[2] = Position[2] + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[0] = Position[0] + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[1] = Position[1];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[2] = Position[2] + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[0] = Position[0] + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[1] = Position[1] + Size;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[2] = Position[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[0] = Rotation[0];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[1] = Rotation[1];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[2] = Rotation[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[0] = Color[0];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[1] = Color[1];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[2] = Color[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[3] = Color[3];
 
-				break;
-			}
-			case GIZMO_DIR_ZY:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[0] = Position[0];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[1] = Position[1] + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[2] = Position[2];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[0] = Position[0];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[1] = Position[1] + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[2] = Position[2] + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[0] = Position[0];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[1] = Position[1];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[2] = Position[2] + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[0] = Position[0];
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[1] = Position[1] + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[2] = Position[2] + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[0] = Position[0];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[1] = Position[1] + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[2] = Position[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[0] = Rotation[0];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[1] = Rotation[1];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[2] = Rotation[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[0] = Color[0];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[1] = Color[1];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[2] = Color[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[3] = Color[3];
 
-				break;
-			}
-			}
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[0] = Position[0] + Size;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[1] = Position[1] + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[2] = Position[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[0] = Rotation[0];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[1] = Rotation[1];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[2] = Rotation[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[0] = Color[0];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[1] = Color[1];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[2] = Color[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[3] = Color[3];
 
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Color[0] = Color[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Color[1] = Color[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Color[2] = Color[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Color[3] = Color[3];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Color[0] = Color[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Color[1] = Color[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Color[2] = Color[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Color[3] = Color[3];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Color[0] = Color[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Color[1] = Color[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Color[2] = Color[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Color[3] = Color[3];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Color[0] = Color[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Color[1] = Color[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Color[2] = Color[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Color[3] = Color[3];
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Direction = Direction;
-
-			sMappedLineIndexBuffer[sLineIndexOffset + SegmentIndex] = sLineVertexOffset + SegmentIndex;
-			sMappedLineIndexBuffer[sLineIndexOffset + SegmentIndex + 1] = sLineVertexOffset + SegmentIndex + 1;
-			sMappedLineIndexBuffer[sLineIndexOffset + SegmentIndex + 2] = sLineVertexOffset + SegmentIndex + 2;
-			sMappedLineIndexBuffer[sLineIndexOffset + SegmentIndex + 3] = sLineVertexOffset + SegmentIndex + 3;
+			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex] = sCurrBatch->WorldLineVertexOffset + SegmentIndex;
+			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex + 1] = sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1;
+			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex + 2] = sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2;
+			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex + 3] = sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3;
 
 			SegmentIndex += 4;
 		}
 
-		sLineVertexOffset += Num4 + 4;
-		sLineIndexOffset += Num4 + 4;
+		sCurrBatch->WorldLineVertexOffset += Num4 + 4;
+		sCurrBatch->WorldLineIndexOffset += Num4 + 4;
 	}
-	void Gizmo_DrawLineGridSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_DrawWorldLineGridSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
 		int unsigned Num4 = Num * 4;
 		int unsigned SegmentIndex = 0;
 		float SizeStep = ((float)Num * Scale) / (float)Num;
 		float Size = (float)Num * Scale;
 
-		for (int unsigned LineIndex = 0; LineIndex <= Num; LineIndex++)
+		for (int unsigned I = 0; I <= Num; I++)
 		{
-			float Step = (float)LineIndex * SizeStep;
+			float Step = (float)I * SizeStep;
 
-			switch (Direction)
-			{
-			case GIZMO_DIR_XY:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[0] = PositionX + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[1] = PositionY;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[2] = PositionZ;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[0] = PositionX + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[1] = PositionY + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[2] = PositionZ;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[0] = PositionX;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[1] = PositionY + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[2] = PositionZ;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[0] = PositionX + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[1] = PositionY + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[2] = PositionZ;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[0] = PositionX + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[1] = PositionY;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[2] = PositionZ;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[0] = Pitch;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[1] = Yaw;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[2] = Roll;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Thickness = Thickness;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[0] = ColorR;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[1] = ColorG;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[2] = ColorB;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[3] = ColorA;
 
-				break;
-			}
-			case GIZMO_DIR_XZ:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[0] = PositionX + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[1] = PositionY;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[2] = PositionZ;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[0] = PositionX + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[1] = PositionY;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[2] = PositionZ + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[0] = PositionX;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[1] = PositionY;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[2] = PositionZ + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[0] = PositionX + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[1] = PositionY;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[2] = PositionZ + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[0] = PositionX + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[1] = PositionY + Size;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[2] = PositionZ;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[0] = Pitch;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[1] = Yaw;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[2] = Roll;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[0] = ColorR;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[1] = ColorG;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[2] = ColorB;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[3] = ColorA;
 
-				break;
-			}
-			case GIZMO_DIR_ZY:
-			{
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[0] = PositionX;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[1] = PositionY + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Position[2] = PositionZ;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[0] = PositionX;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[1] = PositionY + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Position[2] = PositionZ + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[0] = PositionX;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[1] = PositionY;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Position[2] = PositionZ + Step;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[0] = PositionX;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[1] = PositionY + Size;
-				sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Position[2] = PositionZ + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[0] = PositionX;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[1] = PositionY + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[2] = PositionZ;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[0] = Pitch;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[1] = Yaw;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[2] = Roll;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[0] = ColorR;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[1] = ColorG;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[2] = ColorB;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[3] = ColorA;
 
-				break;
-			}
-			}
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[0] = PositionX + Size;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[1] = PositionY + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[2] = PositionZ;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[0] = Pitch;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[1] = Yaw;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[2] = Roll;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[0] = ColorR;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[1] = ColorG;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[2] = ColorB;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[3] = ColorA;
 
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Color[0] = ColorR;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Color[1] = ColorG;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Color[2] = ColorB;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Color[3] = ColorA;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Color[0] = ColorR;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Color[1] = ColorG;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Color[2] = ColorB;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Color[3] = ColorA;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 1].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Color[0] = ColorR;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Color[1] = ColorG;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Color[2] = ColorB;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Color[3] = ColorA;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 2].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Color[0] = ColorR;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Color[1] = ColorG;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Color[2] = ColorB;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Color[3] = ColorA;
-			sMappedLineVertexBuffer[sLineVertexOffset + SegmentIndex + 3].Direction = Direction;
-
-			sMappedLineIndexBuffer[sLineIndexOffset + SegmentIndex] = sLineVertexOffset + SegmentIndex;
-			sMappedLineIndexBuffer[sLineIndexOffset + SegmentIndex + 1] = sLineVertexOffset + SegmentIndex + 1;
-			sMappedLineIndexBuffer[sLineIndexOffset + SegmentIndex + 2] = sLineVertexOffset + SegmentIndex + 2;
-			sMappedLineIndexBuffer[sLineIndexOffset + SegmentIndex + 3] = sLineVertexOffset + SegmentIndex + 3;
+			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex] = sCurrBatch->WorldLineVertexOffset + SegmentIndex;
+			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex + 1] = sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1;
+			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex + 2] = sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2;
+			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex + 3] = sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3;
 
 			SegmentIndex += 4;
 		}
 
-		sLineVertexOffset += Num4 + 4;
-		sLineIndexOffset += Num4 + 4;
+		sCurrBatch->WorldLineVertexOffset += Num4 + 4;
+		sCurrBatch->WorldLineIndexOffset += Num4 + 4;
 	}
-	void Gizmo_DrawLineBezierQuadratic(GizmoDir Direction, Vector3 From, Vector3 Ctrl, Vector3 To, int unsigned NumSegments, float Thickness, Vector4 Color)
-	{
-		int unsigned NumSegments2 = NumSegments * 2;
-		int unsigned VertexIndex = 0;
-		int unsigned ElementIndex = 0;
-
-		for (int unsigned SegmentIndex = 0; SegmentIndex < NumSegments; SegmentIndex++)
-		{
-			float T0 = (float)SegmentIndex / (float)NumSegments;
-			float T1 = (float)(SegmentIndex + 1) / (float)NumSegments;
-
-			float Theta0 = powf(1.0F - T0, 2.0F) * From[0] + 2.0F * (1.0F - T0) * T0 * Ctrl[0] + T0 * T0 * To[0];
-			float Phi0 = powf(1.0F - T0, 2.0F) * From[1] + 2.0F * (1.0F - T0) * T0 * Ctrl[1] + T0 * T0 * To[1];
-			float Chi0 = powf(1.0F - T0, 2.0F) * From[2] + 2.0F * (1.0F - T0) * T0 * Ctrl[2] + T0 * T0 * To[2];
-
-			float Theta1 = powf(1.0F - T1, 2.0F) * From[0] + 2.0F * (1.0F - T1) * T1 * Ctrl[0] + T1 * T1 * To[0];
-			float Phi1 = powf(1.0F - T1, 2.0F) * From[1] + 2.0F * (1.0F - T1) * T1 * Ctrl[1] + T1 * T1 * To[1];
-			float Chi1 = powf(1.0F - T1, 2.0F) * From[2] + 2.0F * (1.0F - T1) * T1 * Ctrl[2] + T1 * T1 * To[2];
-
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[0] = Theta0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[1] = Phi0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[2] = Chi0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[0] = Color[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[1] = Color[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[2] = Color[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[3] = Color[3];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[0] = Theta1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[1] = Phi1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[2] = Chi1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[0] = Color[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[1] = Color[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[2] = Color[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[3] = Color[3];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Direction = Direction;
-
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex] = sLineVertexOffset + VertexIndex;
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex + 1] = sLineVertexOffset + VertexIndex + 1;
-
-			VertexIndex += 2;
-			ElementIndex += 2;
-		}
-
-		sLineVertexOffset += NumSegments2;
-		sLineIndexOffset += NumSegments2;
-	}
-	void Gizmo_DrawLineBezierQuadraticSimple(GizmoDir Direction, float FromX, float FromY, float FromZ, float CtrlX, float CtrlY, float CtrlZ, float ToX, float ToY, float ToZ, int unsigned NumSegments, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
-	{
-		int unsigned NumSegments2 = NumSegments * 2;
-		int unsigned VertexIndex = 0;
-		int unsigned ElementIndex = 0;
-
-		for (int unsigned SegmentIndex = 0; SegmentIndex < NumSegments; SegmentIndex++)
-		{
-			float T0 = (float)SegmentIndex / (float)NumSegments;
-			float T1 = (float)(SegmentIndex + 1) / (float)NumSegments;
-
-			float Theta0 = powf(1.0F - T0, 2.0F) * FromX + 2.0F * (1.0F - T0) * T0 * CtrlX + T0 * T0 * ToX;
-			float Phi0 = powf(1.0F - T0, 2.0F) * FromY + 2.0F * (1.0F - T0) * T0 * CtrlY + T0 * T0 * ToY;
-			float Chi0 = powf(1.0F - T0, 2.0F) * FromZ + 2.0F * (1.0F - T0) * T0 * CtrlZ + T0 * T0 * ToZ;
-
-			float Theta1 = powf(1.0F - T1, 2.0F) * FromX + 2.0F * (1.0F - T1) * T1 * CtrlX + T1 * T1 * ToX;
-			float Phi1 = powf(1.0F - T1, 2.0F) * FromY + 2.0F * (1.0F - T1) * T1 * CtrlY + T1 * T1 * ToY;
-			float Chi1 = powf(1.0F - T1, 2.0F) * FromZ + 2.0F * (1.0F - T1) * T1 * CtrlZ + T1 * T1 * ToZ;
-
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[0] = Theta0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[1] = Phi0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[2] = Chi0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[0] = ColorR;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[1] = ColorG;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[2] = ColorB;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[3] = ColorA;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[0] = Theta1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[1] = Phi1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[2] = Chi1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[0] = ColorR;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[1] = ColorG;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[2] = ColorB;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[3] = ColorA;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Direction = Direction;
-
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex] = sLineVertexOffset + VertexIndex;
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex + 1] = sLineVertexOffset + VertexIndex + 1;
-
-			VertexIndex += 2;
-			ElementIndex += 2;
-		}
-
-		sLineVertexOffset += NumSegments2;
-		sLineIndexOffset += NumSegments2;
-	}
-	void Gizmo_DrawLineBezierCubic(GizmoDir Direction, Vector3 From, Vector3 CtrlA, Vector3 CtrlB, Vector3 To, int unsigned NumSegments, float Thickness, Vector4 Color)
-	{
-		int unsigned NumSegments2 = NumSegments * 2;
-		int unsigned VertexIndex = 0;
-		int unsigned ElementIndex = 0;
-
-		for (int unsigned SegmentIndex = 0; SegmentIndex < NumSegments; SegmentIndex++)
-		{
-			float T0 = (float)SegmentIndex / (float)NumSegments;
-			float T1 = (float)(SegmentIndex + 1) / (float)NumSegments;
-
-			float Theta0 = powf(1.0F - T0, 3.0F) * From[0] + 3.0F * powf(1.0F - T0, 2.0F) * T0 * CtrlA[0] + 3.0F * (1.0F - T0) * T0 * T0 * CtrlB[0] + T0 * T0 * T0 * To[0];
-			float Phi0 = powf(1.0F - T0, 3.0F) * From[1] + 3.0F * powf(1.0F - T0, 2.0F) * T0 * CtrlA[1] + 3.0F * (1.0F - T0) * T0 * T0 * CtrlB[1] + T0 * T0 * T0 * To[1];
-			float Chi0 = powf(1.0F - T0, 3.0F) * From[2] + 3.0F * powf(1.0F - T0, 2.0F) * T0 * CtrlA[2] + 3.0F * (1.0F - T0) * T0 * T0 * CtrlB[2] + T0 * T0 * T0 * To[2];
-
-			float Theta1 = powf(1.0F - T1, 3.0F) * From[0] + 3.0F * powf(1.0F - T1, 2.0F) * T1 * CtrlA[0] + 3.0F * (1.0F - T1) * T1 * T1 * CtrlB[0] + T1 * T1 * T1 * To[0];
-			float Phi1 = powf(1.0F - T1, 3.0F) * From[1] + 3.0F * powf(1.0F - T1, 2.0F) * T1 * CtrlA[1] + 3.0F * (1.0F - T1) * T1 * T1 * CtrlB[1] + T1 * T1 * T1 * To[1];
-			float Chi1 = powf(1.0F - T1, 3.0F) * From[2] + 3.0F * powf(1.0F - T1, 2.0F) * T1 * CtrlA[2] + 3.0F * (1.0F - T1) * T1 * T1 * CtrlB[2] + T1 * T1 * T1 * To[2];
-
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[0] = Theta0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[1] = Phi0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[2] = Chi0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[0] = Color[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[1] = Color[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[2] = Color[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[3] = Color[3];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[0] = Theta1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[1] = Phi1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[2] = Chi1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[0] = Color[0];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[1] = Color[1];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[2] = Color[2];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[3] = Color[3];
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Direction = Direction;
-
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex] = sLineVertexOffset + VertexIndex;
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex + 1] = sLineVertexOffset + VertexIndex + 1;
-
-			VertexIndex += 2;
-			ElementIndex += 2;
-		}
-
-		sLineVertexOffset += NumSegments2;
-		sLineIndexOffset += NumSegments2;
-	}
-	void Gizmo_DrawLineBezierCubicSimple(GizmoDir Direction, float FromX, float FromY, float FromZ, float CtrlAX, float CtrlAY, float CtrlAZ, float CtrlBX, float CtrlBY, float CtrlBZ, float ToX, float ToY, float ToZ, int unsigned NumSegments, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
-	{
-		int unsigned NumSegments2 = NumSegments * 2;
-		int unsigned VertexIndex = 0;
-		int unsigned ElementIndex = 0;
-
-		for (int unsigned SegmentIndex = 0; SegmentIndex < NumSegments; SegmentIndex++)
-		{
-			float T0 = (float)SegmentIndex / (float)NumSegments;
-			float T1 = (float)(SegmentIndex + 1) / (float)NumSegments;
-
-			float Theta0 = powf(1.0F - T0, 3.0F) * FromX + 3.0F * powf(1.0F - T0, 2.0F) * T0 * CtrlAX + 3.0F * (1.0F - T0) * T0 * T0 * CtrlBX + T0 * T0 * T0 * ToX;
-			float Phi0 = powf(1.0F - T0, 3.0F) * FromY + 3.0F * powf(1.0F - T0, 2.0F) * T0 * CtrlAY + 3.0F * (1.0F - T0) * T0 * T0 * CtrlBY + T0 * T0 * T0 * ToY;
-			float Chi0 = powf(1.0F - T0, 3.0F) * FromZ + 3.0F * powf(1.0F - T0, 2.0F) * T0 * CtrlAZ + 3.0F * (1.0F - T0) * T0 * T0 * CtrlBZ + T0 * T0 * T0 * ToZ;
-
-			float Theta1 = powf(1.0F - T1, 3.0F) * FromX + 3.0F * powf(1.0F - T1, 2.0F) * T1 * CtrlAX + 3.0F * (1.0F - T1) * T1 * T1 * CtrlBX + T1 * T1 * T1 * ToX;
-			float Phi1 = powf(1.0F - T1, 3.0F) * FromY + 3.0F * powf(1.0F - T1, 2.0F) * T1 * CtrlAY + 3.0F * (1.0F - T1) * T1 * T1 * CtrlBY + T1 * T1 * T1 * ToY;
-			float Chi1 = powf(1.0F - T1, 3.0F) * FromZ + 3.0F * powf(1.0F - T1, 2.0F) * T1 * CtrlAZ + 3.0F * (1.0F - T1) * T1 * T1 * CtrlBZ + T1 * T1 * T1 * ToZ;
-
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[0] = Theta0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[1] = Phi0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Position[2] = Chi0;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[0] = ColorR;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[1] = ColorG;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[2] = ColorB;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Color[3] = ColorA;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex].Direction = Direction;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[0] = Theta1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[1] = Phi1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Position[2] = Chi1;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Thickness = Thickness;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[0] = ColorR;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[1] = ColorG;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[2] = ColorB;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Color[3] = ColorA;
-			sMappedLineVertexBuffer[sLineVertexOffset + VertexIndex + 1].Direction = Direction;
-
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex] = sLineVertexOffset + VertexIndex;
-			sMappedLineIndexBuffer[sLineIndexOffset + ElementIndex + 1] = sLineVertexOffset + VertexIndex + 1;
-
-			VertexIndex += 2;
-			ElementIndex += 2;
-		}
-
-		sLineVertexOffset += NumSegments2;
-		sLineIndexOffset += NumSegments2;
-	}
-	void Gizmo_EndLines(Matrix4 Projection, Matrix4 View)
+	void Batch_EndWorldLines(Matrix4 Projection, Matrix4 View)
 	{
 		Buffer_VertexUnMap();
 		Buffer_IndexUnMap();
 		Buffer_VertexUnBind();
 		Buffer_IndexUnBind();
-		Shader_Bind(sLineProgram);
-		Shader_SetUniformMatrix4(sLineProgram, "ProjectionMatrix", Projection);
-		Shader_SetUniformMatrix4(sLineProgram, "ViewMatrix", View);
-		VertexArray_Bind(sLineVertexArray);
-		VertexArray_DrawLines(sLineIndexOffset);
+		Shader_Bind(sWorldLineProgram);
+		Shader_SetUniformMatrix4(sWorldLineProgram, "ProjectionMatrix", Projection);
+		Shader_SetUniformMatrix4(sWorldLineProgram, "ViewMatrix", View);
+		VertexArray_Bind(sCurrBatch->WorldLineVertexArray);
+		VertexArray_DrawLines(sCurrBatch->WorldLineIndexOffset);
 		VertexArray_UnBind();
-	}
-	void Gizmo_BeginQuads(void)
-	{
-		Buffer_VertexBind(sQuadInstanceBuffer);
-		sMappedQuadInstanceBuffer = (QuadInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
-		sQuadInstanceOffset = 0;
-	}
-	void Gizmo_DrawQuad(GizmoDir Direction, Vector3 Position, Vector3 Size, Vector4 Color)
-	{
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Position[0] = Position[0];
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Position[1] = Position[1];
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Position[2] = Position[2];
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Size[0] = Size[0];
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Size[1] = Size[1];
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Size[2] = Size[2];
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Color[0] = Color[0];
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Color[1] = Color[1];
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Color[2] = Color[2];
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Color[3] = Color[3];
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Direction = Direction;
 
-		sQuadInstanceOffset += 1;
+		sCurrBatch = 0;
+		sMappedWorldLineVertexBuffer = 0;
+		sMappedWorldLineIndexBuffer = 0;
 	}
-	void Gizmo_DrawQuadSimple(GizmoDir Direction, float PositionX, float PositionY, float PositionZ, float SizeX, float SizeY, float SizeZ, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_BeginScreenLines(Batch* Bat)
 	{
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Position[0] = PositionX;
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Position[1] = PositionY;
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Position[2] = PositionZ;
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Size[0] = SizeX;
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Size[1] = SizeY;
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Size[2] = SizeZ;
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Color[0] = ColorR;
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Color[1] = ColorG;
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Color[2] = ColorB;
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Color[3] = ColorA;
-		sMappedQuadInstanceBuffer[sQuadInstanceOffset].Direction = Direction;
+		sCurrBatch = Bat;
 
-		sQuadInstanceOffset += 1;
+		Buffer_VertexBind(sCurrBatch->ScreenLineVertexBuffer);
+		Buffer_IndexBind(sCurrBatch->ScreenLineIndexBuffer);
+		sCurrBatch->ScreenLineVertexOffset = 0;
+		sCurrBatch->ScreenLineIndexOffset = 0;
+
+		sMappedScreenLineVertexBuffer = (BatchScreenLineVertex*)Buffer_VertexMap(GL_WRITE_ONLY);
+		sMappedScreenLineIndexBuffer = (int unsigned*)Buffer_IndexMap(GL_WRITE_ONLY);
 	}
-	void Gizmo_EndQuads(Matrix4 Projection, Matrix4 View)
+	void Batch_DrawScreenLine(Vector2 From, Vector2 To, float Rotation, float Thickness, Vector4 Color)
+	{
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position[0] = From[0];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position[1] = From[1];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Rotation = Rotation;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Thickness = Thickness;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[0] = Color[0];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[1] = Color[1];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[2] = Color[2];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[3] = Color[3];
+
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position[0] = To[0];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position[1] = To[1];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Rotation = Rotation;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Thickness = Thickness;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[0] = Color[0];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[1] = Color[1];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[2] = Color[2];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[3] = Color[3];
+
+		sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset] = sCurrBatch->ScreenLineVertexOffset;
+		sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + 1] = sCurrBatch->ScreenLineVertexOffset + 1;
+
+		sCurrBatch->ScreenLineVertexOffset += 2;
+		sCurrBatch->ScreenLineIndexOffset += 2;
+	}
+	void Batch_DrawScreenLineSimple(float FromX, float FromY, float ToX, float ToY, float Rotation, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
+	{
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position[0] = FromX;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position[1] = FromY;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Rotation = Rotation;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Thickness = Thickness;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[0] = ColorR;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[1] = ColorG;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[2] = ColorB;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[3] = ColorA;
+
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position[0] = ToX;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position[1] = ToY;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Rotation = Rotation;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Thickness = Thickness;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[0] = ColorR;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[1] = ColorG;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[2] = ColorB;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[3] = ColorA;
+
+		sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset] = sCurrBatch->ScreenLineVertexOffset;
+		sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + 1] = sCurrBatch->ScreenLineVertexOffset + 1;
+
+		sCurrBatch->ScreenLineVertexOffset += 2;
+		sCurrBatch->ScreenLineIndexOffset += 2;
+	}
+	void Batch_DrawScreenLineGrid(Vector2 Position, float Rotation, int unsigned Num, float Scale, float Thickness, Vector4 Color)
+	{
+		int unsigned Num4 = Num * 4;
+		int unsigned SegmentIndex = 0;
+		float SizeStep = ((float)Num * Scale) / (float)Num;
+		float Size = (float)Num * Scale;
+
+		for (int unsigned I = 0; I <= Num; I++)
+		{
+			float Step = (float)I * SizeStep;
+
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position[0] = Position[0] + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position[1] = Position[1];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Rotation = Rotation;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Thickness = Thickness;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[0] = Color[0];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[1] = Color[1];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[2] = Color[2];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[3] = Color[3];
+
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position[0] = Position[0] + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position[1] = Position[1] + Size;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Rotation = Rotation;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[0] = Color[0];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[1] = Color[1];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[2] = Color[2];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[3] = Color[3];
+
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position[0] = Position[0];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position[1] = Position[1] + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Rotation = Rotation;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[0] = Color[0];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[1] = Color[1];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[2] = Color[2];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[3] = Color[3];
+
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position[0] = Position[0] + Size;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position[1] = Position[1] + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Rotation = Rotation;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[0] = Color[0];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[1] = Color[1];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[2] = Color[2];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[3] = Color[3];
+
+			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex;
+			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex + 1] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1;
+			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex + 2] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2;
+			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex + 3] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3;
+
+			SegmentIndex += 4;
+		}
+
+		sCurrBatch->ScreenLineVertexOffset += Num4 + 4;
+		sCurrBatch->ScreenLineIndexOffset += Num4 + 4;
+	}
+	void Batch_DrawScreenLineGridSimple(float PositionX, float PositionY, float Rotation, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
+	{
+		int unsigned Num4 = Num * 4;
+		int unsigned SegmentIndex = 0;
+		float SizeStep = ((float)Num * Scale) / (float)Num;
+		float Size = (float)Num * Scale;
+
+		for (int unsigned I = 0; I <= Num; I++)
+		{
+			float Step = (float)I * SizeStep;
+
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position[0] = PositionX + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position[1] = PositionY;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Rotation = Rotation;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Thickness = Thickness;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[0] = ColorR;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[1] = ColorG;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[2] = ColorB;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[3] = ColorA;
+
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position[0] = PositionX + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position[1] = PositionY + Size;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Rotation = Rotation;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[0] = ColorR;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[1] = ColorG;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[2] = ColorB;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[3] = ColorA;
+
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position[0] = PositionX;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position[1] = PositionY + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Rotation = Rotation;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[0] = ColorR;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[1] = ColorG;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[2] = ColorB;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[3] = ColorA;
+
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position[0] = PositionX + Size;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position[1] = PositionY + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Rotation = Rotation;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[0] = ColorR;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[1] = ColorG;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[2] = ColorB;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[3] = ColorA;
+
+			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex;
+			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex + 1] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1;
+			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex + 2] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2;
+			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex + 3] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3;
+
+			SegmentIndex += 4;
+		}
+
+		sCurrBatch->ScreenLineVertexOffset += Num4 + 4;
+		sCurrBatch->ScreenLineIndexOffset += Num4 + 4;
+	}
+	void Batch_EndScreenLines(void)
+	{
+		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
+
+		Buffer_VertexUnMap();
+		Buffer_IndexUnMap();
+		Buffer_VertexUnBind();
+		Buffer_IndexUnBind();
+		Shader_Bind(sScreenLineProgram);
+		Shader_SetUniformVector2(sScreenLineProgram, "ScreenSize", ScreenSize);
+		VertexArray_Bind(sCurrBatch->ScreenLineVertexArray);
+		VertexArray_DrawLines(sCurrBatch->ScreenLineIndexOffset);
+		VertexArray_UnBind();
+
+		sCurrBatch = 0;
+		sMappedScreenLineVertexBuffer = 0;
+		sMappedScreenLineIndexBuffer = 0;
+	}
+	void Batch_BeginWorldRectangles(Batch* Bat)
+	{
+		sCurrBatch = Bat;
+
+		Buffer_VertexBind(sCurrBatch->WorldRectangleInstanceBuffer);
+		sCurrBatch->WorldRectangleInstanceOffset = 0;
+
+		sMappedWorldRectangleInstanceBuffer = (BatchWorldRectangleInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
+	}
+	void Batch_DrawWorldRectangle(Vector3 Position, Vector3 Rotation, Vector2 Size, Vector4 Color)
+	{
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[0] = Position[0];
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[1] = Position[1];
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[2] = Position[2];
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[0] = Rotation[0];
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[1] = Rotation[1];
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[2] = Rotation[2];
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Size[0] = Size[0];
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Size[1] = Size[1];
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[0] = Color[0];
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[1] = Color[1];
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[2] = Color[2];
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[3] = Color[3];
+
+		sCurrBatch->WorldRectangleInstanceOffset += 1;
+	}
+	void Batch_DrawWorldRectangleSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA)
+	{
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[0] = PositionX;
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[1] = PositionY;
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[2] = PositionZ;
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[0] = Pitch;
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[1] = Yaw;
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[2] = Roll;
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Size[0] = SizeX;
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Size[1] = SizeY;
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[0] = ColorR;
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[1] = ColorG;
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[2] = ColorB;
+		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[3] = ColorA;
+
+		sCurrBatch->WorldRectangleInstanceOffset += 1;
+	}
+	void Batch_EndWorldRectangles(Matrix4 Projection, Matrix4 View)
 	{
 		Buffer_VertexUnMap();
 		Buffer_VertexUnBind();
-		Shader_Bind(sQuadProgram);
-		Shader_SetUniformMatrix4(sQuadProgram, "ProjectionMatrix", Projection);
-		Shader_SetUniformMatrix4(sQuadProgram, "ViewMatrix", View);
-		VertexArray_Bind(sQuadVertexArray);
-		VertexArray_DrawPointsInstanced(1, sQuadInstanceOffset);
+		Shader_Bind(sWorldRectangleProgram);
+		Shader_SetUniformMatrix4(sWorldRectangleProgram, "ProjectionMatrix", Projection);
+		Shader_SetUniformMatrix4(sWorldRectangleProgram, "ViewMatrix", View);
+		VertexArray_Bind(sCurrBatch->WorldRectangleVertexArray);
+		VertexArray_DrawTriangleStripInstanced(4, sCurrBatch->WorldRectangleInstanceOffset);
 		VertexArray_UnBind();
+
+		sCurrBatch = 0;
+		sMappedWorldRectangleInstanceBuffer = 0;
 	}
-	void Gizmo_Free(void)
+	void Batch_BeginScreenRectangles(Batch* Bat)
 	{
-		Buffer_Free(sPointInstanceBuffer);
-		Buffer_Free(sLineVertexBuffer);
-		Buffer_Free(sLineIndexBuffer);
-		Buffer_Free(sQuadInstanceBuffer);
-		VertexArray_Free(sPointVertexArray);
-		VertexArray_Free(sLineVertexArray);
-		VertexArray_Free(sQuadVertexArray);
-		Shader_Free(sPointProgram);
-		Shader_Free(sLineProgram);
-		Shader_Free(sQuadProgram);
+		sCurrBatch = Bat;
+
+		Buffer_VertexBind(sCurrBatch->ScreenRectangleInstanceBuffer);
+		sCurrBatch->ScreenRectangleInstanceOffset = 0;
+
+		sMappedScreenRectangleInstanceBuffer = (BatchScreenRectangleInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
+	}
+	void Batch_DrawScreenRectangle(Vector2 Position, float Rotation, Vector2 Size, Vector4 Color)
+	{
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Position[0] = Position[0];
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Position[1] = Position[1];
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Rotation = Rotation;
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Size[0] = Size[0];
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Size[1] = Size[1];
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[0] = Color[0];
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[1] = Color[1];
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[2] = Color[2];
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[3] = Color[3];
+
+		sCurrBatch->ScreenRectangleInstanceOffset += 1;
+	}
+	void Batch_DrawScreenRectangleSimple(float PositionX, float PositionY, float Rotation, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA)
+	{
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Position[0] = PositionX;
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Position[1] = PositionY;
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Rotation = Rotation;
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Size[0] = SizeX;
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Size[1] = SizeY;
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[0] = ColorR;
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[1] = ColorG;
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[2] = ColorB;
+		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[3] = ColorA;
+
+		sCurrBatch->ScreenRectangleInstanceOffset += 1;
+	}
+	void Batch_EndScreenRectangles()
+	{
+		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
+
+		Buffer_VertexUnMap();
+		Buffer_VertexUnBind();
+		Shader_Bind(sScreenRectangleProgram);
+		Shader_SetUniformVector2(sScreenRectangleProgram, "ScreenSize", ScreenSize);
+		VertexArray_Bind(sCurrBatch->ScreenRectangleVertexArray);
+		VertexArray_DrawTriangleStripInstanced(4, sCurrBatch->ScreenRectangleInstanceOffset);
+		VertexArray_UnBind();
+
+		sCurrBatch = 0;
+		sMappedScreenRectangleInstanceBuffer = 0;
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -7924,13 +8327,13 @@ extern "C"
 		sAllocatedFonts += 1;
 #endif // FAST_GL_REFERENCE_COUNT
 	}
-	Glyph* Font_GlyphByGlyphIndex(Font* Fnt, short unsigned GlyphIndex)
+	FontGlyph* Font_GlyphByGlyphIndex(Font* Fnt, short unsigned GlyphIndex)
 	{
 		return &Fnt->Glyphs[GlyphIndex];
 	}
-	Glyph* Font_GlyphByUnicode(Font* Fnt, int unsigned Unicode)
+	FontGlyph* Font_GlyphByUnicode(Font* Fnt, int unsigned Unicode)
 	{
-		return *(Glyph**)HashMap_At(&Fnt->GlyphMapping, &Unicode, sizeof(int unsigned));
+		return *(FontGlyph**)HashMap_At(&Fnt->GlyphMapping, &Unicode, sizeof(int unsigned));
 	}
 	float Font_LineHeight(Font* Fnt)
 	{
@@ -7958,12 +8361,20 @@ extern "C"
 		HashMap_Free(&Fnt->GlyphMapping);
 		Vector_Free(&Fnt->BezierOffsets);
 		Vector_Free(&Fnt->BezierCurves);
-		Buffer_Free(Fnt->GlyphVertexBuffer);
-		Buffer_Free(Fnt->GlyphInstanceBuffer);
-		Buffer_Free(Fnt->GlyphIndexBuffer);
+
+		VertexArray_Free(Fnt->WorldGlyphVertexArray);
+		Buffer_Free(Fnt->WorldGlyphVertexBuffer);
+		Buffer_Free(Fnt->WorldGlyphInstanceBuffer);
+		Buffer_Free(Fnt->WorldGlyphIndexBuffer);
+
+		VertexArray_Free(Fnt->ScreenGlyphVertexArray);
+		Buffer_Free(Fnt->ScreenGlyphVertexBuffer);
+		Buffer_Free(Fnt->ScreenGlyphInstanceBuffer);
+		Buffer_Free(Fnt->ScreenGlyphIndexBuffer);
+
 		Buffer_Free(Fnt->BezierOffsetBuffer);
 		Buffer_Free(Fnt->BezierCurveBuffer);
-		VertexArray_Free(Fnt->GlyphVertexArray);
+
 		Memory_Free(Fnt->GlyphOffsets);
 		Memory_Free(Fnt->Glyphs);
 
@@ -7972,6 +8383,10 @@ extern "C"
 #ifdef FAST_GL_REFERENCE_COUNT
 		sAllocatedFonts -= 1;
 #endif // FAST_GL_REFERENCE_COUNT
+	}
+	Font* Font_GetDefault(void)
+	{
+		return &sDefaultFont;
 	}
 	void Font_AllocInternal(Font* Fnt, int unsigned NumChars, char unsigned* Buffer, int unsigned BufferSize)
 	{
@@ -8144,11 +8559,11 @@ extern "C"
 
 		Fnt->Width = (int unsigned)(Fnt->HeadTable.MaxX - Fnt->HeadTable.MinX);
 		Fnt->Height = (int unsigned)(Fnt->HeadTable.MaxY - Fnt->HeadTable.MinY);
-		Fnt->Glyphs = (Glyph*)Memory_Alloc(NumGlyphs * sizeof(Glyph), 0);
+		Fnt->Glyphs = (FontGlyph*)Memory_Alloc(NumGlyphs * sizeof(FontGlyph), 0);
 		Fnt->GlyphOffsets = (int unsigned*)Memory_Alloc(NumGlyphs * sizeof(int unsigned), 0);
 
-		Vector_Alloc(&Fnt->BezierOffsets, sizeof(BezierOffsetEntry));
-		Vector_Alloc(&Fnt->BezierCurves, sizeof(BezierCurveEntry));
+		Vector_Alloc(&Fnt->BezierOffsets, sizeof(FontBezierOffsetEntry));
+		Vector_Alloc(&Fnt->BezierCurves, sizeof(FontBezierCurveEntry));
 
 		for (short unsigned GlyphIndex = 0; GlyphIndex < NumGlyphs; GlyphIndex++)
 		{
@@ -8164,13 +8579,13 @@ extern "C"
 			}
 		}
 
-		BezierOffsetEntry CurrBezierOffset = { 0 };
+		FontBezierOffsetEntry CurrBezierOffset = { 0 };
 
 		for (short unsigned GlyphIndex = 0; GlyphIndex < NumGlyphs; GlyphIndex++)
 		{
-			Glyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
+			FontGlyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
 
-			memset(CurrGlyph, 0, sizeof(Glyph));
+			memset(CurrGlyph, 0, sizeof(FontGlyph));
 
 			Font_ReadGlyphInternal(Fnt, &Reader, GlyphIndex, CurrGlyph);
 			Font_CreateBezierInternal(Fnt, CurrGlyph);
@@ -8185,40 +8600,70 @@ extern "C"
 
 		Font_UnicodeToGlyphMappingsInternal(Fnt, &Reader);
 
-		static GlyphVertex VertexBuffer[4] = { 0 };
-		static int unsigned IndexBuffer[6] = { 0 };
+		static FontWorldGlyphVertex WorldVertexBuffer[4] = { 0 };
+		static int unsigned WorldIndexBuffer[6] = { 0 };
 
-		VertexBuffer[0].Position[0] = 0.0F;
-		VertexBuffer[0].Position[1] = 0.0F;
-		VertexBuffer[0].Index = 0;
-		VertexBuffer[1].Position[0] = 1.0F;
-		VertexBuffer[1].Position[1] = 0.0F;
-		VertexBuffer[1].Index = 1;
-		VertexBuffer[2].Position[0] = 0.0F;
-		VertexBuffer[2].Position[1] = 1.0F;
-		VertexBuffer[2].Index = 2;
-		VertexBuffer[3].Position[0] = 1.0F;
-		VertexBuffer[3].Position[1] = 1.0F;
-		VertexBuffer[3].Index = 3;
+		WorldVertexBuffer[0].Position[0] = 0.0F;
+		WorldVertexBuffer[0].Position[1] = 0.0F;
+		WorldVertexBuffer[0].Index = 0;
+		WorldVertexBuffer[1].Position[0] = 1.0F;
+		WorldVertexBuffer[1].Position[1] = 0.0F;
+		WorldVertexBuffer[1].Index = 1;
+		WorldVertexBuffer[2].Position[0] = 0.0F;
+		WorldVertexBuffer[2].Position[1] = 1.0F;
+		WorldVertexBuffer[2].Index = 2;
+		WorldVertexBuffer[3].Position[0] = 1.0F;
+		WorldVertexBuffer[3].Position[1] = 1.0F;
+		WorldVertexBuffer[3].Index = 3;
 
-		IndexBuffer[0] = 0;
-		IndexBuffer[1] = 1;
-		IndexBuffer[2] = 2;
-		IndexBuffer[3] = 2;
-		IndexBuffer[4] = 3;
-		IndexBuffer[5] = 1;
+		WorldIndexBuffer[0] = 0;
+		WorldIndexBuffer[1] = 1;
+		WorldIndexBuffer[2] = 2;
+		WorldIndexBuffer[3] = 2;
+		WorldIndexBuffer[4] = 3;
+		WorldIndexBuffer[5] = 1;
 
-		VertexArray_Alloc(&Fnt->GlyphVertexArray);
-		Buffer_VertexAlloc(&Fnt->GlyphVertexBuffer, 4 * sizeof(GlyphVertex), VertexBuffer, GL_STATIC_DRAW);
-		Buffer_VertexAlloc(&Fnt->GlyphInstanceBuffer, NumChars * sizeof(GlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
-		Buffer_IndexAlloc(&Fnt->GlyphIndexBuffer, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
-		VertexArray_Bind(Fnt->GlyphVertexArray);
-		Buffer_VertexBind(Fnt->GlyphVertexBuffer);
+		static FontScreenGlyphVertex ScreenVertexBuffer[4] = { 0 };
+		static int unsigned ScreenIndexBuffer[6] = { 0 };
+
+		ScreenVertexBuffer[0].Position[0] = 0.0F;
+		ScreenVertexBuffer[0].Position[1] = 0.0F;
+		ScreenVertexBuffer[0].Index = 0;
+		ScreenVertexBuffer[1].Position[0] = 1.0F;
+		ScreenVertexBuffer[1].Position[1] = 0.0F;
+		ScreenVertexBuffer[1].Index = 1;
+		ScreenVertexBuffer[2].Position[0] = 0.0F;
+		ScreenVertexBuffer[2].Position[1] = 1.0F;
+		ScreenVertexBuffer[2].Index = 2;
+		ScreenVertexBuffer[3].Position[0] = 1.0F;
+		ScreenVertexBuffer[3].Position[1] = 1.0F;
+		ScreenVertexBuffer[3].Index = 3;
+
+		ScreenIndexBuffer[0] = 0;
+		ScreenIndexBuffer[1] = 1;
+		ScreenIndexBuffer[2] = 2;
+		ScreenIndexBuffer[3] = 2;
+		ScreenIndexBuffer[4] = 3;
+		ScreenIndexBuffer[5] = 1;
+
+		VertexArray_Alloc(&Fnt->WorldGlyphVertexArray);
+		Buffer_VertexAlloc(&Fnt->WorldGlyphVertexBuffer);
+		Buffer_VertexAlloc(&Fnt->WorldGlyphInstanceBuffer);
+		Buffer_IndexAlloc(&Fnt->WorldGlyphIndexBuffer);
+
+		VertexArray_Alloc(&Fnt->ScreenGlyphVertexArray);
+		Buffer_VertexAlloc(&Fnt->ScreenGlyphVertexBuffer);
+		Buffer_VertexAlloc(&Fnt->ScreenGlyphInstanceBuffer);
+		Buffer_IndexAlloc(&Fnt->ScreenGlyphIndexBuffer);
+
+		VertexArray_Bind(Fnt->WorldGlyphVertexArray);
+		Buffer_VertexBind(Fnt->WorldGlyphVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(GlyphVertex), OFFSET_OF(GlyphVertex, Position));
-		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(GlyphVertex), OFFSET_OF(GlyphVertex, Index));
-		Buffer_VertexBind(Fnt->GlyphInstanceBuffer);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontWorldGlyphVertex), OFFSET_OF(FontWorldGlyphVertex, Position));
+		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontWorldGlyphVertex), OFFSET_OF(FontWorldGlyphVertex, Index));
+		Buffer_VertexResize(4 * sizeof(FontWorldGlyphVertex), WorldVertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexBind(Fnt->WorldGlyphInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
 		Buffer_VertexEnableAttrib(4);
@@ -8230,19 +8675,17 @@ extern "C"
 		Buffer_VertexEnableAttrib(10);
 		Buffer_VertexEnableAttrib(11);
 		Buffer_VertexEnableAttrib(12);
-		Buffer_VertexEnableAttrib(13);
-		Buffer_VertexAttribPointerUInt32(2, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Space));
-		Buffer_VertexAttribPointerReal32(3, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Pivot));
-		Buffer_VertexAttribPointerReal32(4, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(5, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(6, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Scale));
-		Buffer_VertexAttribPointerReal32(7, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Bearing));
-		Buffer_VertexAttribPointerReal32(8, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, UnitsPerEm));
-		Buffer_VertexAttribPointerReal32(9, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, FontSize));
-		Buffer_VertexAttribPointerReal32(10, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, GlyphSize));
-		Buffer_VertexAttribPointerReal32(11, 4, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Color));
-		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, GlyphIndex));
-		Buffer_VertexAttribPointerUInt32(13, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(3, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(4, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Scale));
+		Buffer_VertexAttribPointerReal32(6, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(8, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(9, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(10, 4, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, LineHeight));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -8254,8 +8697,55 @@ extern "C"
 		Buffer_VertexAttribDivisor(10, 1);
 		Buffer_VertexAttribDivisor(11, 1);
 		Buffer_VertexAttribDivisor(12, 1);
-		Buffer_VertexAttribDivisor(13, 1);
-		Buffer_IndexBind(Fnt->GlyphIndexBuffer);
+		Buffer_VertexResize(NumChars * sizeof(FontWorldGlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexBind(Fnt->WorldGlyphIndexBuffer);
+		Buffer_IndexResize(6 * sizeof(int unsigned), WorldIndexBuffer, GL_STATIC_DRAW);
+		VertexArray_UnBind();
+
+		VertexArray_Bind(Fnt->ScreenGlyphVertexArray);
+		Buffer_VertexBind(Fnt->ScreenGlyphVertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontScreenGlyphVertex), OFFSET_OF(FontScreenGlyphVertex, Position));
+		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontScreenGlyphVertex), OFFSET_OF(FontScreenGlyphVertex, Index));
+		Buffer_VertexResize(4 * sizeof(FontScreenGlyphVertex), ScreenVertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexBind(Fnt->ScreenGlyphInstanceBuffer);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexEnableAttrib(4);
+		Buffer_VertexEnableAttrib(5);
+		Buffer_VertexEnableAttrib(6);
+		Buffer_VertexEnableAttrib(7);
+		Buffer_VertexEnableAttrib(8);
+		Buffer_VertexEnableAttrib(9);
+		Buffer_VertexEnableAttrib(10);
+		Buffer_VertexEnableAttrib(11);
+		Buffer_VertexEnableAttrib(12);
+		Buffer_VertexAttribPointerReal32(2, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(3, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(4, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Scale));
+		Buffer_VertexAttribPointerReal32(6, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(8, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(9, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(10, 4, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribDivisor(2, 1);
+		Buffer_VertexAttribDivisor(3, 1);
+		Buffer_VertexAttribDivisor(4, 1);
+		Buffer_VertexAttribDivisor(5, 1);
+		Buffer_VertexAttribDivisor(6, 1);
+		Buffer_VertexAttribDivisor(7, 1);
+		Buffer_VertexAttribDivisor(8, 1);
+		Buffer_VertexAttribDivisor(9, 1);
+		Buffer_VertexAttribDivisor(10, 1);
+		Buffer_VertexAttribDivisor(11, 1);
+		Buffer_VertexAttribDivisor(12, 1);
+		Buffer_VertexResize(NumChars * sizeof(FontScreenGlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexBind(Fnt->ScreenGlyphIndexBuffer);
+		Buffer_IndexResize(6 * sizeof(int unsigned), ScreenIndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
 		void* BezierOffsetBuffer = Vector_Buffer(&Fnt->BezierOffsets);
@@ -8263,10 +8753,10 @@ extern "C"
 		long long unsigned NumBezierOffsets = Vector_Num(&Fnt->BezierOffsets);
 		long long unsigned NumBezierCurves = Vector_Num(&Fnt->BezierCurves);
 
-		Buffer_StorageAlloc(&Fnt->BezierOffsetBuffer, NumBezierOffsets * sizeof(BezierOffsetEntry), BezierOffsetBuffer, GL_STATIC_DRAW);
-		Buffer_StorageAlloc(&Fnt->BezierCurveBuffer, NumBezierCurves * sizeof(BezierCurveEntry), BezierCurveBuffer, GL_STATIC_DRAW);
+		Buffer_StorageAllocSimple(&Fnt->BezierOffsetBuffer, NumBezierOffsets * sizeof(FontBezierOffsetEntry), BezierOffsetBuffer, GL_STATIC_DRAW);
+		Buffer_StorageAllocSimple(&Fnt->BezierCurveBuffer, NumBezierCurves * sizeof(FontBezierCurveEntry), BezierCurveBuffer, GL_STATIC_DRAW);
 	}
-	void Font_ReadGlyphInternal(Font* Fnt, FileReader* Reader, short unsigned GlyphIndex, Glyph* Result)
+	void Font_ReadGlyphInternal(Font* Fnt, FileReader* Reader, short unsigned GlyphIndex, FontGlyph* Result)
 	{
 		FileReader_SeekAbs(Reader, Fnt->GlyphOffsets[GlyphIndex]);
 
@@ -8287,7 +8777,7 @@ extern "C"
 			Font_ReadSimpleGlyphInternal(Fnt, Reader, Result);
 		}
 	}
-	void Font_ReadSimpleGlyphInternal(Font* Fnt, FileReader* Reader, Glyph* Result)
+	void Font_ReadSimpleGlyphInternal(Font* Fnt, FileReader* Reader, FontGlyph* Result)
 	{
 		UNREFERENCED_PARAMETER(Fnt);
 
@@ -8300,7 +8790,7 @@ extern "C"
 		FileReader_ReadUInt16Array(Reader, true, Result->ContourEndIndices, (int unsigned)Result->NumContours);
 
 		Result->NumPoints = Result->ContourEndIndices[Result->NumContours - 1U] + 1U;
-		Result->Points = (GlyphPoint*)Memory_Alloc(Result->NumPoints * sizeof(GlyphPoint), 0);
+		Result->Points = (FontGlyphPoint*)Memory_Alloc(Result->NumPoints * sizeof(FontGlyphPoint), 0);
 		Result->Flags = (char unsigned*)Memory_Alloc(Result->NumPoints, 0);
 
 		Result->NumInstructions = FileReader_ReadUInt16(Reader, true);
@@ -8361,7 +8851,7 @@ extern "C"
 			Result->Points[PointIndex].OnCurve = IS_BIT_SET(Flag, ON_CURVE_POINT_BIT);
 		}
 	}
-	void Font_ReadCompoundGlyphInternal(Font* Fnt, FileReader* Reader, short unsigned GlyphIndex, Glyph* Result)
+	void Font_ReadCompoundGlyphInternal(Font* Fnt, FileReader* Reader, short unsigned GlyphIndex, FontGlyph* Result)
 	{
 		UNREFERENCED_PARAMETER(GlyphIndex);
 
@@ -8441,7 +8931,7 @@ extern "C"
 			}
 
 			int unsigned StoredLocation = FileReader_Offset(Reader);
-			Glyph ResultGlyph = { 0 };
+			FontGlyph ResultGlyph = { 0 };
 			Font_ReadGlyphInternal(Fnt, Reader, NewGlyphIndex, &ResultGlyph);
 			FileReader_SeekAbs(Reader, StoredLocation);
 
@@ -8460,14 +8950,14 @@ extern "C"
 			short unsigned NumPoints = (short unsigned)(Result->NumPoints + ResultGlyph.NumPoints);
 
 			Result->ContourEndIndices = (short unsigned*)Memory_Realloc(Result->ContourEndIndices, NumContours * sizeof(short unsigned));
-			Result->Points = (GlyphPoint*)Memory_Realloc(Result->Points, NumPoints * sizeof(GlyphPoint));
+			Result->Points = (FontGlyphPoint*)Memory_Realloc(Result->Points, NumPoints * sizeof(FontGlyphPoint));
 
 			for (short unsigned ContourIndex = 0; ContourIndex < ResultGlyph.NumContours; ContourIndex++)
 			{
 				Result->ContourEndIndices[Result->NumContours + ContourIndex] = (short unsigned)(Result->NumPoints + ResultGlyph.ContourEndIndices[ContourIndex]);
 			}
 
-			memcpy(&Result->Points[Result->NumPoints], ResultGlyph.Points, ResultGlyph.NumPoints * sizeof(GlyphPoint));
+			memcpy(&Result->Points[Result->NumPoints], ResultGlyph.Points, ResultGlyph.NumPoints * sizeof(FontGlyphPoint));
 
 			Result->NumContours = (short)NumContours;
 			Result->NumPoints = NumPoints;
@@ -8501,7 +8991,7 @@ extern "C"
 		{
 			short unsigned GlyphIndex = MetricIndex;
 
-			Glyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
+			FontGlyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
 
 			short unsigned AdvanceWidth = FileReader_ReadUInt16(Reader, true);
 			short LeftSideBearing = FileReader_ReadInt16(Reader, true);
@@ -8520,7 +9010,7 @@ extern "C"
 		{
 			short unsigned GlyphIndex = (short unsigned)(NumLongHorMetrics + RemIndex);
 
-			Glyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
+			FontGlyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
 
 			short LeftSideBearing = FileReader_ReadInt16(Reader, true);
 			short TopSideBearing = CurrGlyph->MinY + (CurrGlyph->MaxY - CurrGlyph->MinY);
@@ -8607,7 +9097,7 @@ extern "C"
 			short unsigned* IDDeltas = (short unsigned*)Memory_Alloc(NumSeg * sizeof(short unsigned), 0);
 			FileReader_ReadUInt16Array(Reader, true, IDDeltas, NumSeg);
 
-			IDRangeOffsetMap* IDRangeOffsets = (IDRangeOffsetMap*)Memory_Alloc(NumSeg * sizeof(IDRangeOffsetMap), 0);
+			FontIDRangeOffsetMap* IDRangeOffsets = (FontIDRangeOffsetMap*)Memory_Alloc(NumSeg * sizeof(FontIDRangeOffsetMap), 0);
 
 			for (short unsigned SegmentIndex = 0; SegmentIndex < NumSeg; SegmentIndex++)
 			{
@@ -8652,8 +9142,8 @@ extern "C"
 						FileReader_SeekAbs(Reader, StoredLocation);
 					}
 
-					Glyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
-					HashMap_Insert(&Fnt->GlyphMapping, &Unicode, sizeof(int unsigned), &CurrGlyph, sizeof(Glyph*));
+					FontGlyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
+					HashMap_Insert(&Fnt->GlyphMapping, &Unicode, sizeof(int unsigned), &CurrGlyph, sizeof(FontGlyph*));
 
 					HasMissingGlyphs |= GlyphIndex == 0;
 					CurrCode++;
@@ -8690,8 +9180,8 @@ extern "C"
 					short unsigned GlyphIndex = (short unsigned)(StartGlyphCode + CharIndex);
 					int unsigned Unicode = StartCharCode + CharIndex;
 
-					Glyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
-					HashMap_Insert(&Fnt->GlyphMapping, &Unicode, sizeof(int unsigned), &CurrGlyph, sizeof(Glyph*));
+					FontGlyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
+					HashMap_Insert(&Fnt->GlyphMapping, &Unicode, sizeof(int unsigned), &CurrGlyph, sizeof(FontGlyph*));
 
 					HasMissingGlyphs |= GlyphIndex == 0;
 				}
@@ -8706,16 +9196,16 @@ extern "C"
 			short unsigned GlyphIndex = 0;
 			int unsigned Unicode = 0xFFFF;
 
-			Glyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
-			HashMap_Insert(&Fnt->GlyphMapping, &Unicode, sizeof(int unsigned), &CurrGlyph, sizeof(Glyph*));
+			FontGlyph* CurrGlyph = &Fnt->Glyphs[GlyphIndex];
+			HashMap_Insert(&Fnt->GlyphMapping, &Unicode, sizeof(int unsigned), &CurrGlyph, sizeof(FontGlyph*));
 		}
 	}
-	void Font_CreateBezierInternal(Font* Fnt, Glyph* Glyph)
+	void Font_CreateBezierInternal(Font* Fnt, FontGlyph* Glyph)
 	{
-		Vector_Alloc(&Glyph->PointOffsets, sizeof(PointOffsetEntry));
+		Vector_Alloc(&Glyph->PointOffsets, sizeof(FontPointOffsetEntry));
 		Vector_Alloc(&Glyph->BezierPoints, sizeof(Vector2));
-		Vector_Alloc(&Glyph->BezierOffsets, sizeof(BezierOffsetEntry));
-		Vector_Alloc(&Glyph->BezierCurves, sizeof(BezierCurveEntry));
+		Vector_Alloc(&Glyph->BezierOffsets, sizeof(FontBezierOffsetEntry));
+		Vector_Alloc(&Glyph->BezierCurves, sizeof(FontBezierCurveEntry));
 
 		Vector CollectedPoints = { 0 };
 		Vector_Alloc(&CollectedPoints, sizeof(Vector2));
@@ -8723,8 +9213,8 @@ extern "C"
 		short unsigned UnitsPerEm = Fnt->HeadTable.UnitsPerEm;
 		short unsigned ContourStartIndex = 0;
 
-		PointOffsetEntry CurrPointOffset = { 0 };
-		BezierOffsetEntry CurrBezierOffset = { 0 };
+		FontPointOffsetEntry CurrPointOffset = { 0 };
+		FontBezierOffsetEntry CurrBezierOffset = { 0 };
 
 		for (short unsigned ContourIndex = 0; ContourIndex < Glyph->NumContours; ContourIndex++)
 		{
@@ -8741,8 +9231,8 @@ extern "C"
 					I1 = ContourStartIndex;
 				}
 
-				GlyphPoint* CurrGlyphPoint = &Glyph->Points[I0];
-				GlyphPoint* NextGlyphPoint = &Glyph->Points[I1];
+				FontGlyphPoint* CurrGlyphPoint = &Glyph->Points[I0];
+				FontGlyphPoint* NextGlyphPoint = &Glyph->Points[I1];
 
 				Vector2 Point = { (float)CurrGlyphPoint->X / UnitsPerEm, (float)CurrGlyphPoint->Y / UnitsPerEm };
 				Vector_Push(&CollectedPoints, &Point);
@@ -8779,7 +9269,7 @@ extern "C"
 
 			for (long long unsigned PointOffsetIndex = 0; PointOffsetIndex < NumPointOffsets; PointOffsetIndex++)
 			{
-				PointOffsetEntry* PointOffset = (PointOffsetEntry*)Vector_At(&Glyph->PointOffsets, PointOffsetIndex);
+				FontPointOffsetEntry* PointOffset = (FontPointOffsetEntry*)Vector_At(&Glyph->PointOffsets, PointOffsetIndex);
 
 				int unsigned StartOffset = PointOffset->Start;
 				int unsigned EndOffset = PointOffset->Start + PointOffset->Num;
@@ -8807,7 +9297,7 @@ extern "C"
 			Vector2* P1 = (Vector2*)Vector_At(&Glyph->BezierPoints, I1 % NumBezierPoints);
 			Vector2* P2 = (Vector2*)Vector_At(&Glyph->BezierPoints, I2 % NumBezierPoints);
 
-			BezierCurveEntry BezierCurve = { 0 };
+			FontBezierCurveEntry BezierCurve = { 0 };
 
 			Vector2_Set(*P0, BezierCurve.P0);
 			Vector2_Set(*P1, BezierCurve.P1);
@@ -8829,76 +9319,6 @@ extern "C"
 
 		Vector_Free(&CollectedPoints);
 	}
-	void Font_DebugGlyphsInternal(Font* Fnt, int unsigned UnicodeFrom, int unsigned UnicodeTo, Matrix4 Projection, Matrix4 View)
-	{
-		float OffsetX = 0.0F;
-		float IncrementX = 10.0F;
-		float Scale = 10.0F;
-
-		for (int unsigned GlyphIndex = UnicodeFrom; GlyphIndex <= UnicodeTo; GlyphIndex++)
-		{
-			Glyph* Glyph = Font_GlyphByUnicode(Fnt, GlyphIndex);
-
-			if (Glyph)
-			{
-				Gizmo_BeginLines();
-				{
-					long long unsigned NumBezierOffsets = Vector_Num(&Glyph->BezierOffsets);
-					for (long long unsigned BezierOffsetIndex = 0; BezierOffsetIndex < NumBezierOffsets; BezierOffsetIndex++)
-					{
-						BezierOffsetEntry* BezierOffset = (BezierOffsetEntry*)Vector_At(&Glyph->BezierOffsets, BezierOffsetIndex);
-
-						for (int unsigned BezierCurveIndex = BezierOffset->Start; BezierCurveIndex < (BezierOffset->Start + BezierOffset->Num); BezierCurveIndex++)
-						{
-							BezierCurveEntry* BezierCurve = (BezierCurveEntry*)Vector_At(&Glyph->BezierCurves, BezierCurveIndex);
-
-							float X0 = OffsetX + BezierCurve->P0[0] * Scale;
-							float Y0 = BezierCurve->P0[1] * Scale;
-
-							float X1 = OffsetX + BezierCurve->P1[0] * Scale;
-							float Y1 = BezierCurve->P1[1] * Scale;
-
-							float X2 = OffsetX + BezierCurve->P2[0] * Scale;
-							float Y2 = BezierCurve->P2[1] * Scale;
-
-							Gizmo_DrawLineBezierQuadraticSimple(GIZMO_DIR_XY, X0, Y0, 0.0F, X1, Y1, 0.0F, X2, Y2, 0.0F, 10, 0.05F, 1.0F, 0.0F, 0.0F, 1.0F);
-						}
-					}
-				}
-				Gizmo_EndLines(Projection, View);
-
-				Gizmo_BeginPoints();
-				{
-					long long unsigned NumBezierOffsets = Vector_Num(&Glyph->BezierOffsets);
-					for (long long unsigned BezierOffsetIndex = 0; BezierOffsetIndex < NumBezierOffsets; BezierOffsetIndex++)
-					{
-						BezierOffsetEntry* BezierOffset = (BezierOffsetEntry*)Vector_At(&Glyph->BezierOffsets, BezierOffsetIndex);
-
-						for (int unsigned BezierCurveIndex = BezierOffset->Start; BezierCurveIndex < (BezierOffset->Start + BezierOffset->Num); BezierCurveIndex++)
-						{
-							BezierCurveEntry* BezierCurve = (BezierCurveEntry*)Vector_At(&Glyph->BezierCurves, BezierCurveIndex);
-
-							float X0 = OffsetX + BezierCurve->P0[0] * Scale;
-							float Y0 = BezierCurve->P0[1] * Scale;
-
-							float X1 = OffsetX + BezierCurve->P1[0] * Scale;
-							float Y1 = BezierCurve->P1[1] * Scale;
-
-							float X2 = OffsetX + BezierCurve->P2[0] * Scale;
-							float Y2 = BezierCurve->P2[1] * Scale;
-
-							Gizmo_DrawPointSimple(GIZMO_DIR_XY, X0, Y0, 0.0F, 0.15F, 1.0F, 0.0F, 0.0F, 1.0F);
-							Gizmo_DrawPointSimple(GIZMO_DIR_XY, X1, Y1, 0.0F, 0.15F, 1.0F, 0.0F, 0.0F, 1.0F);
-							Gizmo_DrawPointSimple(GIZMO_DIR_XY, X2, Y2, 0.0F, 0.15F, 1.0F, 0.0F, 0.0F, 1.0F);
-						}
-					}
-				}
-				Gizmo_EndPoints(Projection, View);
-			}
-
-			OffsetX += IncrementX;
-		}
-	}
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
@@ -8906,12 +9326,14 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 
 #ifdef FAST_GL_IMPLEMENTATION
-	void Text_Begin(Font* Fnt)
+	void Text_BeginWorld(Font* Fnt)
 	{
 		sCurrFont = Fnt;
-		Buffer_VertexBind(sCurrFont->GlyphInstanceBuffer);
-		sCurrFont->MappedGlyphInstanceBuffer = (GlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
-		sCurrFont->GlyphInstanceOffset = 0;
+
+		Buffer_VertexBind(sCurrFont->WorldGlyphInstanceBuffer);
+		sCurrFont->WorldGlyphInstanceOffset = 0;
+
+		sMappedWorldGlyphInstanceBuffer = (FontWorldGlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
 	void Text_DrawWorld(Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...)
 	{
@@ -8954,120 +9376,38 @@ extern "C"
 			default:
 			{
 				int unsigned Unicode = (int unsigned)*Char;
-				Glyph* CurrGlyph = *(Glyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
+				FontGlyph* CurrGlyph = *(FontGlyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
 
 				if (CurrGlyph->NumPoints)
 				{
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Space = COORD_SPACE_WORLD;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[0] = Position[0];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[1] = Position[1];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[2] = Position[2];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[0] = X;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[1] = Y;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[2] = Z;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[0] = Rotation[0];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[1] = Rotation[1];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[2] = Rotation[2];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Scale[0] = Scale[0];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Scale[1] = Scale[1];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].FontSize = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[0] = Color[0];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[1] = Color[1];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[2] = Color[2];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[3] = Color[3];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[0] = Position[0];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[1] = Position[1];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[2] = Position[2];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[0] = X;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[1] = Y;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[2] = Z;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[0] = Rotation[0];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[1] = Rotation[1];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[2] = Rotation[2];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale[0] = Scale[0];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale[1] = Scale[1];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].FontSize = 0.0F;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[0] = Color[0];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[1] = Color[1];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[2] = Color[2];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[3] = Color[3];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
-					sCurrFont->GlyphInstanceOffset += 1;
+					sCurrFont->WorldGlyphInstanceOffset += 1;
 				}
 
 				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * Scale[0];
-
-				break;
-			}
-			}
-
-			Char++;
-		}
-	}
-	void Text_DrawScreen(Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...)
-	{
-		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
-
-		va_list Arguments = { 0 };
-		va_start(Arguments, Format);
-		vsnprintf(FormatBuffer, sizeof(FormatBuffer), Format, Arguments);
-		va_end(Arguments);
-
-		short unsigned UnitsPerEm = sCurrFont->HeadTable.UnitsPerEm;
-
-		float X = Position[0];
-		float Y = Position[1];
-
-		Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
-
-		char* Char = FormatBuffer;
-
-		while (*Char)
-		{
-			switch (*Char)
-			{
-			case '\r':
-			{
-				break;
-			}
-			case '\n':
-			{
-				X = Position[0];
-				Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
-
-				break;
-			}
-			case '\0':
-			{
-				break;
-			}
-			default:
-			{
-				int unsigned Unicode = (int unsigned)*Char;
-				Glyph* CurrGlyph = *(Glyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
-
-				if (CurrGlyph->NumPoints)
-				{
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Space = COORD_SPACE_SCREEN;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[0] = Position[0];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[1] = Position[1];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[2] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[0] = X;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[1] = Y;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[2] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[0] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[1] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[2] = Rotation;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Scale[0] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Scale[1] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].FontSize = FontSize;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[0] = Color[0];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[1] = Color[1];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[2] = Color[2];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[3] = Color[3];
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
-
-					sCurrFont->GlyphInstanceOffset += 1;
-				}
-
-				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * FontSize;
 
 				break;
 			}
@@ -9117,39 +9457,139 @@ extern "C"
 			default:
 			{
 				int unsigned Unicode = (int unsigned)*Char;
-				Glyph* CurrGlyph = *(Glyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
+				FontGlyph* CurrGlyph = *(FontGlyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
 
 				if (CurrGlyph->NumPoints)
 				{
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Space = COORD_SPACE_WORLD;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[0] = PositionX;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[1] = PositionY;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[2] = PositionZ;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[0] = X;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[1] = Y;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[2] = Z;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[0] = Pitch;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[1] = Yaw;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[2] = Roll;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Scale[0] = ScaleX;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Scale[1] = ScaleY;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].FontSize = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[0] = ColorR;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[1] = ColorG;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[2] = ColorB;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[3] = ColorA;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[0] = PositionX;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[1] = PositionY;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[2] = PositionZ;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[0] = X;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[1] = Y;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[2] = Z;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[0] = Pitch;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[1] = Yaw;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[2] = Roll;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale[0] = ScaleX;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale[1] = ScaleY;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].FontSize = 0.0F;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[0] = ColorR;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[1] = ColorG;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[2] = ColorB;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[3] = ColorA;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
-					sCurrFont->GlyphInstanceOffset += 1;
+					sCurrFont->WorldGlyphInstanceOffset += 1;
 				}
 
 				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * ScaleX;
+
+				break;
+			}
+			}
+
+			Char++;
+		}
+	}
+	void Text_EndWorld(Matrix4 Projection, Matrix4 View)
+	{
+		Buffer_VertexUnMap();
+		Buffer_VertexUnBind();
+		Shader_Bind(sWorldFontProgram);
+		Shader_SetUniformMatrix4(sWorldFontProgram, "ProjectionMatrix", Projection);
+		Shader_SetUniformMatrix4(sWorldFontProgram, "ViewMatrix", View);
+		Buffer_StorageMount(sCurrFont->BezierOffsetBuffer, 0);
+		Buffer_StorageMount(sCurrFont->BezierCurveBuffer, 1);
+		VertexArray_Bind(sCurrFont->WorldGlyphVertexArray);
+		VertexArray_DrawTriangleStripInstanced(4, sCurrFont->WorldGlyphInstanceOffset);
+		VertexArray_UnBind();
+
+		sCurrFont = 0;
+		sMappedWorldGlyphInstanceBuffer = 0;
+	}
+	void Text_BeginScreen(Font* Fnt)
+	{
+		sCurrFont = Fnt;
+
+		Buffer_VertexBind(sCurrFont->ScreenGlyphInstanceBuffer);
+		sCurrFont->ScreenGlyphInstanceOffset = 0;
+
+		sMappedScreenGlyphInstanceBuffer = (FontScreenGlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
+	}
+	void Text_DrawScreen(Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...)
+	{
+		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
+
+		va_list Arguments = { 0 };
+		va_start(Arguments, Format);
+		vsnprintf(FormatBuffer, sizeof(FormatBuffer), Format, Arguments);
+		va_end(Arguments);
+
+		short unsigned UnitsPerEm = sCurrFont->HeadTable.UnitsPerEm;
+
+		float X = Position[0];
+		float Y = Position[1];
+
+		Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+
+		char* Char = FormatBuffer;
+
+		while (*Char)
+		{
+			switch (*Char)
+			{
+			case '\r':
+			{
+				break;
+			}
+			case '\n':
+			{
+				X = Position[0];
+				Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+
+				break;
+			}
+			case '\0':
+			{
+				break;
+			}
+			default:
+			{
+				int unsigned Unicode = (int unsigned)*Char;
+				FontGlyph* CurrGlyph = *(FontGlyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
+
+				if (CurrGlyph->NumPoints)
+				{
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot[0] = Position[0];
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot[1] = Position[1];
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position[0] = X;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position[1] = Y;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Rotation = Rotation;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Scale[0] = 0.0F;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Scale[1] = 0.0F;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].FontSize = FontSize;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[0] = Color[0];
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[1] = Color[1];
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[2] = Color[2];
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[3] = Color[3];
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
+
+					sCurrFont->ScreenGlyphInstanceOffset += 1;
+				}
+
+				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * FontSize;
 
 				break;
 			}
@@ -9198,36 +9638,31 @@ extern "C"
 			default:
 			{
 				int unsigned Unicode = (int unsigned)*Char;
-				Glyph* CurrGlyph = *(Glyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
+				FontGlyph* CurrGlyph = *(FontGlyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
 
 				if (CurrGlyph->NumPoints)
 				{
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Space = COORD_SPACE_SCREEN;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[0] = PositionX;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[1] = PositionY;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Pivot[2] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[0] = X;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[1] = Y;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Position[2] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[0] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[1] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Rotation[2] = Rotation;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Scale[0] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Scale[1] = 0.0F;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].FontSize = FontSize;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[0] = ColorR;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[1] = ColorG;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[2] = ColorB;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].Color[3] = ColorA;
-					sCurrFont->MappedGlyphInstanceBuffer[sCurrFont->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot[0] = PositionX;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot[1] = PositionY;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position[0] = X;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position[1] = Y;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Rotation = Rotation;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Scale[0] = 0.0F;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Scale[1] = 0.0F;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].FontSize = FontSize;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[0] = ColorR;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[1] = ColorG;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[2] = ColorB;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[3] = ColorA;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
-					sCurrFont->GlyphInstanceOffset += 1;
+					sCurrFont->ScreenGlyphInstanceOffset += 1;
 				}
 
 				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * FontSize;
@@ -9239,62 +9674,61 @@ extern "C"
 			Char++;
 		}
 	}
-	void Text_End(Matrix4 Projection, Matrix4 View)
+	void Text_EndScreen()
 	{
 		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
 
 		Buffer_VertexUnMap();
 		Buffer_VertexUnBind();
-		Shader_Bind(sFontProgram);
-		Shader_SetUniformVector2(sFontProgram, "ScreenSize", ScreenSize);
-		Shader_SetUniformMatrix4(sFontProgram, "ProjectionMatrix", Projection);
-		Shader_SetUniformMatrix4(sFontProgram, "ViewMatrix", View);
+		Shader_Bind(sScreenFontProgram);
+		Shader_SetUniformVector2(sScreenFontProgram, "ScreenSize", ScreenSize);
 		Buffer_StorageMount(sCurrFont->BezierOffsetBuffer, 0);
 		Buffer_StorageMount(sCurrFont->BezierCurveBuffer, 1);
-		VertexArray_Bind(sCurrFont->GlyphVertexArray);
-		VertexArray_DrawTriangleStripInstanced(4, sCurrFont->GlyphInstanceOffset);
+		VertexArray_Bind(sCurrFont->ScreenGlyphVertexArray);
+		VertexArray_DrawTriangleStripInstanced(4, sCurrFont->ScreenGlyphInstanceOffset);
 		VertexArray_UnBind();
+
+		sCurrFont = 0;
+		sMappedScreenGlyphInstanceBuffer = 0;
 	}
-	void Text_CacheAlloc(TextCache* Cache, int unsigned NumChars)
+	void TextCache_WorldAlloc(TextWorldCache* Cache, int unsigned NumChars)
 	{
-		memset(Cache, 0, sizeof(TextCache));
+		memset(Cache, 0, sizeof(TextWorldCache));
 
-		Cache->GlyphInstanceOffset = 0;
-		Cache->MappedGlyphInstanceBuffer = 0;
+		static FontWorldGlyphVertex WorldVertexBuffer[4] = { 0 };
+		static int unsigned WorldIndexBuffer[6] = { 0 };
 
-		static GlyphVertex VertexBuffer[4] = { 0 };
-		static int unsigned IndexBuffer[6] = { 0 };
+		WorldVertexBuffer[0].Position[0] = 0.0F;
+		WorldVertexBuffer[0].Position[1] = 0.0F;
+		WorldVertexBuffer[0].Index = 0;
+		WorldVertexBuffer[1].Position[0] = 1.0F;
+		WorldVertexBuffer[1].Position[1] = 0.0F;
+		WorldVertexBuffer[1].Index = 1;
+		WorldVertexBuffer[2].Position[0] = 0.0F;
+		WorldVertexBuffer[2].Position[1] = 1.0F;
+		WorldVertexBuffer[2].Index = 2;
+		WorldVertexBuffer[3].Position[0] = 1.0F;
+		WorldVertexBuffer[3].Position[1] = 1.0F;
+		WorldVertexBuffer[3].Index = 3;
 
-		VertexBuffer[0].Position[0] = 0.0F;
-		VertexBuffer[0].Position[1] = 0.0F;
-		VertexBuffer[0].Index = 0;
-		VertexBuffer[1].Position[0] = 1.0F;
-		VertexBuffer[1].Position[1] = 0.0F;
-		VertexBuffer[1].Index = 1;
-		VertexBuffer[2].Position[0] = 0.0F;
-		VertexBuffer[2].Position[1] = 1.0F;
-		VertexBuffer[2].Index = 2;
-		VertexBuffer[3].Position[0] = 1.0F;
-		VertexBuffer[3].Position[1] = 1.0F;
-		VertexBuffer[3].Index = 3;
-
-		IndexBuffer[0] = 0;
-		IndexBuffer[1] = 1;
-		IndexBuffer[2] = 2;
-		IndexBuffer[3] = 2;
-		IndexBuffer[4] = 3;
-		IndexBuffer[5] = 1;
+		WorldIndexBuffer[0] = 0;
+		WorldIndexBuffer[1] = 1;
+		WorldIndexBuffer[2] = 2;
+		WorldIndexBuffer[3] = 2;
+		WorldIndexBuffer[4] = 3;
+		WorldIndexBuffer[5] = 1;
 
 		VertexArray_Alloc(&Cache->GlyphVertexArray);
-		Buffer_VertexAlloc(&Cache->GlyphVertexBuffer, 4 * sizeof(GlyphVertex), VertexBuffer, GL_STATIC_DRAW);
-		Buffer_VertexAlloc(&Cache->GlyphInstanceBuffer, NumChars * sizeof(GlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
-		Buffer_IndexAlloc(&Cache->GlyphIndexBuffer, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexAlloc(&Cache->GlyphVertexBuffer);
+		Buffer_VertexAlloc(&Cache->GlyphInstanceBuffer);
+		Buffer_IndexAlloc(&Cache->GlyphIndexBuffer);
 		VertexArray_Bind(Cache->GlyphVertexArray);
 		Buffer_VertexBind(Cache->GlyphVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(GlyphVertex), OFFSET_OF(GlyphVertex, Position));
-		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(GlyphVertex), OFFSET_OF(GlyphVertex, Index));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontWorldGlyphVertex), OFFSET_OF(FontWorldGlyphVertex, Position));
+		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontWorldGlyphVertex), OFFSET_OF(FontWorldGlyphVertex, Index));
+		Buffer_VertexResize(4 * sizeof(FontWorldGlyphVertex), WorldVertexBuffer, GL_STATIC_DRAW);
 		Buffer_VertexBind(Cache->GlyphInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
@@ -9307,19 +9741,17 @@ extern "C"
 		Buffer_VertexEnableAttrib(10);
 		Buffer_VertexEnableAttrib(11);
 		Buffer_VertexEnableAttrib(12);
-		Buffer_VertexEnableAttrib(13);
-		Buffer_VertexAttribPointerUInt32(2, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Space));
-		Buffer_VertexAttribPointerReal32(3, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Pivot));
-		Buffer_VertexAttribPointerReal32(4, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(5, 3, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(6, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Scale));
-		Buffer_VertexAttribPointerReal32(7, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Bearing));
-		Buffer_VertexAttribPointerReal32(8, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, UnitsPerEm));
-		Buffer_VertexAttribPointerReal32(9, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, FontSize));
-		Buffer_VertexAttribPointerReal32(10, 2, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, GlyphSize));
-		Buffer_VertexAttribPointerReal32(11, 4, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, Color));
-		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, GlyphIndex));
-		Buffer_VertexAttribPointerUInt32(13, 1, sizeof(GlyphInstanceEntry), OFFSET_OF(GlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(3, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(4, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Scale));
+		Buffer_VertexAttribPointerReal32(6, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(8, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(9, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(10, 4, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, LineHeight));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -9331,22 +9763,157 @@ extern "C"
 		Buffer_VertexAttribDivisor(10, 1);
 		Buffer_VertexAttribDivisor(11, 1);
 		Buffer_VertexAttribDivisor(12, 1);
-		Buffer_VertexAttribDivisor(13, 1);
+		Buffer_VertexResize(NumChars * sizeof(FontWorldGlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
 		Buffer_IndexBind(Cache->GlyphIndexBuffer);
+		Buffer_IndexResize(6 * sizeof(int unsigned), WorldIndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
 #ifdef FAST_GL_REFERENCE_COUNT
 		sAllocatedTextCaches += 1;
 #endif // FAST_GL_REFERENCE_COUNT
 	}
-	void Text_BeginCache(TextCache* Cache, Font* Fnt)
+	void TextCache_DrawWorldCache(TextWorldCache* Cache, Matrix4 Projection, Matrix4 View)
+	{
+		Shader_Bind(sWorldFontProgram);
+		Shader_SetUniformMatrix4(sWorldFontProgram, "ProjectionMatrix", Projection);
+		Shader_SetUniformMatrix4(sWorldFontProgram, "ViewMatrix", View);
+		Buffer_StorageMount(sCurrFont->BezierOffsetBuffer, 0);
+		Buffer_StorageMount(sCurrFont->BezierCurveBuffer, 1);
+		VertexArray_Bind(Cache->GlyphVertexArray);
+		VertexArray_DrawTriangleStripInstanced(4, Cache->GlyphInstanceOffset);
+		VertexArray_UnBind();
+	}
+	void TextCache_WorldFree(TextWorldCache* Cache)
+	{
+		VertexArray_Free(Cache->GlyphVertexArray);
+
+		Buffer_Free(Cache->GlyphVertexBuffer);
+		Buffer_Free(Cache->GlyphInstanceBuffer);
+		Buffer_Free(Cache->GlyphIndexBuffer);
+
+		memset(Cache, 0, sizeof(TextWorldCache));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedTextCaches -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
+	}
+	void TextCache_ScreenAlloc(TextScreenCache* Cache, int unsigned NumChars)
+	{
+		memset(Cache, 0, sizeof(TextScreenCache));
+
+		static FontScreenGlyphVertex ScreenVertexBuffer[4] = { 0 };
+		static int unsigned ScreenIndexBuffer[6] = { 0 };
+
+		ScreenVertexBuffer[0].Position[0] = 0.0F;
+		ScreenVertexBuffer[0].Position[1] = 0.0F;
+		ScreenVertexBuffer[0].Index = 0;
+		ScreenVertexBuffer[1].Position[0] = 1.0F;
+		ScreenVertexBuffer[1].Position[1] = 0.0F;
+		ScreenVertexBuffer[1].Index = 1;
+		ScreenVertexBuffer[2].Position[0] = 0.0F;
+		ScreenVertexBuffer[2].Position[1] = 1.0F;
+		ScreenVertexBuffer[2].Index = 2;
+		ScreenVertexBuffer[3].Position[0] = 1.0F;
+		ScreenVertexBuffer[3].Position[1] = 1.0F;
+		ScreenVertexBuffer[3].Index = 3;
+
+		ScreenIndexBuffer[0] = 0;
+		ScreenIndexBuffer[1] = 1;
+		ScreenIndexBuffer[2] = 2;
+		ScreenIndexBuffer[3] = 2;
+		ScreenIndexBuffer[4] = 3;
+		ScreenIndexBuffer[5] = 1;
+
+		VertexArray_Alloc(&Cache->GlyphVertexArray);
+		Buffer_VertexAlloc(&Cache->GlyphVertexBuffer);
+		Buffer_VertexAlloc(&Cache->GlyphInstanceBuffer);
+		Buffer_IndexAlloc(&Cache->GlyphIndexBuffer);
+		VertexArray_Bind(Cache->GlyphVertexArray);
+		Buffer_VertexBind(Cache->GlyphVertexBuffer);
+		Buffer_VertexEnableAttrib(0);
+		Buffer_VertexEnableAttrib(1);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontScreenGlyphVertex), OFFSET_OF(FontScreenGlyphVertex, Position));
+		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontScreenGlyphVertex), OFFSET_OF(FontScreenGlyphVertex, Index));
+		Buffer_VertexResize(4 * sizeof(FontScreenGlyphVertex), ScreenVertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexBind(Cache->GlyphInstanceBuffer);
+		Buffer_VertexEnableAttrib(2);
+		Buffer_VertexEnableAttrib(3);
+		Buffer_VertexEnableAttrib(4);
+		Buffer_VertexEnableAttrib(5);
+		Buffer_VertexEnableAttrib(6);
+		Buffer_VertexEnableAttrib(7);
+		Buffer_VertexEnableAttrib(8);
+		Buffer_VertexEnableAttrib(9);
+		Buffer_VertexEnableAttrib(10);
+		Buffer_VertexEnableAttrib(11);
+		Buffer_VertexEnableAttrib(12);
+		Buffer_VertexAttribPointerReal32(2, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(3, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(4, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Scale));
+		Buffer_VertexAttribPointerReal32(6, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(8, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(9, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(10, 4, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribDivisor(2, 1);
+		Buffer_VertexAttribDivisor(3, 1);
+		Buffer_VertexAttribDivisor(4, 1);
+		Buffer_VertexAttribDivisor(5, 1);
+		Buffer_VertexAttribDivisor(6, 1);
+		Buffer_VertexAttribDivisor(7, 1);
+		Buffer_VertexAttribDivisor(8, 1);
+		Buffer_VertexAttribDivisor(9, 1);
+		Buffer_VertexAttribDivisor(10, 1);
+		Buffer_VertexAttribDivisor(11, 1);
+		Buffer_VertexAttribDivisor(12, 1);
+		Buffer_VertexResize(NumChars * sizeof(FontScreenGlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexBind(Cache->GlyphIndexBuffer);
+		Buffer_IndexResize(6 * sizeof(int unsigned), ScreenIndexBuffer, GL_STATIC_DRAW);
+		VertexArray_UnBind();
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedTextCaches += 1;
+#endif // FAST_GL_REFERENCE_COUNT
+	}
+	void TextCache_DrawScreenCache(TextScreenCache* Cache)
+	{
+		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
+
+		Shader_Bind(sScreenFontProgram);
+		Shader_SetUniformVector2(sScreenFontProgram, "ScreenSize", ScreenSize);
+		Buffer_StorageMount(sCurrFont->BezierOffsetBuffer, 0);
+		Buffer_StorageMount(sCurrFont->BezierCurveBuffer, 1);
+		VertexArray_Bind(Cache->GlyphVertexArray);
+		VertexArray_DrawTriangleStripInstanced(4, Cache->GlyphInstanceOffset);
+		VertexArray_UnBind();
+	}
+	void TextCache_ScreenFree(TextScreenCache* Cache)
+	{
+		VertexArray_Free(Cache->GlyphVertexArray);
+
+		Buffer_Free(Cache->GlyphVertexBuffer);
+		Buffer_Free(Cache->GlyphInstanceBuffer);
+		Buffer_Free(Cache->GlyphIndexBuffer);
+
+		memset(Cache, 0, sizeof(TextScreenCache));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedTextCaches -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
+	}
+	void TextCache_BeginWorldCache(TextWorldCache* Cache, Font* Fnt)
 	{
 		sCurrFont = Fnt;
+
 		Buffer_VertexBind(Cache->GlyphInstanceBuffer);
-		Cache->MappedGlyphInstanceBuffer = (GlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 		Cache->GlyphInstanceOffset = 0;
+
+		sMappedWorldGlyphInstanceBuffer = (FontWorldGlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void Text_CacheDrawWorld(TextCache* Cache, Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...)
+	void TextCache_DrawWorld(TextWorldCache* Cache, Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -9387,34 +9954,33 @@ extern "C"
 			default:
 			{
 				int unsigned Unicode = (int unsigned)*Char;
-				Glyph* CurrGlyph = *(Glyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
+				FontGlyph* CurrGlyph = *(FontGlyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
 
 				if (CurrGlyph->NumPoints)
 				{
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Space = COORD_SPACE_WORLD;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = Position[0];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = Position[1];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = Position[2];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = Z;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[0] = Rotation[0];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[1] = Rotation[1];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[2] = Rotation[2];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = Scale[0];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = Scale[1];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = Color[0];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = Color[1];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = Color[2];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = Color[3];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = Position[0];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = Position[1];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = Position[2];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = Z;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[0] = Rotation[0];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[1] = Rotation[1];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[2] = Rotation[2];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = Scale[0];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = Scale[1];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = 0.0F;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = Color[0];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = Color[1];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = Color[2];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = Color[3];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
 					Cache->GlyphInstanceOffset += 1;
 				}
@@ -9428,88 +9994,7 @@ extern "C"
 			Char++;
 		}
 	}
-	void Text_CacheDrawScreen(TextCache* Cache, Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...)
-	{
-		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
-
-		va_list Arguments = { 0 };
-		va_start(Arguments, Format);
-		vsnprintf(FormatBuffer, sizeof(FormatBuffer), Format, Arguments);
-		va_end(Arguments);
-
-		short unsigned UnitsPerEm = sCurrFont->HeadTable.UnitsPerEm;
-
-		float X = Position[0];
-		float Y = Position[1];
-
-		Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
-
-		char* Char = FormatBuffer;
-
-		while (*Char)
-		{
-			switch (*Char)
-			{
-			case '\r':
-			{
-				break;
-			}
-			case '\n':
-			{
-				X = Position[0];
-				Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
-
-				break;
-			}
-			case '\0':
-			{
-				break;
-			}
-			default:
-			{
-				int unsigned Unicode = (int unsigned)*Char;
-				Glyph* CurrGlyph = *(Glyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
-
-				if (CurrGlyph->NumPoints)
-				{
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Space = COORD_SPACE_SCREEN;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = Position[0];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = Position[1];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[0] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[1] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[2] = Rotation;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = FontSize;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = Color[0];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = Color[1];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = Color[2];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = Color[3];
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
-
-					Cache->GlyphInstanceOffset += 1;
-				}
-
-				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * FontSize;
-
-				break;
-			}
-			}
-
-			Char++;
-		}
-	}
-	void Text_CacheDrawWorldSimple(TextCache* Cache, float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float ScaleX, float ScaleY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
+	void TextCache_DrawWorldSimple(TextWorldCache* Cache, float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float ScaleX, float ScaleY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -9550,34 +10035,33 @@ extern "C"
 			default:
 			{
 				int unsigned Unicode = (int unsigned)*Char;
-				Glyph* CurrGlyph = *(Glyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
+				FontGlyph* CurrGlyph = *(FontGlyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
 
 				if (CurrGlyph->NumPoints)
 				{
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Space = COORD_SPACE_WORLD;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = PositionX;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = PositionY;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = PositionZ;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = Z;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[0] = Pitch;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[1] = Yaw;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[2] = Roll;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = ScaleX;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = ScaleY;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = ColorR;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = ColorG;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = ColorB;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = ColorA;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = PositionX;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = PositionY;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = PositionZ;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = Z;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[0] = Pitch;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[1] = Yaw;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[2] = Roll;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = ScaleX;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = ScaleY;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = 0.0F;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = ColorR;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = ColorG;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = ColorB;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = ColorA;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
 					Cache->GlyphInstanceOffset += 1;
 				}
@@ -9591,7 +10075,102 @@ extern "C"
 			Char++;
 		}
 	}
-	void Text_CacheDrawScreenSimple(TextCache* Cache, float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
+	void TextCache_EndWorldCache(TextWorldCache* Cache)
+	{
+		UNREFERENCED_PARAMETER(Cache);
+
+		Buffer_VertexUnMap();
+		Buffer_VertexUnBind();
+
+		sCurrFont = 0;
+		sMappedWorldGlyphInstanceBuffer = 0;
+	}
+	void TextCache_BeginScreenCache(TextScreenCache* Cache, Font* Fnt)
+	{
+		sCurrFont = Fnt;
+
+		Buffer_VertexBind(Cache->GlyphInstanceBuffer);
+		Cache->GlyphInstanceOffset = 0;
+
+		sMappedScreenGlyphInstanceBuffer = (FontScreenGlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
+	}
+	void TextCache_DrawScreen(TextScreenCache* Cache, Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...)
+	{
+		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
+
+		va_list Arguments = { 0 };
+		va_start(Arguments, Format);
+		vsnprintf(FormatBuffer, sizeof(FormatBuffer), Format, Arguments);
+		va_end(Arguments);
+
+		short unsigned UnitsPerEm = sCurrFont->HeadTable.UnitsPerEm;
+
+		float X = Position[0];
+		float Y = Position[1];
+
+		Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+
+		char* Char = FormatBuffer;
+
+		while (*Char)
+		{
+			switch (*Char)
+			{
+			case '\r':
+			{
+				break;
+			}
+			case '\n':
+			{
+				X = Position[0];
+				Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+
+				break;
+			}
+			case '\0':
+			{
+				break;
+			}
+			default:
+			{
+				int unsigned Unicode = (int unsigned)*Char;
+				FontGlyph* CurrGlyph = *(FontGlyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
+
+				if (CurrGlyph->NumPoints)
+				{
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = Position[0];
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = Position[1];
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation = Rotation;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = 0.0F;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = 0.0F;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = FontSize;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = Color[0];
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = Color[1];
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = Color[2];
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = Color[3];
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
+
+					Cache->GlyphInstanceOffset += 1;
+				}
+
+				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * FontSize;
+
+				break;
+			}
+			}
+
+			Char++;
+		}
+	}
+	void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -9631,34 +10210,29 @@ extern "C"
 			default:
 			{
 				int unsigned Unicode = (int unsigned)*Char;
-				Glyph* CurrGlyph = *(Glyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
+				FontGlyph* CurrGlyph = *(FontGlyph**)HashMap_At(&sCurrFont->GlyphMapping, &Unicode, sizeof(int unsigned));
 
 				if (CurrGlyph->NumPoints)
 				{
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Space = COORD_SPACE_SCREEN;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = PositionX;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = PositionY;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[0] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[1] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[2] = Rotation;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = 0.0F;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = FontSize;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = ColorR;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = ColorG;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = ColorB;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = ColorA;
-					Cache->MappedGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = PositionX;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = PositionY;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation = Rotation;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = 0.0F;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = 0.0F;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = FontSize;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = ColorR;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = ColorG;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = ColorB;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = ColorA;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
 					Cache->GlyphInstanceOffset += 1;
 				}
@@ -9672,39 +10246,15 @@ extern "C"
 			Char++;
 		}
 	}
-	void Text_EndCache(TextCache* Cache)
+	void TextCache_EndScreenCache(TextScreenCache* Cache)
 	{
 		UNREFERENCED_PARAMETER(Cache);
 
 		Buffer_VertexUnMap();
 		Buffer_VertexUnBind();
-	}
-	void Text_DrawCache(TextCache* Cache, Matrix4 Projection, Matrix4 View)
-	{
-		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
 
-		Shader_Bind(sFontProgram);
-		Shader_SetUniformVector2(sFontProgram, "ScreenSize", ScreenSize);
-		Shader_SetUniformMatrix4(sFontProgram, "ProjectionMatrix", Projection);
-		Shader_SetUniformMatrix4(sFontProgram, "ViewMatrix", View);
-		Buffer_StorageMount(sCurrFont->BezierOffsetBuffer, 0);
-		Buffer_StorageMount(sCurrFont->BezierCurveBuffer, 1);
-		VertexArray_Bind(Cache->GlyphVertexArray);
-		VertexArray_DrawTriangleStripInstanced(4, Cache->GlyphInstanceOffset);
-		VertexArray_UnBind();
-	}
-	extern void Text_CacheFree(TextCache* Cache)
-	{
-		Buffer_Free(Cache->GlyphVertexBuffer);
-		Buffer_Free(Cache->GlyphInstanceBuffer);
-		Buffer_Free(Cache->GlyphIndexBuffer);
-		VertexArray_Free(Cache->GlyphVertexArray);
-
-		memset(Cache, 0, sizeof(TextCache));
-
-#ifdef FAST_GL_REFERENCE_COUNT
-		sAllocatedTextCaches -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+		sCurrFont = 0;
+		sMappedScreenGlyphInstanceBuffer = 0;
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -10131,15 +10681,17 @@ extern "C"
 		IndexBuffer[5] = 1;
 
 		VertexArray_Alloc(&Mesh->VertexArray);
-		Buffer_VertexAlloc(&Mesh->VertexBuffer, 4 * sizeof(SpriteVertex), VertexBuffer, GL_STATIC_DRAW);
-		Buffer_IndexAlloc(&Mesh->IndexBuffer, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexAlloc(&Mesh->VertexBuffer);
+		Buffer_IndexAlloc(&Mesh->IndexBuffer);
 		VertexArray_Bind(Mesh->VertexArray);
 		Buffer_VertexBind(Mesh->VertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
 		Buffer_VertexAttribPointerReal32(0, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, Position));
 		Buffer_VertexAttribPointerReal32(1, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, TextureCoords));
+		Buffer_VertexResize(4 * sizeof(SpriteVertex), VertexBuffer, GL_STATIC_DRAW);
 		Buffer_IndexBind(Mesh->IndexBuffer);
+		Buffer_IndexResize(6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
 #ifdef FAST_GL_REFERENCE_COUNT
@@ -10194,15 +10746,17 @@ extern "C"
 		IndexBuffer[5] = 1;
 
 		VertexArray_Alloc(&Mesh->VertexArray);
-		Buffer_VertexAlloc(&Mesh->VertexBuffer, 4 * sizeof(PostProcessVertex), VertexBuffer, GL_STATIC_DRAW);
-		Buffer_IndexAlloc(&Mesh->IndexBuffer, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexAlloc(&Mesh->VertexBuffer);
+		Buffer_IndexAlloc(&Mesh->IndexBuffer);
 		VertexArray_Bind(Mesh->VertexArray);
 		Buffer_VertexBind(Mesh->VertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
 		Buffer_VertexAttribPointerReal32(0, 2, sizeof(PostProcessVertex), OFFSET_OF(PostProcessVertex, Position));
 		Buffer_VertexAttribPointerReal32(1, 2, sizeof(PostProcessVertex), OFFSET_OF(PostProcessVertex, TextureCoords));
+		Buffer_VertexResize(4 * sizeof(PostProcessVertex), VertexBuffer, GL_STATIC_DRAW);
 		Buffer_IndexBind(Mesh->IndexBuffer);
+		Buffer_IndexResize(6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
 #ifdef FAST_GL_REFERENCE_COUNT
@@ -10259,15 +10813,16 @@ extern "C"
 		IndexBuffer[5] = 1;
 
 		VertexArray_Alloc(&Mesh->VertexArray);
-		Buffer_VertexAlloc(&Mesh->VertexBuffer, 4 * sizeof(SpriteVertex), VertexBuffer, GL_STATIC_DRAW);
-		Buffer_VertexAlloc(&Mesh->InstanceBuffer, NumInstances * sizeof(SpriteInstanceEntry), 0, GL_DYNAMIC_DRAW);
-		Buffer_IndexAlloc(&Mesh->IndexBuffer, 6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexAlloc(&Mesh->VertexBuffer);
+		Buffer_VertexAlloc(&Mesh->InstanceBuffer);
+		Buffer_IndexAlloc(&Mesh->IndexBuffer);
 		VertexArray_Bind(Mesh->VertexArray);
 		Buffer_VertexBind(Mesh->VertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
 		Buffer_VertexAttribPointerReal32(0, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, Position));
 		Buffer_VertexAttribPointerReal32(1, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, TextureCoords));
+		Buffer_VertexResize(4 * sizeof(SpriteVertex), VertexBuffer, GL_STATIC_DRAW);
 		Buffer_VertexBind(Mesh->InstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
@@ -10284,7 +10839,9 @@ extern "C"
 		glVertexAttribDivisor(4, 1);
 		glVertexAttribDivisor(5, 1);
 		glVertexAttribDivisor(6, 1);
+		Buffer_VertexResize(NumInstances * sizeof(SpriteInstanceEntry), 0, GL_DYNAMIC_DRAW);
 		Buffer_IndexBind(Mesh->IndexBuffer);
+		Buffer_IndexResize(6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
 #ifdef FAST_GL_REFERENCE_COUNT
@@ -10366,6 +10923,282 @@ extern "C"
 		sAllocatedPostProcessEffects -= 1;
 #endif // FAST_GL_REFERENCE_COUNT
 	}
+	char const* PostProcessEffect_GetPassThroughFragmentShader(void)
+	{
+		return sPassThroughPostProcessFragmentShader;
+	}
+	char const* PostProcessEffect_GetWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader(void)
+	{
+		return sWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader;
+	}
+#endif // FAST_GL_IMPLEMENTATION
+
+	///////////////////////////////////////////////////////////////
+	// Kek Declaration
+	///////////////////////////////////////////////////////////////
+
+#ifdef FAST_GL_IMPLEMENTATION
+	void Kek_Alloc(void)
+	{
+
+	}
+	void Kek_SetRootNode(void* Node)
+	{
+		sKekRootNode = Node;
+	}
+	void Kek_Draw(void* Node)
+	{
+		if (!Node)
+		{
+			Node = sKekRootNode;
+		}
+
+		KekNode_Draw(Node);
+	}
+	void KekRect_Init(KekRect* Rect)
+	{
+		Rect->Left = Rect->Right = Rect->Top = Rect->Bottom = 0;
+	}
+	void KekRect_Copy(KekRect* Destination, KekRect* Source)
+	{
+		Destination->Left = Source->Left;
+		Destination->Right = Source->Right;
+		Destination->Top = Source->Top;
+		Destination->Bottom = Source->Bottom;
+	}
+	void Kek_Free(void)
+	{
+		// TODO
+	}
+	void KekNode_Draw(KekNode* Node)
+	{
+		if (Node)
+		{
+			KekNodeClass* NodeClass = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
+
+			switch (*NodeClass)
+			{
+			case KEK_NODE_CLASS_DOCK_ROOT: KekDockRoot_Draw((KekDockRoot*)Node); break;
+			case KEK_NODE_CLASS_LIST_LAYOUT: KekListLayout_Draw((KekListLayout*)Node); break;
+			case KEK_NODE_CLASS_GRID_LAYOUT: KekGridLayout_Draw((KekGridLayout*)Node); break;
+			case KEK_NODE_CLASS_TOOL_BAR: KekToolBar_Draw((KekToolBar*)Node); break;
+			case KEK_NODE_CLASS_IMAGE: KekImage_Draw((KekImage*)Node); break;
+			case KEK_NODE_CLASS_BUTTON: KekButton_Draw((KekButton*)Node); break;
+			case KEK_NODE_CLASS_SLIDER: KekSlider_Draw((KekSlider*)Node); break;
+			case KEK_NODE_CLASS_VIEW_PORT: KekViewPort_Draw((KekViewPort*)Node); break;
+			}
+		}
+	}
+	KekDockLayout* KekDockLayout_Alloc(KekDockLayout* DockLayout)
+	{
+		KekDockLayout* Layout = (KekDockLayout*)Memory_Alloc(sizeof(KekDockLayout), 0);
+
+		memset(Layout, 0, sizeof(KekDockLayout));
+
+		Layout->Type = KEK_DOCK_LAYOUT_TYPE_WINDOW;
+		Layout->ParentLayout = DockLayout;
+		Layout->FirstLayout = 0;
+		Layout->SecondLayout = 0;
+		Layout->Node = 0;
+
+		if (DockLayout)
+		{
+			KekRect_Copy(&Layout->Rect, &DockLayout->Rect);
+		}
+
+		return Layout;
+	}
+	void KekDockLayout_InsertLeft(KekDockLayout* DockLayout, void* Node)
+	{
+		UNREFERENCED_PARAMETER(DockLayout);
+		UNREFERENCED_PARAMETER(Node);
+	}
+	void KekDockLayout_InsertRight(KekDockLayout* DockLayout, void* Node)
+	{
+		UNREFERENCED_PARAMETER(DockLayout);
+		UNREFERENCED_PARAMETER(Node);
+	}
+	void KekDockLayout_InsertTop(KekDockLayout* DockLayout, void* Node)
+	{
+		UNREFERENCED_PARAMETER(DockLayout);
+		UNREFERENCED_PARAMETER(Node);
+	}
+	void KekDockLayout_InsertBottom(KekDockLayout* DockLayout, void* Node)
+	{
+		UNREFERENCED_PARAMETER(DockLayout);
+		UNREFERENCED_PARAMETER(Node);
+	}
+	void KekDockLayout_Draw(KekDockLayout* DockLayout)
+	{
+		if (DockLayout)
+		{
+			KekDockLayout_Draw(DockLayout->FirstLayout);
+			KekDockLayout_Draw(DockLayout->SecondLayout);
+
+			KekNode_Draw(DockLayout->Node);
+		}
+	}
+	void KekDockRoot_Alloc(KekDockRoot* DockRoot)
+	{
+		memset(DockRoot, 0, sizeof(KekDockRoot));
+
+		DockRoot->RootLayout = KekDockLayout_Alloc(0);
+		DockRoot->CurrLayout = DockRoot->RootLayout;
+		DockRoot->Base.Class = KEK_NODE_CLASS_DOCK_ROOT;
+	}
+	void KekDockRoot_InsertLeft(KekDockRoot* DockRoot, void* Node)
+	{
+		KekDockLayout_InsertLeft(DockRoot->CurrLayout, Node);
+	}
+	void KekDockRoot_InsertRight(KekDockRoot* DockRoot, void* Node)
+	{
+		KekDockLayout_InsertRight(DockRoot->CurrLayout, Node);
+	}
+	void KekDockRoot_InsertTop(KekDockRoot* DockRoot, void* Node)
+	{
+		KekDockLayout_InsertTop(DockRoot->CurrLayout, Node);
+	}
+	void KekDockRoot_InsertBottom(KekDockRoot* DockRoot, void* Node)
+	{
+		KekDockLayout_InsertBottom(DockRoot->CurrLayout, Node);
+	}
+	void KekDockRoot_Draw(KekDockRoot* DockRoot)
+	{
+		KekDockLayout_Draw(DockRoot->RootLayout);
+	}
+	void KekDockRoot_Free(KekDockRoot* DockRoot)
+	{
+		UNREFERENCED_PARAMETER(DockRoot);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekListLayout_Alloc(KekListLayout* ListLayout)
+	{
+		memset(ListLayout, 0, sizeof(KekListLayout));
+
+		ListLayout->Base.Class = KEK_NODE_CLASS_LIST_LAYOUT;
+	}
+	void KekListLayout_Draw(KekListLayout* ListLayout)
+	{
+		UNREFERENCED_PARAMETER(ListLayout);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekListLayout_Free(KekListLayout* ListLayout)
+	{
+		UNREFERENCED_PARAMETER(ListLayout);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekGridLayout_Alloc(KekGridLayout* GridLayout)
+	{
+		memset(GridLayout, 0, sizeof(KekGridLayout));
+
+		GridLayout->Base.Class = KEK_NODE_CLASS_GRID_LAYOUT;
+	}
+	void KekGridLayout_Draw(KekGridLayout* GridLayout)
+	{
+		UNREFERENCED_PARAMETER(GridLayout);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekGridLayout_Free(KekGridLayout* GridLayout)
+	{
+		UNREFERENCED_PARAMETER(GridLayout);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekToolBar_Alloc(KekToolBar* ToolBar)
+	{
+		memset(ToolBar, 0, sizeof(KekToolBar));
+
+		ToolBar->Base.Class = KEK_NODE_CLASS_TOOL_BAR;
+	}
+	void KekToolBar_Draw(KekToolBar* ToolBar)
+	{
+		UNREFERENCED_PARAMETER(ToolBar);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekToolBar_Free(KekToolBar* ToolBar)
+	{
+		UNREFERENCED_PARAMETER(ToolBar);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekImage_Alloc(KekImage* Image)
+	{
+		memset(Image, 0, sizeof(KekImage));
+
+		Image->Base.Class = KEK_NODE_CLASS_IMAGE;
+	}
+	void KekImage_Draw(KekImage* Image)
+	{
+		UNREFERENCED_PARAMETER(Image);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekImage_Free(KekImage* Image)
+	{
+		UNREFERENCED_PARAMETER(Image);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekButton_Alloc(KekButton* Button)
+	{
+		memset(Button, 0, sizeof(KekButton));
+
+		Button->Base.Class = KEK_NODE_CLASS_BUTTON;
+	}
+	void KekButton_Draw(KekButton* Button)
+	{
+		UNREFERENCED_PARAMETER(Button);
+
+		//Gizmo_BeginQuads();
+		//Gizmo_EndQuads();
+	}
+	void KekButton_Free(KekButton* Button)
+	{
+		UNREFERENCED_PARAMETER(Button);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekSlider_Alloc(KekSlider* Slider)
+	{
+		memset(Slider, 0, sizeof(KekSlider));
+
+		Slider->Base.Class = KEK_NODE_CLASS_SLIDER;
+	}
+	void KekSlider_Draw(KekSlider* Slider)
+	{
+		UNREFERENCED_PARAMETER(Slider);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekSlider_Free(KekSlider* Slider)
+	{
+		UNREFERENCED_PARAMETER(Slider);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekViewPort_Alloc(KekViewPort* ViewPort)
+	{
+		memset(ViewPort, 0, sizeof(KekViewPort));
+
+		ViewPort->Base.Class = KEK_NODE_CLASS_VIEW_PORT;
+	}
+	void KekViewPort_Draw(KekViewPort* ViewPort)
+	{
+		UNREFERENCED_PARAMETER(ViewPort);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekViewPort_Free(KekViewPort* ViewPort)
+	{
+		UNREFERENCED_PARAMETER(ViewPort);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
@@ -10390,7 +11223,7 @@ extern "C"
 			Histgrm->Samples[SampleIndex] = 0.0F;
 		}
 
-		Buffer_StorageAlloc(&Histgrm->SampleBuffer, NumSamples * sizeof(float), Histgrm->Samples, GL_DYNAMIC_DRAW);
+		Buffer_StorageAllocSimple(&Histgrm->SampleBuffer, NumSamples * sizeof(float), Histgrm->Samples, GL_DYNAMIC_DRAW);
 
 #ifdef FAST_GL_REFERENCE_COUNT
 		sAllocatedHistograms += 1;
@@ -10420,7 +11253,7 @@ extern "C"
 		Buffer_StorageSetData(Histgrm->Samples, Histgrm->NumSamples * sizeof(float));
 		Buffer_StorageUnBind();
 	}
-	void Histogram_Draw(Histogram* Histgrm, Matrix4 Projection, Matrix4 View, Vector2 Position, float Rotation, Vector2 Size)
+	void Histogram_Draw(Histogram* Histgrm, Vector2 Position, float Rotation, Vector2 Size)
 	{
 		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
 
@@ -10440,13 +11273,13 @@ extern "C"
 		VertexArray_DrawTriangleStrip(4);
 		VertexArray_UnBind();
 
-		float LineHeight = Font_LineHeight(&gDefaultFont) * 10.0F;
+		float LineHeight = Font_LineHeight(&sDefaultFont) * 10.0F;
 
-		Text_Begin(&gDefaultFont);
+		Text_BeginScreen(&sDefaultFont);
 		Text_DrawScreenSimple(Position[0] + Size[0] + 10.0F, Position[1], 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, Histgrm->Name);
 		Text_DrawScreenSimple(Position[0] + Size[0] + 10.0F, Position[1] + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Max %u", Histgrm->Scale);
 		Text_DrawScreenSimple(Position[0] + Size[0] + 10.0F, Position[1] + LineHeight + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Avg %u", Histgrm->AvgDelta);
-		Text_End(Projection, View);
+		Text_EndScreen();
 
 		if (Histgrm->DisplayIntervalAcc > 1.0F)
 		{
@@ -10456,7 +11289,7 @@ extern "C"
 
 		Histgrm->DisplayIntervalAcc += Histgrm->DisplayInterval;
 	}
-	void Histogram_DrawSimple(Histogram* Histgrm, Matrix4 Projection, Matrix4 View, float PositionX, float PositionY, float Rotation, float Width, float Height)
+	void Histogram_DrawSimple(Histogram* Histgrm, float PositionX, float PositionY, float Rotation, float Width, float Height)
 	{
 		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
 		Vector2 Position = { PositionX, PositionY };
@@ -10478,13 +11311,13 @@ extern "C"
 		VertexArray_DrawTriangleStrip(4);
 		VertexArray_UnBind();
 
-		float LineHeight = Font_LineHeight(&gDefaultFont) * 10.0F;
+		float LineHeight = Font_LineHeight(&sDefaultFont) * 10.0F;
 
-		Text_Begin(&gDefaultFont);
+		Text_BeginScreen(&sDefaultFont);
 		Text_DrawScreenSimple(PositionX + Width + 10.0F, PositionY, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, Histgrm->Name);
 		Text_DrawScreenSimple(PositionX + Width + 10.0F, PositionY + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Max %u", Histgrm->Scale);
 		Text_DrawScreenSimple(PositionX + Width + 10.0F, PositionY + LineHeight + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Avg %u", Histgrm->AvgDelta);
-		Text_End(Projection, View);
+		Text_EndScreen();
 
 		if (Histgrm->DisplayIntervalAcc > 1.0F)
 		{
@@ -10520,14 +11353,13 @@ extern "C"
 		WindowClass.lpfnWndProc = Window_CallbackInternal;
 		WindowClass.hInstance = sModuleInstance;
 		WindowClass.lpszClassName = sWindowClassName;
-
 		RegisterClass(&WindowClass);
 
 		sWindowHandle = CreateWindowEx(
 			0,
 			sWindowClassName,
 			WindowTitle,
-			WS_OVERLAPPEDWINDOW,
+			WS_POPUP,
 			CW_USEDEFAULT,
 			CW_USEDEFAULT,
 			(int)Width,
@@ -10552,7 +11384,6 @@ extern "C"
 		PixelFormatDescriptor.iLayerType = PFD_MAIN_PLANE;
 
 		int PixelFormat = ChoosePixelFormat(sDeviceContext, &PixelFormatDescriptor);
-
 		SetPixelFormat(sDeviceContext, PixelFormat, &PixelFormatDescriptor);
 
 		sOpenGLInstance = LoadLibrary("opengl32.dll");
@@ -10634,10 +11465,20 @@ extern "C"
 		glDebugMessageCallback(Window_GLDebugCallbackInternal, 0);
 #endif // FAST_GL_DEBUG
 
-		Shader_VertexFragmentAlloc(&sFontProgram, sFontVertexShader, sFontFragmentShader);
+		Shader_VertexFragmentAlloc(&sWorldCircleProgram, sWorldCircleVertexShader, sWorldCircleFragmentShader);
+		Shader_VertexGeometryFragmentAlloc(&sWorldLineProgram, sWorldLineVertexShader, sWorldLineGeometryShader, sWorldLineFragmentShader);
+		Shader_VertexFragmentAlloc(&sWorldRectangleProgram, sWorldRectangleVertexShader, sWorldRectangleFragmentShader);
+
+		Shader_VertexFragmentAlloc(&sScreenCircleProgram, sScreenCircleVertexShader, sScreenCircleFragmentShader);
+		Shader_VertexGeometryFragmentAlloc(&sScreenLineProgram, sScreenLineVertexShader, sScreenLineGeometryShader, sScreenLineFragmentShader);
+		Shader_VertexFragmentAlloc(&sScreenRectangleProgram, sScreenRectangleVertexShader, sScreenRectangleFragmentShader);
+
+		Shader_VertexFragmentAlloc(&sWorldFontProgram, sWorldFontVertexShader, sWorldFontFragmentShader);
+		Shader_VertexFragmentAlloc(&sScreenFontProgram, sScreenFontVertexShader, sScreenFontFragmentShader);
+
 		Shader_VertexFragmentAlloc(&sHistogramProgram, sHistogramVertexShader, sHistogramFragmentShader);
 
-		Font_AllocFromMemory(&gDefaultFont, 1000, sDefaultFontBytes, sizeof(sDefaultFontBytes));
+		Font_AllocFromMemory(&sDefaultFont, 1000, sDefaultFontBytes, sizeof(sDefaultFontBytes));
 
 		sWindowReady = true;
 	}
@@ -10730,9 +11571,19 @@ extern "C"
 	}
 	void Window_Free(void)
 	{
-		Font_Free(&gDefaultFont);
+		Font_Free(&sDefaultFont);
 
-		Shader_Free(sFontProgram);
+		Shader_Free(sWorldCircleProgram);
+		Shader_Free(sWorldLineProgram);
+		Shader_Free(sWorldRectangleProgram);
+
+		Shader_Free(sScreenCircleProgram);
+		Shader_Free(sScreenLineProgram);
+		Shader_Free(sScreenRectangleProgram);
+
+		Shader_Free(sWorldFontProgram);
+		Shader_Free(sScreenFontProgram);
+
 		Shader_Free(sHistogramProgram);
 
 		glMakeCurrent(0, 0);
