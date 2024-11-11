@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 #pragma warning(disable : 4191)
-=======
-﻿#pragma warning(disable : 4191)
->>>>>>> 9346f457c97e4ed53c6e42417e93b9c041230f5a
 #pragma warning(disable : 4255)
 #pragma warning(disable : 4668)
 #pragma warning(disable : 4710)
