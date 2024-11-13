@@ -1,4 +1,5 @@
 #pragma warning(disable : 4191)
+#pragma warning(disable : 4201)
 #pragma warning(disable : 4255)
 #pragma warning(disable : 4668)
 #pragma warning(disable : 4710)
@@ -29,6 +30,7 @@
 #include <math.h>
 #include <stdarg.h>
 
+#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
 #include <gl/GL.h>
@@ -39,7 +41,33 @@ extern "C"
 #endif // __cplusplus
 
 	///////////////////////////////////////////////////////////////
-	// Configuration
+	// Feature Detection
+	///////////////////////////////////////////////////////////////
+
+#if defined(__SSE__) && defined(__SSE2__)
+#define FAST_GL_SSE2_SUPPORTED
+#elif defined(__SSE__)
+#define FAST_GL_SSE_SUPPORTED
+#endif // SSE_SUPPORT
+
+#if defined (__AVX512F__) && defined(__AVX512DQ__) && defined(__AVX512CD__) && defined(__AVX512BW__) && defined(__AVX512VL__)
+#define FAST_GL_AVX512_SUPPORTED
+#elif defined(__AVX__) && defined(__AVX2__)
+#define FAST_GL_AVX2_SUPPORTED
+#elif defined(__AVX__)
+#define FAST_GL_AVX_SUPPORTED
+#endif // AVX_SUPPORT
+
+#if defined(FAST_GL_SSE_SUPPORTED) || defined(FAST_GL_SSE2_SUPPORTED)
+#include <xmmintrin.h>
+#endif // SSE_SUPPORT
+
+#if defined(FAST_GL_AVX_SUPPORTED) || defined(FAST_GL_AVX2_SUPPORTED) || defined(FAST_GL_AVX512_SUPPORTED)
+#include <immintrin.h>
+#endif // AVX_SUPPORT
+
+	///////////////////////////////////////////////////////////////
+	// FastGL Configuration
 	///////////////////////////////////////////////////////////////
 
 #ifdef _DEBUG
@@ -56,13 +84,14 @@ extern "C"
 #define FAST_GL_TEXT_FMT_BUFFER_SIZE (0x1000ULL)
 
 	///////////////////////////////////////////////////////////////
-	// Global Macros
+	// Global Utility Macros
 	///////////////////////////////////////////////////////////////
 
 #define STATIC_ASSERT(EXPRESSION, MESSAGE) typedef char static_assertion_##MESSAGE[(EXPRESSION) ? 1 : -1]
 
 #define OFFSET_OF(TYPE, MEMBER_NAME) ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))
-#define MEMBER_OF(INSTANCE, TYPE, MEMBER_NAME, MEMBER_TYPE) ((MEMBER_TYPE*)((long long unsigned)(INSTANCE) + ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))))
+#define MEMBER_OF(INSTANCE, TYPE, MEMBER_NAME, MEMBER_TYPE) ((MEMBER_TYPE*)(((long long unsigned)(INSTANCE)) + ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))))
+#define BASE_OF(INSTANCE, TYPE, MEMBER_NAME) ((TYPE*)(((long long unsigned)(INSTANCE)) - ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))))
 
 #define MAX(A, B) (((A) > (B)) ? (A) : (B))
 #define MIN(A, B) (((A) < (B)) ? (A) : (B))
@@ -994,7 +1023,7 @@ extern "C"
 	GLSL_END_INCLUDE_GUARD(GLSL_PERLIN_NOISE_IMPLEMENTATION)
 
 	///////////////////////////////////////////////////////////////
-	// Platform Checks
+	// Platform Type Checks
 	///////////////////////////////////////////////////////////////
 
 	STATIC_ASSERT(sizeof(char) == 1, invalid_size_detected);
@@ -1346,146 +1375,276 @@ extern "C"
 	// Math Definition
 	///////////////////////////////////////////////////////////////
 
-#define VECTOR2_ZERO { 0.0F, 0.0F }
-#define VECTOR3_ZERO { 0.0F, 0.0F, 0.0F }
-#define VECTOR4_ZERO { 0.0F, 0.0F, 0.0F, 0.0F }
-#define VECTOR2_ONE { 1.0F, 1.0F }
-#define VECTOR3_ONE { 1.0F, 1.0F, 1.0F }
-#define VECTOR4_ONE { 1.0F, 1.0F, 1.0F, 1.0F }
-#define VECTOR3_RIGHT { 1.0F, 0.0F, 0.0F }
-#define VECTOR3_UP { 0.0F, 1.0F, 0.0F }
-#define VECTOR3_FORWARD { 0.0F, 0.0F, 1.0F }
-#define VECTOR3_LEFT { -1.0F, 0.0F, 0.0F }
-#define VECTOR3_DOWN { 0.0F, -1.0F, 0.0F }
-#define VECTOR3_BACK { 0.0F, 0.0F, -1.0F }
-#define QUATERNION_ZERO { 0.0F, 0.0F, 0.0F, 0.0F }
-#define QUATERNION_IDENTITY { 0.0F, 0.0F, 0.0F, 1.0F }
-#define MATRIX2_ZERO \
+#define VECTOR2_ZERO { .X = 0.0F, .Y = 0.0F }
+#define VECTOR3_ZERO { .X = 0.0F, .Y = 0.0F, .Z = 0.0F }
+#define VECTOR4_ZERO { .X = 0.0F, .Y = 0.0F, .Z = 0.0F, .W = 0.0F }
+
+#define VECTOR2_ONE { .X = 1.0F, .Y = 1.0F }
+#define VECTOR3_ONE { .X = 1.0F, .Y = 1.0F, .Z = 1.0F }
+#define VECTOR4_ONE { .X = 1.0F, .Y = 1.0F, .Z = 1.0F, .W = 1.0F }
+
+#define VECTOR3_RIGHT { .X = 1.0F, .Y = 0.0F, .Z = 0.0F }
+#define VECTOR3_UP { .X = 0.0F, .Y = 1.0F, .Z = 0.0F }
+#define VECTOR3_FORWARD { .X = 0.0F, .Y = 0.0F, .Z = 1.0F }
+#define VECTOR3_LEFT { .X = -1.0F, .Y = 0.0F, .Z = 0.0F }
+#define VECTOR3_DOWN { .X = 0.0F, .Y = -1.0F, .Z = 0.0F }
+#define VECTOR3_BACK { .X = 0.0F, .Y = 0.0F, .Z = -1.0F }
+
+#define COLOR2_ZERO { .R = 0.0F, .G = 0.0F }
+#define COLOR3_ZERO { .R = 0.0F, .G = 0.0F, .B = 0.0F }
+#define COLOR4_ZERO { .R = 0.0F, .G = 0.0F, .B = 0.0F, .A = 0.0F }
+
+#define QUATERNION_ZERO { .X = 0.0F, .Y = 0.0F, .Z = 0.0F, .W = 0.0F }
+#define QUATERNION_IDENTITY { .X = 0.0F, .Y = 0.0F, .Z = 0.0F, .W = 1.0F }
+
+#define RECT_ZERO { .Left = 0.0F, .Right = 0.0F, .Top = 0.0F, .Bottom = 0.0F }
+
+#define MATRIX2X2_ZERO \
 { \
-	{ 0.0F, 0.0F }, \
-	{ 0.0F, 0.0F }, \
+	.M00 = 0.0F, .M01 = 0.0F, \
+	.M10 = 0.0F, .M11 = 0.0F, \
 }
-#define MATRIX3_ZERO \
+#define MATRIX3X3_ZERO \
 { \
-	{ 0.0F, 0.0F, 0.0F }, \
-	{ 0.0F, 0.0F, 0.0F }, \
-	{ 0.0F, 0.0F, 0.0F }, \
+	.M00 = 0.0F, .M01 = 0.0F, .M02 = 0.0F, \
+	.M10 = 0.0F, .M11 = 0.0F, .M12 = 0.0F, \
+	.M20 = 0.0F, .M21 = 0.0F, .M22 = 0.0F, \
 }
-#define MATRIX4_ZERO \
+#define MATRIX4X4_ZERO \
 { \
-	{ 0.0F, 0.0F, 0.0F, 0.0F }, \
-	{ 0.0F, 0.0F, 0.0F, 0.0F }, \
-	{ 0.0F, 0.0F, 0.0F, 0.0F }, \
-	{ 0.0F, 0.0F, 0.0F, 0.0F }, \
-}
-#define MATRIX2_IDENTITY \
-{ \
-	{ 1.0F, 0.0F }, \
-	{ 0.0F, 1.0F }, \
-}
-#define MATRIX3_IDENTITY \
-{ \
-	{ 1.0F, 0.0F, 0.0F }, \
-	{ 0.0F, 1.0F, 0.0F }, \
-	{ 0.0F, 0.0F, 1.0F }, \
-}
-#define MATRIX4_IDENTITY \
-{ \
-	{ 1.0F, 0.0F, 0.0F, 0.0F }, \
-	{ 0.0F, 1.0F, 0.0F, 0.0F }, \
-	{ 0.0F, 0.0F, 1.0F, 0.0F }, \
-	{ 0.0F, 0.0F, 0.0F, 1.0F }, \
+	.M00 = 0.0F, .M01 = 0.0F, .M02 = 0.0F, .M03 = 0.0F, \
+	.M10 = 0.0F, .M11 = 0.0F, .M12 = 0.0F, .M13 = 0.0F, \
+	.M20 = 0.0F, .M21 = 0.0F, .M22 = 0.0F, .M23 = 0.0F, \
+	.M30 = 0.0F, .M31 = 0.0F, .M32 = 0.0F, .M33 = 0.0F, \
 }
 
-	typedef float Vector2[2];
-	typedef float Vector3[3];
-	typedef float Vector4[4];
+#define MATRIX2X2_IDENTITY \
+{ \
+	.M00 = 1.0F, .M01 = 0.0F, \
+	.M10 = 0.0F, .M11 = 1.0F, \
+}
+#define MATRIX3X3_IDENTITY \
+{ \
+	.M00 = 1.0F, .M01 = 0.0F, .M02 = 0.0F, \
+	.M10 = 0.0F, .M11 = 1.0F, .M12 = 0.0F, \
+	.M20 = 0.0F, .M21 = 0.0F, .M22 = 1.0F, \
+}
+#define MATRIX4X4_IDENTITY \
+{ \
+	.M00 = 1.0F, .M01 = 0.0F, .M02 = 0.0F, .M03 = 0.0F, \
+	.M10 = 0.0F, .M11 = 1.0F, .M12 = 0.0F, .M13 = 0.0F, \
+	.M20 = 0.0F, .M21 = 0.0F, .M22 = 1.0F, .M23 = 0.0F, \
+	.M30 = 0.0F, .M31 = 0.0F, .M32 = 0.0F, .M33 = 1.0F, \
+}
 
-	typedef float Quaternion[4];
+	typedef union _Vector2
+	{
+		struct
+		{
+			float X;
+			float Y;
+		};
+		float Data[2];
+	} Vector2;
+	typedef union _Color2
+	{
+		struct
+		{
+			float R;
+			float G;
+		};
+		float Data[2];
+	} Color2;
+	typedef union _Vector3
+	{
+		struct
+		{
+			float X;
+			float Y;
+			float Z;
+		};
+		float Data[3];
+	} Vector3;
+	typedef union _Color3
+	{
+		struct
+		{
+			float R;
+			float G;
+			float B;
+		};
+		float Data[3];
+	} Color3;
+	typedef union _Vector4
+	{
+		struct
+		{
+			float X;
+			float Y;
+			float Z;
+			float W;
+		};
+		float Data[4];
+	} Vector4;
+	typedef union _Color4
+	{
+		struct
+		{
+			float R;
+			float G;
+			float B;
+			float A;
+		};
+		float Data[4];
+	} Color4;
+	typedef union _Quaternion
+	{
+		struct
+		{
+			float X;
+			float Y;
+			float Z;
+			float W;
+		};
+		float Data[4];
+	} Quaternion;
+	typedef union _Rect
+	{
+		struct
+		{
+			float Left;
+			float Right;
+			float Top;
+			float Bottom;
+		};
+		float Data[4];
+	} Rect;
+	typedef union _Matrix2x2
+	{
+		struct
+		{
+			float M00, M01;
+			float M10, M11;
+		};
+		float Data[2 * 2];
+	} Matrix2x2;
+	typedef union _Matrix3x3
+	{
+		struct
+		{
+			float M00, M01, M02;
+			float M10, M11, M12;
+			float M20, M21, M22;
+		};
+		float Data[3 * 3];
+	} Matrix3x3;
+	typedef union _Matrix4x4
+	{
+		struct
+		{
+			float M00, M01, M02, M03;
+			float M10, M11, M12, M13;
+			float M20, M21, M22, M23;
+			float M30, M31, M32, M33;
+		};
+		float Data[4 * 4];
+	} Matrix4x4;
 
-	typedef float Matrix2[2][2];
-	typedef float Matrix3[3][3];
-	typedef float Matrix4[4][4];
+	extern void Vector2_Zero(Vector2* Result);
+	extern void Vector2_Set(Vector2* const Value, Vector2* Result);
+	extern void Vector2_SetSimple(float X, float Y, Vector2* Result);
+	extern void Vector2_Add(Vector2* const A, Vector2* const B, Vector2* Result);
+	extern void Vector2_Sub(Vector2* const A, Vector2* const B, Vector2* Result);
+	extern void Vector2_Mul(Vector2* const A, Vector2* const B, Vector2* Result);
+	extern void Vector2_Div(Vector2* const A, Vector2* const B, Vector2* Result);
+	extern void Vector2_AddScalar(Vector2* const Value, float Scalar, Vector2* Result);
+	extern void Vector2_SubScalar(Vector2* const Value, float Scalar, Vector2* Result);
+	extern void Vector2_MulScalar(Vector2* const Value, float Scalar, Vector2* Result);
+	extern void Vector2_DivScalar(Vector2* const Value, float Scalar, Vector2* Result);
+	extern void Vector2_MulAdd(Vector2* const Value, float Scalar, Vector2* Result);
+	extern float Vector2_Dot(Vector2* const A, Vector2* const B);
+	extern float Vector2_Length(Vector2* const Value);
+	extern float Vector2_Length2(Vector2* const Value);
+	extern void Vector2_Print(Vector2* const Value);
 
-	extern void Vector2_Zero(Vector2 Result);
-	extern void Vector3_Zero(Vector3 Result);
-	extern void Vector4_Zero(Vector4 Result);
-	extern void Vector2_Set(Vector2 const Value, Vector2 Result);
-	extern void Vector3_Set(Vector3 const Value, Vector3 Result);
-	extern void Vector4_Set(Vector4 const Value, Vector4 Result);
-	extern void Vector2_SetSimple(float X, float Y, Vector2 Result);
-	extern void Vector3_SetSimple(float X, float Y, float Z, Vector3 Result);
-	extern void Vector4_SetSimple(float X, float Y, float Z, float W, Vector4 Result);
-	extern void Vector2_Add(Vector2 const A, Vector2 const B, Vector2 Result);
-	extern void Vector3_Add(Vector3 const A, Vector3 const B, Vector3 Result);
-	extern void Vector4_Add(Vector4 const A, Vector4 const B, Vector4 Result);
-	extern void Vector2_Sub(Vector2 const A, Vector2 const B, Vector2 Result);
-	extern void Vector3_Sub(Vector3 const A, Vector3 const B, Vector3 Result);
-	extern void Vector4_Sub(Vector4 const A, Vector4 const B, Vector4 Result);
-	extern void Vector2_Mul(Vector2 const A, Vector2 const B, Vector2 Result);
-	extern void Vector3_Mul(Vector3 const A, Vector3 const B, Vector3 Result);
-	extern void Vector4_Mul(Vector4 const A, Vector4 const B, Vector4 Result);
-	extern void Vector2_Div(Vector2 const A, Vector2 const B, Vector2 Result);
-	extern void Vector3_Div(Vector3 const A, Vector3 const B, Vector3 Result);
-	extern void Vector4_Div(Vector4 const A, Vector4 const B, Vector4 Result);
-	extern void Vector2_AddScalar(Vector2 const Value, float Scalar, Vector2 Result);
-	extern void Vector3_AddScalar(Vector3 const Value, float Scalar, Vector3 Result);
-	extern void Vector4_AddScalar(Vector4 const Value, float Scalar, Vector4 Result);
-	extern void Vector2_SubScalar(Vector2 const Value, float Scalar, Vector2 Result);
-	extern void Vector3_SubScalar(Vector3 const Value, float Scalar, Vector3 Result);
-	extern void Vector4_SubScalar(Vector4 const Value, float Scalar, Vector4 Result);
-	extern void Vector2_MulScalar(Vector2 const Value, float Scalar, Vector2 Result);
-	extern void Vector3_MulScalar(Vector3 const Value, float Scalar, Vector3 Result);
-	extern void Vector4_MulScalar(Vector4 const Value, float Scalar, Vector4 Result);
-	extern void Vector2_DivScalar(Vector2 const Value, float Scalar, Vector2 Result);
-	extern void Vector3_DivScalar(Vector3 const Value, float Scalar, Vector3 Result);
-	extern void Vector4_DivScalar(Vector4 const Value, float Scalar, Vector4 Result);
-	extern void Vector2_MulAdd(Vector2 const Value, float Scalar, Vector2 Result);
-	extern void Vector3_MulAdd(Vector3 const Value, float Scalar, Vector3 Result);
-	extern void Vector4_MulAdd(Vector4 const Value, float Scalar, Vector4 Result);
-	extern void Vector3_Norm(Vector3 const Value, Vector3 Result);
-	extern float Vector2_Dot(Vector2 const A, Vector2 const B);
-	extern float Vector3_Dot(Vector3 const A, Vector3 const B);
-	extern float Vector2_Length(Vector2 const Value);
-	extern float Vector3_Length(Vector3 const Value);
-	extern float Vector2_Length2(Vector2 const Value);
-	extern float Vector3_Length2(Vector3 const Value);
-	extern void Vector3_Cross(Vector3 const A, Vector3 const B, Vector3 Result);
-	extern void Vector3_Rotate(Vector3 const Value, Quaternion const Rotation, Vector3 Result);
+	extern void Vector3_Zero(Vector3* Result);
+	extern void Vector3_Set(Vector3* const Value, Vector3* Result);
+	extern void Vector3_SetSimple(float X, float Y, float Z, Vector3* Result);
+	extern void Vector3_Add(Vector3* const A, Vector3* const B, Vector3* Result);
+	extern void Vector3_Sub(Vector3* const A, Vector3* const B, Vector3* Result);
+	extern void Vector3_Mul(Vector3* const A, Vector3* const B, Vector3* Result);
+	extern void Vector3_Div(Vector3* const A, Vector3* const B, Vector3* Result);
+	extern void Vector3_AddScalar(Vector3* const Value, float Scalar, Vector3* Result);
+	extern void Vector3_SubScalar(Vector3* const Value, float Scalar, Vector3* Result);
+	extern void Vector3_MulScalar(Vector3* const Value, float Scalar, Vector3* Result);
+	extern void Vector3_DivScalar(Vector3* const Value, float Scalar, Vector3* Result);
+	extern void Vector3_MulAdd(Vector3* const Value, float Scalar, Vector3* Result);
+	extern void Vector3_Norm(Vector3* const Value, Vector3* Result);
+	extern float Vector3_Dot(Vector3* const A, Vector3* const B);
+	extern float Vector3_Length(Vector3* const Value);
+	extern float Vector3_Length2(Vector3* const Value);
+	extern void Vector3_Cross(Vector3* const A, Vector3* const B, Vector3* Result);
+	extern void Vector3_Rotate(Vector3* const Value, Quaternion* const Rotation, Vector3* Result);
+	extern void Vector3_Print(Vector3* const Value);
 
-	extern void Quaternion_Zero(Quaternion Result);
-	extern void Quaternion_Identity(Quaternion Result);
-	extern void Quaternion_Set(Quaternion const Value, Quaternion Result);
-	extern void Quaternion_SetSimple(float X, float Y, float Z, float W, Quaternion Result);
-	extern void Quaternion_Mul(Quaternion const A, Quaternion const B, Quaternion Result);
-	extern void Quaternion_MulScalar(Quaternion const Value, float Scalar, Quaternion Result);
-	extern void Quaternion_Conjugate(Quaternion const Value, Quaternion Result);
-	extern void Quaternion_EulerAngles(Quaternion const Value, Vector3 Result);
-	extern void Quaternion_AngleAxis(float Angle, Vector3 const Axis, Quaternion Result);
-	extern void Quaternion_Norm(Quaternion const Value, Quaternion Result);
+	extern void Vector4_Zero(Vector4* Result);
+	extern void Vector4_Set(Vector4* const Value, Vector4* Result);
+	extern void Vector4_SetSimple(float X, float Y, float Z, float W, Vector4* Result);
+	extern void Vector4_Add(Vector4* const A, Vector4* const B, Vector4* Result);
+	extern void Vector4_Sub(Vector4* const A, Vector4* const B, Vector4* Result);
+	extern void Vector4_Mul(Vector4* const A, Vector4* const B, Vector4* Result);
+	extern void Vector4_Div(Vector4* const A, Vector4* const B, Vector4* Result);
+	extern void Vector4_AddScalar(Vector4* const Value, float Scalar, Vector4* Result);
+	extern void Vector4_SubScalar(Vector4* const Value, float Scalar, Vector4* Result);
+	extern void Vector4_MulScalar(Vector4* const Value, float Scalar, Vector4* Result);
+	extern void Vector4_DivScalar(Vector4* const Value, float Scalar, Vector4* Result);
+	extern void Vector4_MulAdd(Vector4* const Value, float Scalar, Vector4* Result);
+	extern void Vector4_Print(Vector4* const Value);
 
-	extern void Matrix4_Set(Matrix4 const Value, Matrix4 Result);
-	extern void Matrix4_Zero(Matrix4 Result);
-	extern void Matrix4_One(Matrix4 Result);
-	extern void Matrix4_Copy(Matrix4 const Value, Matrix4 Result);
-	extern void Matrix4_Identity(Matrix4 Result);
-	extern void Matrix4_GetPosition(Matrix4 const Value, Vector3 Result);
-	extern void Matrix4_GetRotation(Matrix4 const Value, Quaternion Result);
-	extern void Matrix4_GetRotationEulerAngles(Matrix4 const Value, Vector3 Result);
-	extern void Matrix4_GetScale(Matrix4 const Value, Vector3 Result);
-	extern void Matrix4_SetPosition(Vector3 const Value, Matrix4 Result);
-	extern void Matrix4_SetPositionSimple(float ValueX, float ValueY, float ValueZ, Matrix4 Result);
-	extern void Matrix4_SetRotation(Quaternion const Value, Matrix4 Result);
-	extern void Matrix4_SetRotationSimple(float ValueX, float ValueY, float ValueZ, float ValueW, Matrix4 Result);
-	extern void Matrix4_SetRotationEulerAngles(Vector3 const Value, Matrix4 Result);
-	extern void Matrix4_SetRotationEulerAnglesSimple(float Pitch, float Yaw, float Roll, Matrix4 Result);
-	extern void Matrix4_SetScale(Vector3 const Value, Matrix4 Result);
-	extern void Matrix4_SetScaleSimple(float ValueX, float ValueY, float ValueZ, Matrix4 Result);
-	extern void Matrix4_Decompose(Matrix4 const Value, Vector3 Position, Quaternion Rotation, Vector3 Scale);
-	extern void Matrix4_Mul(Matrix4 const A, Matrix4 const B, Matrix4 Result);
-	extern void Matrix4_Orthographic(float Left, float Right, float Bottom, float Top, float NearZ, float FarZ, Matrix4 Result);
-	extern void Matrix4_Perspective(float FieldOfView, float AspectRatio, float NearZ, float FarZ, Matrix4 Result);
-	extern void Matrix4_LookAt(Vector3 const Eye, Vector3 const Center, Vector3 const Up, Matrix4 Result);
+	extern void Quaternion_Zero(Quaternion* Result);
+	extern void Quaternion_Identity(Quaternion* Result);
+	extern void Quaternion_Set(Quaternion* const Value, Quaternion* Result);
+	extern void Quaternion_SetSimple(float X, float Y, float Z, float W, Quaternion* Result);
+	extern void Quaternion_Mul(Quaternion* const A, Quaternion* const B, Quaternion* Result);
+	extern void Quaternion_MulScalar(Quaternion* const Value, float Scalar, Quaternion* Result);
+	extern void Quaternion_Conjugate(Quaternion* const Value, Quaternion* Result);
+	extern void Quaternion_EulerAngles(Quaternion* const Value, Vector3* Result);
+	extern void Quaternion_AngleAxis(float Angle, Vector3* const Axis, Quaternion* Result);
+	extern void Quaternion_Norm(Quaternion* const Value, Quaternion* Result);
+	extern void Quaternion_Print(Quaternion* const Value);
+
+	extern void Rect_Zero(Rect* Result);
+	extern void Rect_Set(Rect const* Value, Rect* Result);
+	extern void Rect_SetSimple(float Left, float Right, float Top, float Bottom, Rect* Result);
+	extern void Rect_SetPosition(float PositionX, float PositionY, Rect* Result);
+	extern void Rect_SetSize(float SizeX, float SizeY, Rect* Result);
+	extern float Rect_Width(Rect const* Value);
+	extern float Rect_Height(Rect const* Value);
+	extern bool Rect_Overlap(Rect const* Value, float PositionX, float PositionY);
+	extern void Rect_Print(Rect const* Value);
+
+	extern void Matrix4x4_Set(Matrix4x4* const Value, Matrix4x4* Result);
+	extern void Matrix4x4_Zero(Matrix4x4* Result);
+	extern void Matrix4x4_One(Matrix4x4* Result);
+	extern void Matrix4x4_Identity(Matrix4x4* Result);
+	extern void Matrix4x4_GetPosition(Matrix4x4* const Value, Vector3* Result);
+	extern void Matrix4x4_GetRotation(Matrix4x4* const Value, Quaternion* Result);
+	extern void Matrix4x4_GetRotationEulerAngles(Matrix4x4* const Value, Vector3* Result);
+	extern void Matrix4x4_GetScale(Matrix4x4* const Value, Vector3* Result);
+	extern void Matrix4x4_SetPosition(Vector3* const Value, Matrix4x4* Result);
+	extern void Matrix4x4_SetPositionSimple(float ValueX, float ValueY, float ValueZ, Matrix4x4* Result);
+	extern void Matrix4x4_SetRotation(Quaternion* const Value, Matrix4x4* Result);
+	extern void Matrix4x4_SetRotationSimple(float ValueX, float ValueY, float ValueZ, float ValueW, Matrix4x4* Result);
+	extern void Matrix4x4_SetRotationEulerAngles(Vector3* const Value, Matrix4x4* Result);
+	extern void Matrix4x4_SetRotationEulerAnglesSimple(float Pitch, float Yaw, float Roll, Matrix4x4* Result);
+	extern void Matrix4x4_SetScale(Vector3* const Value, Matrix4x4* Result);
+	extern void Matrix4x4_SetScaleSimple(float ValueX, float ValueY, float ValueZ, Matrix4x4* Result);
+	extern void Matrix4x4_Decompose(Matrix4x4* const Value, Vector3* Position, Quaternion* Rotation, Vector3* Scale);
+	extern void Matrix4x4_Mul(Matrix4x4* const A, Matrix4x4* const B, Matrix4x4* Result);
+	extern void Matrix4x4_Orthographic(float Left, float Right, float Bottom, float Top, float NearZ, float FarZ, Matrix4x4* Result);
+	extern void Matrix4x4_Perspective(float FieldOfView, float AspectRatio, float NearZ, float FarZ, Matrix4x4* Result);
+	extern void Matrix4x4_LookAt(Vector3* const Eye, Vector3* const Center, Vector3* const Up, Matrix4x4* Result);
+	extern void Matrix4x4_Print(Matrix4x4* const Value);
 
 	extern float Math_StepTowards(float Current, float Target, float Step);
 
@@ -1501,8 +1660,11 @@ extern "C"
 
 	extern void List_InitHead(ListEntry* List);
 	extern void List_InsertTail(ListEntry* List, ListEntry* Entry);
-	extern bool List_IsEmpty(ListEntry* List);
+	extern void List_InsertAfter(ListEntry* Curr, ListEntry* Entry);
+	extern void List_InsertBefore(ListEntry* Curr, ListEntry* Entry);
+	extern void List_Remove(ListEntry* Entry);
 	extern ListEntry* List_RemoveHead(ListEntry* List);
+	extern bool List_IsEmpty(ListEntry* List);
 	extern long long unsigned List_Num(ListEntry* List);
 
 	///////////////////////////////////////////////////////////////
@@ -1698,43 +1860,43 @@ extern "C"
 	} Transform;
 
 	extern void Transform_Init(Transform* Trans);
-	extern void Transform_GetWorldPosition(Transform* Trans, Vector3 Position);
-	extern void Transform_GetWorldRotation(Transform* Trans, Quaternion Rotation);
-	extern void Transform_GetWorldEulerAngles(Transform* Trans, Vector3 Rotation);
-	extern void Transform_GetWorldScale(Transform* Trans, Vector3 Scale);
-	extern void Transform_GetLocalPosition(Transform* Trans, Vector3 Position);
-	extern void Transform_GetLocalRotation(Transform* Trans, Quaternion Rotation);
-	extern void Transform_GetLocalEulerAngles(Transform* Trans, Vector3 Rotation);
-	extern void Transform_GetLocalScale(Transform* Trans, Vector3 Scale);
-	extern void Transform_SetPosition(Transform* Trans, Vector3 Position);
+	extern void Transform_GetWorldPosition(Transform* Trans, Vector3* Position);
+	extern void Transform_GetWorldRotation(Transform* Trans, Quaternion* Rotation);
+	extern void Transform_GetWorldEulerAngles(Transform* Trans, Vector3* Rotation);
+	extern void Transform_GetWorldScale(Transform* Trans, Vector3* Scale);
+	extern void Transform_GetLocalPosition(Transform* Trans, Vector3* Position);
+	extern void Transform_GetLocalRotation(Transform* Trans, Quaternion* Rotation);
+	extern void Transform_GetLocalEulerAngles(Transform* Trans, Vector3* Rotation);
+	extern void Transform_GetLocalScale(Transform* Trans, Vector3* Scale);
+	extern void Transform_SetPosition(Transform* Trans, Vector3 const* Position);
 	extern void Transform_SetPositionSimple(Transform* Trans, float PositionX, float PositionY, float PositionZ);
-	extern void Transform_SetRelativePosition(Transform* Trans, Vector3 Position);
+	extern void Transform_SetRelativePosition(Transform* Trans, Vector3 const* Position);
 	extern void Transform_SetRelativePositionSimple(Transform* Trans, float PositionX, float PositionY, float PositionZ);
-	extern void Transform_SetRotation(Transform* Trans, Quaternion Rotation);
+	extern void Transform_SetRotation(Transform* Trans, Quaternion const* Rotation);
 	extern void Transform_SetRotationSimple(Transform* Trans, float RotationX, float RotationY, float RotationZ, float RotationW);
-	extern void Transform_SetRelativeRotation(Transform* Trans, Quaternion Rotation);
+	extern void Transform_SetRelativeRotation(Transform* Trans, Quaternion const* Rotation);
 	extern void Transform_SetRelativeRotationSimple(Transform* Trans, float RotationX, float RotationY, float RotationZ, float RotationW);
-	extern void Transform_SetEulerAngles(Transform* Trans, Vector3 Rotation);
+	extern void Transform_SetEulerAngles(Transform* Trans, Vector3 const* Rotation);
 	extern void Transform_SetEulerAnglesSimple(Transform* Trans, float Pitch, float Yaw, float Roll);
-	extern void Transform_SetRelativeEulerAngles(Transform* Trans, Vector3 Rotation);
+	extern void Transform_SetRelativeEulerAngles(Transform* Trans, Vector3 const* Rotation);
 	extern void Transform_SetRelativeEulerAnglesSimple(Transform* Trans, float Pitch, float Yaw, float Roll);
-	extern void Transform_SetScale(Transform* Trans, Vector3 Scale);
+	extern void Transform_SetScale(Transform* Trans, Vector3 const* Scale);
 	extern void Transform_SetScaleSimple(Transform* Trans, float ScaleX, float ScaleY, float ScaleZ);
-	extern void Transform_SetRelativeScale(Transform* Trans, Vector3 Scale);
+	extern void Transform_SetRelativeScale(Transform* Trans, Vector3 const* Scale);
 	extern void Transform_SetRelativeScaleSimple(Transform* Trans, float ScaleX, float ScaleY, float ScaleZ);
-	extern void Transform_ComputeModelMatrix(Transform* Trans, Matrix4 Model);
+	extern void Transform_ComputeModelMatrix(Transform* Trans, Matrix4x4* Model);
 
 	extern void Transform_ComputeWorldPositionInternal(Transform* Trans);
 	extern void Transform_ComputeWorldRotationInternal(Transform* Trans);
 	extern void Transform_ComputeWorldScaleInternal(Transform* Trans);
 
 #ifdef FAST_GL_IMPLEMENTATION
-	static Vector3 const sWorldRight = VECTOR3_RIGHT;
-	static Vector3 const sWorldUp = VECTOR3_UP;
-	static Vector3 const sWorldForward = VECTOR3_FORWARD;
-	static Vector3 const sWorldLeft = VECTOR3_LEFT;
-	static Vector3 const sWorldDown = VECTOR3_DOWN;
-	static Vector3 const sWorldBack = VECTOR3_BACK;
+	static Vector3 sWorldRight = VECTOR3_RIGHT;
+	static Vector3 sWorldUp = VECTOR3_UP;
+	static Vector3 sWorldForward = VECTOR3_FORWARD;
+	static Vector3 sWorldLeft = VECTOR3_LEFT;
+	static Vector3 sWorldDown = VECTOR3_DOWN;
+	static Vector3 sWorldBack = VECTOR3_BACK;
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
@@ -1768,8 +1930,8 @@ extern "C"
 	extern void Controller_OrbitAlloc(OrbitController* Controller);
 	extern void Controller_UpdateFirstPerson(FirstPersonController* Controller, float DeltaTime);
 	extern void Controller_UpdateOrbit(OrbitController* Controller, float DeltaTime);
-	extern void Controller_ComputeFirstPersonViewMatrix(FirstPersonController* Controller, Matrix4 View);
-	extern void Controller_ComputeOrbitViewMatrix(OrbitController* Controller, Matrix4 View);
+	extern void Controller_ComputeFirstPersonViewMatrix(FirstPersonController* Controller, Matrix4x4* View);
+	extern void Controller_ComputeOrbitViewMatrix(OrbitController* Controller, Matrix4x4* View);
 
 	///////////////////////////////////////////////////////////////
 	// Shader Definition
@@ -1782,10 +1944,10 @@ extern "C"
 	extern void Shader_SetUniformInt32(int unsigned Program, char const* UniformName, int Value);
 	extern void Shader_SetUniformUInt32(int unsigned Program, char const* UniformName, int unsigned Value);
 	extern void Shader_SetUniformReal32(int unsigned Program, char const* UniformName, float Value);
-	extern void Shader_SetUniformVector2(int unsigned Program, char const* UniformName, Vector2 Value);
-	extern void Shader_SetUniformVector3(int unsigned Program, char const* UniformName, Vector3 Value);
-	extern void Shader_SetUniformVector4(int unsigned Program, char const* UniformName, Vector4 Value);
-	extern void Shader_SetUniformMatrix4(int unsigned Program, char const* UniformName, Matrix4 Value);
+	extern void Shader_SetUniformVector2(int unsigned Program, char const* UniformName, Vector2 const* Value);
+	extern void Shader_SetUniformVector3(int unsigned Program, char const* UniformName, Vector3 const* Value);
+	extern void Shader_SetUniformVector4(int unsigned Program, char const* UniformName, Vector4 const* Value);
+	extern void Shader_SetUniformMatrix4(int unsigned Program, char const* UniformName, Matrix4x4 const* Value);
 	extern void Shader_ExecuteCompute(int unsigned NumGroupsX, int unsigned NumGroupsY, int unsigned NumGroupsZ);
 	extern void Shader_CheckCompileStatus(int unsigned Shader);
 	extern void Shader_CheckLinkStatus(int unsigned Program);
@@ -1903,13 +2065,13 @@ extern "C"
 		Vector3 Position;
 		Vector3 Rotation;
 		float Thickness;
-		Vector4 Color;
+		Color4 Color;
 	} BatchWorldLineVertex;
-	typedef struct _BatchWorldRectangleVertex
+	typedef struct _BatchWorldRectVertex
 	{
 		Vector2 Position;
 		Vector2 TextureCoords;
-	} BatchWorldRectangleVertex;
+	} BatchWorldRectVertex;
 	typedef struct _BatchScreenCircleVertex
 	{
 		Vector2 Position;
@@ -1920,49 +2082,49 @@ extern "C"
 		Vector2 Position;
 		float Rotation;
 		float Thickness;
-		Vector4 Color;
+		Color4 Color;
 	} BatchScreenLineVertex;
-	typedef struct _BatchScreenRectangleVertex
+	typedef struct _BatchScreenRectVertex
 	{
 		Vector2 Position;
 		Vector2 TextureCoords;
-	} BatchScreenRectangleVertex;
+	} BatchScreenRectVertex;
 	typedef struct _BatchWorldCircleInstanceEntry
 	{
 		Vector3 Position;
 		Vector3 Rotation;
 		float Radius;
-		Vector4 Color;
+		Color4 Color;
 	} BatchWorldCircleInstanceEntry;
-	typedef struct _BatchWorldRectangleInstanceEntry
+	typedef struct _BatchWorldRectInstanceEntry
 	{
 		Vector3 Position;
 		Vector3 Rotation;
 		Vector2 Size;
-		Vector4 Color;
-	} BatchWorldRectangleInstanceEntry;
+		Color4 Color;
+	} BatchWorldRectInstanceEntry;
 	typedef struct _BatchScreenCircleInstanceEntry
 	{
 		Vector2 Position;
 		float Rotation;
 		float Radius;
-		Vector4 Color;
+		Color4 Color;
 	} BatchScreenCircleInstanceEntry;
-	typedef struct _BatchScreenRectangleInstanceEntry
+	typedef struct _BatchScreenRectInstanceEntry
 	{
 		Vector2 Position;
 		float Rotation;
 		Vector2 Size;
-		Vector4 Color;
-	} BatchScreenRectangleInstanceEntry;
+		Color4 Color;
+	} BatchScreenRectInstanceEntry;
 	typedef struct _Batch
 	{
 		int unsigned NumWorldCircles;
 		int unsigned NumWorldLines;
-		int unsigned NumWorldRectangles;
+		int unsigned NumWorldRects;
 		int unsigned NumScreenCircles;
 		int unsigned NumScreenLines;
-		int unsigned NumScreenRectangles;
+		int unsigned NumScreenRects;
 		int unsigned WorldCircleVertexArray;
 		int unsigned WorldCircleVertexBuffer;
 		int unsigned WorldCircleInstanceBuffer;
@@ -1983,75 +2145,75 @@ extern "C"
 		int unsigned ScreenLineVertexOffset;
 		int unsigned ScreenLineIndexBuffer;
 		int unsigned ScreenLineIndexOffset;
-		int unsigned WorldRectangleVertexArray;
-		int unsigned WorldRectangleVertexBuffer;
-		int unsigned WorldRectangleInstanceBuffer;
-		int unsigned WorldRectangleInstanceOffset;
-		int unsigned WorldRectangleIndexBuffer;
-		int unsigned ScreenRectangleVertexArray;
-		int unsigned ScreenRectangleVertexBuffer;
-		int unsigned ScreenRectangleInstanceBuffer;
-		int unsigned ScreenRectangleInstanceOffset;
-		int unsigned ScreenRectangleIndexBuffer;
+		int unsigned WorldRectVertexArray;
+		int unsigned WorldRectVertexBuffer;
+		int unsigned WorldRectInstanceBuffer;
+		int unsigned WorldRectInstanceOffset;
+		int unsigned WorldRectIndexBuffer;
+		int unsigned ScreenRectVertexArray;
+		int unsigned ScreenRectVertexBuffer;
+		int unsigned ScreenRectInstanceBuffer;
+		int unsigned ScreenRectInstanceOffset;
+		int unsigned ScreenRectIndexBuffer;
 	} Batch;
 
 	extern void Batch_Alloc(Batch* Bat);
 	extern void Batch_Free(Batch* Bat);
 
 	extern void Batch_BeginWorldCircles(Batch* Bat);
-	extern void Batch_DrawWorldCircle(Vector3 Position, Vector3 Rotation, float Radius, Vector4 Color);
+	extern void Batch_DrawWorldCircle(Vector3 const* Position, Vector3 const* Rotation, float Radius, Color4 const* Color);
 	extern void Batch_DrawWorldCircleSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Batch_DrawWorldCircleGrid(Vector3 Position, Vector3 Rotation, int unsigned Num, float Scale, float Radius, Vector4 Color);
+	extern void Batch_DrawWorldCircleGrid(Vector3 const* Position, Vector3 const* Rotation, int unsigned Num, float Scale, float Radius, Color4 const* Color);
 	extern void Batch_DrawWorldCircleGridSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Batch_EndWorldCircles(Matrix4 Projection, Matrix4 View);
+	extern void Batch_EndWorldCircles(Matrix4x4 const* Projection, Matrix4x4 const* View);
 
 	extern void Batch_BeginScreenCircles(Batch* Bat);
-	extern void Batch_DrawScreenCircle(Vector2 Position, float Rotation, float Radius, Vector4 Color);
+	extern void Batch_DrawScreenCircle(Vector2 const* Position, float Rotation, float Radius, Color4 const* Color);
 	extern void Batch_DrawScreenCircleSimple(float PositionX, float PositionY, float Rotation, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Batch_DrawScreenCircleGrid(Vector2 Position, float Rotation, int unsigned Num, float Scale, float Radius, Vector4 Color);
+	extern void Batch_DrawScreenCircleGrid(Vector2 const* Position, float Rotation, int unsigned Num, float Scale, float Radius, Color4 const* Color);
 	extern void Batch_DrawScreenCircleGridSimple(float PositionX, float PositionY, float Rotation, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
 	extern void Batch_EndScreenCircles(void);
 
 	extern void Batch_BeginWorldLines(Batch* Bat);
-	extern void Batch_DrawWorldLine(Vector3 From, Vector3 To, Vector3 Rotation, float Thickness, Vector4 Color);
+	extern void Batch_DrawWorldLine(Vector3 const* From, Vector3 const* To, Vector3 const* Rotation, float Thickness, Color4 const* Color);
 	extern void Batch_DrawWorldLineSimple(float FromX, float FromY, float FromZ, float ToX, float ToY, float ToZ, float Pitch, float Yaw, float Roll, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Batch_DrawWorldLineGrid(Vector3 Position, Vector3 Rotation, int unsigned Num, float Scale, float Thickness, Vector4 Color);
+	extern void Batch_DrawWorldLineGrid(Vector3 const* Position, Vector3 const* Rotation, int unsigned Num, float Scale, float Thickness, Color4 const* Color);
 	extern void Batch_DrawWorldLineGridSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Batch_EndWorldLines(Matrix4 Projection, Matrix4 View);
+	extern void Batch_EndWorldLines(Matrix4x4 const* Projection, Matrix4x4 const* View);
 
 	extern void Batch_BeginScreenLines(Batch* Bat);
-	extern void Batch_DrawScreenLine(Vector2 From, Vector2 To, float Rotation, float Thickness, Vector4 Color);
+	extern void Batch_DrawScreenLine(Vector2 const* From, Vector2 const* To, float Rotation, float Thickness, Color4 const* Color);
 	extern void Batch_DrawScreenLineSimple(float FromX, float FromY, float ToX, float ToY, float Rotation, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Batch_DrawScreenLineGrid(Vector2 Position, float Rotation, int unsigned Num, float Scale, float Thickness, Vector4 Color);
+	extern void Batch_DrawScreenLineGrid(Vector2 const* Position, float Rotation, int unsigned Num, float Scale, float Thickness, Color4 const* Color);
 	extern void Batch_DrawScreenLineGridSimple(float PositionX, float PositionY, float Rotation, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
 	extern void Batch_EndScreenLines(void);
 
-	extern void Batch_BeginWorldRectangles(Batch* Bat);
-	extern void Batch_DrawWorldRectangle(Vector3 Position, Vector3 Rotation, Vector2 Size, Vector4 Color);
-	extern void Batch_DrawWorldRectangleSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Batch_EndWorldRectangles(Matrix4 Projection, Matrix4 View);
+	extern void Batch_BeginWorldRects(Batch* Bat);
+	extern void Batch_DrawWorldRect(Vector3 const* Position, Vector3 const* Rotation, Vector2 const* Size, Color4 const* Color);
+	extern void Batch_DrawWorldRectSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_EndWorldRects(Matrix4x4 const* Projection, Matrix4x4 const* View);
 
-	extern void Batch_BeginScreenRectangles(Batch* Bat);
-	extern void Batch_DrawScreenRectangle(Vector2 Position, float Rotation, Vector2 Size, Vector4 Color);
-	extern void Batch_DrawScreenRectangleSimple(float PositionX, float PositionY, float Rotation, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Batch_EndScreenRectangles(void);
+	extern void Batch_BeginScreenRects(Batch* Bat);
+	extern void Batch_DrawScreenRect(Vector2 const* Position, float Rotation, Vector2 const* Size, Color4 const* Color);
+	extern void Batch_DrawScreenRectSimple(float PositionX, float PositionY, float Rotation, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_EndScreenRects(void);
 
 #ifdef FAST_GL_IMPLEMENTATION
 	static int unsigned sWorldCircleProgram = 0;
 	static int unsigned sWorldLineProgram = 0;
-	static int unsigned sWorldRectangleProgram = 0;
+	static int unsigned sWorldRectProgram = 0;
 	static int unsigned sScreenCircleProgram = 0;
 	static int unsigned sScreenLineProgram = 0;
-	static int unsigned sScreenRectangleProgram = 0;
+	static int unsigned sScreenRectProgram = 0;
 	static Batch* sCurrBatch = 0;
 	static BatchWorldCircleInstanceEntry* sMappedWorldCircleInstanceBuffer = 0;
 	static BatchWorldLineVertex* sMappedWorldLineVertexBuffer = 0;
 	static int unsigned* sMappedWorldLineIndexBuffer = 0;
-	static BatchWorldRectangleInstanceEntry* sMappedWorldRectangleInstanceBuffer = 0;
+	static BatchWorldRectInstanceEntry* sMappedWorldRectInstanceBuffer = 0;
 	static BatchScreenCircleInstanceEntry* sMappedScreenCircleInstanceBuffer = 0;
 	static BatchScreenLineVertex* sMappedScreenLineVertexBuffer = 0;
 	static int unsigned* sMappedScreenLineIndexBuffer = 0;
-	static BatchScreenRectangleInstanceEntry* sMappedScreenRectangleInstanceBuffer = 0;
+	static BatchScreenRectInstanceEntry* sMappedScreenRectInstanceBuffer = 0;
 	static char const sWorldCircleVertexShader[] =
 		GLSL_GL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
@@ -2159,7 +2321,7 @@ extern "C"
 		"void main() {"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
-	static char const sWorldRectangleVertexShader[] =
+	static char const sWorldRectVertexShader[] =
 		GLSL_GL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
@@ -2185,7 +2347,7 @@ extern "C"
 		"	VertexOutput.TextureCoords = VertexTextureCoords;"
 		"	VertexOutput.Color = InstanceColor;"
 		"}";
-	static char const sWorldRectangleFragmentShader[] =
+	static char const sWorldRectFragmentShader[] =
 		GLSL_GL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
@@ -2298,7 +2460,7 @@ extern "C"
 		"void main() {"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
-	static char const sScreenRectangleVertexShader[] =
+	static char const sScreenRectVertexShader[] =
 		GLSL_GL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
@@ -2321,7 +2483,7 @@ extern "C"
 		"	VertexOutput.TextureCoords = VertexTextureCoords;"
 		"	VertexOutput.Color = InstanceColor;"
 		"}";
-	static char const sScreenRectangleFragmentShader[] =
+	static char const sScreenRectFragmentShader[] =
 		GLSL_GL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
@@ -2331,6 +2493,9 @@ extern "C"
 		"void main() {"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
+#ifdef FAST_GL_REFERENCE_COUNT
+	static long long unsigned sAllocatedBatches = 0;
+#endif // FAST_GL_REFERENCE_COUNT
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
@@ -2364,7 +2529,7 @@ extern "C"
 		float UnitsPerEm;
 		float FontSize;
 		Vector2 GlyphSize;
-		Vector4 Color;
+		Color4 Color;
 		int unsigned GlyphIndex;
 		int unsigned LineHeight;
 	} FontWorldGlyphInstanceEntry;
@@ -2373,12 +2538,11 @@ extern "C"
 		Vector2 Pivot;
 		Vector2 Position;
 		float Rotation;
-		Vector2 Scale;
 		Vector2 Bearing;
 		float UnitsPerEm;
 		float FontSize;
 		Vector2 GlyphSize;
-		Vector4 Color;
+		Color4 Color;
 		int unsigned GlyphIndex;
 		int unsigned LineHeight;
 	} FontScreenGlyphInstanceEntry;
@@ -3214,14 +3378,13 @@ extern "C"
 		"layout (location = 2) in vec2 InstancePivot;"
 		"layout (location = 3) in vec2 InstancePosition;"
 		"layout (location = 4) in float InstanceRotation;"
-		"layout (location = 5) in vec2 InstanceScale;"
-		"layout (location = 6) in vec2 InstanceBearing;"
-		"layout (location = 7) in float InstanceUnitsPerEm;"
-		"layout (location = 8) in float InstanceFontSize;"
-		"layout (location = 9) in vec2 InstanceGlyphSize;"
-		"layout (location = 10) in vec4 InstanceColor;"
-		"layout (location = 11) in uint InstanceGlyphIndex;"
-		"layout (location = 12) in uint InstanceLineHeight;"
+		"layout (location = 5) in vec2 InstanceBearing;"
+		"layout (location = 6) in float InstanceUnitsPerEm;"
+		"layout (location = 7) in float InstanceFontSize;"
+		"layout (location = 8) in vec2 InstanceGlyphSize;"
+		"layout (location = 9) in vec4 InstanceColor;"
+		"layout (location = 10) in uint InstanceGlyphIndex;"
+		"layout (location = 11) in uint InstanceLineHeight;"
 		"out VS_OUT {"
 		"	vec2 TextureCoords;"
 		"	flat uint GlyphIndex;"
@@ -3379,17 +3542,17 @@ extern "C"
 	} TextScreenCache;
 
 	extern void Text_BeginWorld(Font* Fnt);
-	extern void Text_DrawWorld(Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...);
-	extern void Text_DrawWorldSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float ScaleX, float ScaleY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
-	extern void Text_EndWorld(Matrix4 Projection, Matrix4 View);
+	extern void Text_DrawWorld(Vector3 const* Position, Vector3 const* Rotation, Vector2 const* Size, Color4 const* Color, char const* Format, ...);
+	extern void Text_DrawWorldSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
+	extern void Text_EndWorld(Matrix4x4 const* Projection, Matrix4x4 const* View);
 
 	extern void Text_BeginScreen(Font* Fnt);
-	extern void Text_DrawScreen(Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...);
-	extern void Text_DrawScreenSimple(float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
+	extern void Text_DrawScreen(Vector2 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...);
+	extern void Text_DrawScreenSimple(float PositionX, float PositionY, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
 	extern void Text_EndScreen(void);
 
 	extern void TextCache_WorldAlloc(TextWorldCache* Cache, int unsigned NumChars);
-	extern void TextCache_DrawWorldCache(TextWorldCache* Cache, Matrix4 Projection, Matrix4 View);
+	extern void TextCache_DrawWorldCache(TextWorldCache* Cache, Matrix4x4 const* Projection, Matrix4x4 const* View);
 	extern void TextCache_WorldFree(TextWorldCache* Cache);
 
 	extern void TextCache_ScreenAlloc(TextScreenCache* Cache, int unsigned NumChars);
@@ -3397,13 +3560,13 @@ extern "C"
 	extern void TextCache_ScreenFree(TextScreenCache* Cache);
 
 	extern void TextCache_BeginWorldCache(TextWorldCache* Cache, Font* Fnt);
-	extern void TextCache_DrawWorld(TextWorldCache* Cache, Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...);
-	extern void TextCache_DrawWorldSimple(TextWorldCache* Cache, float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float ScaleX, float ScaleY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
+	extern void TextCache_DrawWorld(TextWorldCache* Cache, Vector3 const* Position, Vector3 const* Rotation, Vector2 const* Size, Color4 const* Color, char const* Format, ...);
+	extern void TextCache_DrawWorldSimple(TextWorldCache* Cache, float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
 	extern void TextCache_EndWorldCache(TextWorldCache* Cache);
 
 	extern void TextCache_BeginScreenCache(TextScreenCache* Cache, Font* Fnt);
-	extern void TextCache_DrawScreen(TextScreenCache* Cache, Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...);
-	extern void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
+	extern void TextCache_DrawScreen(TextScreenCache* Cache, Vector2 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...);
+	extern void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
 	extern void TextCache_EndScreenCache(TextScreenCache* Cache);
 
 #ifdef FAST_GL_IMPLEMENTATION
@@ -3602,7 +3765,7 @@ extern "C"
 	} InstancedSprite;
 	typedef struct _SpriteInstanceEntry
 	{
-		Matrix4 TransformMatrix;
+		Matrix4x4 TransformMatrix;
 		int unsigned AtlasIndex;
 	} SpriteInstanceEntry;
 	typedef struct _PostProcessVertex
@@ -3734,13 +3897,11 @@ extern "C"
 		Vector3 Position;
 		Vector2 TextureCoords;
 	} KekVertex;
-	typedef struct _KekRect
+	typedef struct _KekStyle
 	{
-		float Left;
-		float Right;
-		float Top;
-		float Bottom;
-	} KekRect;
+		float DockTabWidth;
+		float DockTabHeight;
+	} KekStyle;
 	typedef enum _KekNodeClass
 	{
 		KEK_NODE_CLASS_DOCK_ROOT,
@@ -3751,12 +3912,13 @@ extern "C"
 		KEK_NODE_CLASS_BUTTON,
 		KEK_NODE_CLASS_SLIDER,
 		KEK_NODE_CLASS_VIEW_PORT,
+		KEK_NODE_CLASS_TEST, // TODO
 	} KekNodeClass;
 	typedef struct _KekNode
 	{
-		ListEntry Entry;
+		ListEntry NodeEntry;
 		KekNodeClass Class;
-		KekRect Rect;
+		Rect Rect;
 	} KekNode;
 	typedef enum _KekDockLayoutType
 	{
@@ -3766,102 +3928,149 @@ extern "C"
 	} KekDockLayoutType;
 	typedef struct _KekDockLayout
 	{
+		ListEntry LayoutEntry;
 		KekDockLayoutType Type;
-		KekRect Rect;
+		Rect Rect;
 		struct _KekDockLayout* ParentLayout;
-		struct _KekDockLayout* FirstLayout;
-		struct _KekDockLayout* SecondLayout;
+		ListEntry ChildLayouts;
 		KekNode* Node;
+		Color4 BackgroundColor;
+		Color4 TextColor;
 	} KekDockLayout;
 	typedef struct _KekDockRoot
 	{
-		KekNode Base;
-		KekDockLayout* RootLayout;
-		KekDockLayout* CurrLayout;
+		KekNode Node;
+		ListEntry ChildLayouts;
 	} KekDockRoot;
 	typedef struct _KekListLayout
 	{
-		KekNode Base;
+		KekNode Node;
 	} KekListLayout;
 	typedef struct _KekGridLayout
 	{
-		KekNode Base;
+		KekNode Node;
 	} KekGridLayout;
 	typedef struct _KekToolBar
 	{
-		KekNode Base;
+		KekNode Node;
 	} KekToolBar;
 	typedef struct _KekImage
 	{
-		KekNode Base;
+		KekNode Node;
 	} KekImage;
 	typedef struct _KekButton
 	{
-		KekNode Base;
+		KekNode Node;
 	} KekButton;
 	typedef struct _KekSlider
 	{
-		KekNode Base;
+		KekNode Node;
 	} KekSlider;
 	typedef struct _KekViewPort
 	{
-		KekNode Base;
+		KekNode Node;
 	} KekViewPort;
+	typedef struct _KekTest
+	{
+		KekNode Node;
+	} KekTest;
+	typedef enum _KekBatchMode
+	{
+		KEK_BATCH_MODE_RECT,
+		KEK_BATCH_MODE_TEXT,
+	} KekBatchMode;
 
 	extern void Kek_Alloc(void);
 	extern void Kek_SetRootNode(void* Node);
-	extern void Kek_Draw(void* Node);
+	extern void Kek_Resize(void);
+	extern void Kek_Update(void);
+	extern void Kek_Draw(void);
 	extern void Kek_Free(void);
+	extern void Kek_PrintTree(void);
 
-	extern void KekRect_Copy(KekRect* Destination, KekRect* Source);
+	extern void KekNode_Resize(KekNode* Node);
+	extern void KekNode_Update(KekNode* Node);
+	extern void KekNode_Draw(KekNode* Node, KekBatchMode BatchMode);
+	extern void KekNode_PrintTree(KekNode* Node, int unsigned NumIdentSteps);
 
-	extern void KekNode_Draw(KekNode* Node);
-	
-	extern KekDockLayout* KekDockLayout_Alloc(KekDockLayout* DockLayout);
-	extern void KekDockLayout_InsertLeft(KekDockLayout* DockLayout, void* Node);
-	extern void KekDockLayout_InsertRight(KekDockLayout* DockLayout, void* Node);
-	extern void KekDockLayout_InsertTop(KekDockLayout* DockLayout, void* Node);
-	extern void KekDockLayout_InsertBottom(KekDockLayout* DockLayout, void* Node);
-	extern void KekDockLayout_Draw(KekDockLayout* DockLayout);
+	extern KekDockLayout* KekDockLayout_Alloc(KekDockLayout* DockLayout, KekNode* Node);
+	extern void KekDockLayout_SetRect(KekDockLayout* DockLayout, Rect const* Rect);
+	extern void KekDockLayout_SetPosition(KekDockLayout* DockLayout, float PositionX, float PositionY);
+	extern void KekDockLayout_InsertLeft(KekDockLayout* DockLayout, KekNode* Node);
+	extern void KekDockLayout_InsertRight(KekDockLayout* DockLayout, KekNode* Node);
+	extern void KekDockLayout_InsertTop(KekDockLayout* DockLayout, KekNode* Node);
+	extern void KekDockLayout_InsertBottom(KekDockLayout* DockLayout, KekNode* Node);
+	extern KekDockLayout* KekDockLayout_FindChildInsideBounds(KekDockLayout* DockLayout);
+	extern void KekDockLayout_Resize(KekDockLayout* DockLayout);
+	extern void KekDockLayout_Update(KekDockLayout* DockLayout);
+	extern void KekDockLayout_Draw(KekDockLayout* DockLayout, KekBatchMode BatchMode);
+	extern void KekDockLayout_DrawTabBar(KekDockLayout* DockLayout, KekBatchMode BatchMode);
+	extern void KekDockLayout_PrintTree(KekDockLayout* DockLayout, int unsigned NumIdentSteps);
 
-	extern void KekDockRoot_Alloc(KekDockRoot* DockRoot);
-	extern void KekDockRoot_InsertLeft(KekDockRoot* DockRoot, void* Node);
-	extern void KekDockRoot_InsertRight(KekDockRoot* DockRoot, void* Node);
-	extern void KekDockRoot_InsertTop(KekDockRoot* DockRoot, void* Node);
-	extern void KekDockRoot_InsertBottom(KekDockRoot* DockRoot, void* Node);
-	extern void KekDockRoot_Draw(KekDockRoot* DockRoot);
+	extern void KekDockRoot_Alloc(KekDockRoot* DockRoot, Rect const* Rect);
+	extern void KekDockRoot_InsertLeft(KekDockRoot* DockRoot, KekNode* Node);
+	extern void KekDockRoot_InsertRight(KekDockRoot* DockRoot, KekNode* Node);
+	extern void KekDockRoot_InsertTop(KekDockRoot* DockRoot, KekNode* Node);
+	extern void KekDockRoot_InsertBottom(KekDockRoot* DockRoot, KekNode* Node);
+	extern void KekDockRoot_Resize(KekDockRoot* DockRoot);
+	extern void KekDockRoot_Update(KekDockRoot* DockRoot);
+	extern void KekDockRoot_Draw(KekDockRoot* DockRoot, KekBatchMode BatchMode);
 	extern void KekDockRoot_Free(KekDockRoot* DockRoot);
+	extern void KekDockRoot_PrintTree(KekDockRoot* DockRoot, int unsigned NumIdentSteps);
 
-	extern void KekListLayout_Alloc(KekListLayout* ListLayout);
-	extern void KekListLayout_Draw(KekListLayout* ListLayout);
+	extern void KekListLayout_Alloc(KekListLayout* ListLayout, Rect const* Rect);
+	extern void KekListLayout_Update(KekListLayout* ListLayout);
+	extern void KekListLayout_Resize(KekListLayout* ListLayout);
+	extern void KekListLayout_Draw(KekListLayout* ListLayout, KekBatchMode BatchMode);
 	extern void KekListLayout_Free(KekListLayout* ListLayout);
+	extern void KekListLayout_PrintTree(KekListLayout* ListLayout, int unsigned NumIdentSteps);
 
-	extern void KekGridLayout_Alloc(KekGridLayout* GridLayout);
-	extern void KekGridLayout_Draw(KekGridLayout* GridLayout);
+	extern void KekGridLayout_Alloc(KekGridLayout* GridLayout, Rect const* Rect);
+	extern void KekGridLayout_Resize(KekGridLayout* GridLayout);
+	extern void KekGridLayout_Update(KekGridLayout* GridLayout);
+	extern void KekGridLayout_Draw(KekGridLayout* GridLayout, KekBatchMode BatchMode);
 	extern void KekGridLayout_Free(KekGridLayout* GridLayout);
+	extern void KekGridLayout_PrintTree(KekGridLayout* GridLayout, int unsigned NumIdentSteps);
 
-	extern void KekToolBar_Alloc(KekToolBar* ToolBar);
-	extern void KekToolBar_Draw(KekToolBar* ToolBar);
+	extern void KekToolBar_Alloc(KekToolBar* ToolBar, Rect const* Rect);
+	extern void KekToolBar_Update(KekToolBar* ToolBar);
+	extern void KekToolBar_Draw(KekToolBar* ToolBar, KekBatchMode BatchMode);
 	extern void KekToolBar_Free(KekToolBar* ToolBar);
+	extern void KekToolBar_PrintTree(KekToolBar* ToolBar, int unsigned NumIdentSteps);
 
-	extern void KekImage_Alloc(KekImage* Image);
-	extern void KekImage_Draw(KekImage* Image);
-	extern void KekImage_Free(KekImage* Image);
+	extern void KekImage_Alloc(KekImage* Image, Rect const* Rect);
+	extern void KekImage_Update(KekImage* Image);
+	extern void KekImage_Draw(KekImage* Image, KekBatchMode BatchMode);
+	extern void KekImage_PrintTree(KekImage* Image, int unsigned NumIdentSteps);
 
-	extern void KekButton_Alloc(KekButton* Button);
-	extern void KekButton_Draw(KekButton* Button);
-	extern void KekButton_Free(KekButton* Button);
+	extern void KekButton_Alloc(KekButton* Button, Rect const* Rect);
+	extern void KekButton_Update(KekButton* Button);
+	extern void KekButton_Draw(KekButton* Button, KekBatchMode BatchMode);
+	extern void KekButton_PrintTree(KekButton* Button, int unsigned NumIdentSteps);
 
-	extern void KekSlider_Alloc(KekSlider* Slider);
-	extern void KekSlider_Draw(KekSlider* Slider);
-	extern void KekSlider_Free(KekSlider* Slider);
+	extern void KekSlider_Alloc(KekSlider* Slider, Rect const* Rect);
+	extern void KekSlider_Update(KekSlider* Slider);
+	extern void KekSlider_Draw(KekSlider* Slider, KekBatchMode BatchMode);
+	extern void KekSlider_PrintTree(KekSlider* Slider, int unsigned NumIdentSteps);
 
-	extern void KekViewPort_Alloc(KekViewPort* ViewPort);
-	extern void KekViewPort_Draw(KekViewPort* ViewPort);
-	extern void KekViewPort_Free(KekViewPort* ViewPort);
+	extern void KekViewPort_Alloc(KekViewPort* ViewPort, Rect const* Rect);
+	extern void KekViewPort_Update(KekViewPort* ViewPort);
+	extern void KekViewPort_Draw(KekViewPort* ViewPort, KekBatchMode BatchMode);
+	extern void KekViewPort_PrintTree(KekViewPort* ViewPort, int unsigned NumIdentSteps);
+
+	extern void KekTest_Alloc(KekTest* Test, Rect const* Rect);
+	extern void KekTest_Update(KekTest* Test);
+	extern void KekTest_Draw(KekTest* Test, KekBatchMode BatchMode);
+	extern void KekTest_Free(KekTest* Test);
+	extern void KekTest_PrintTree(KekTest* Test, int unsigned NumIdentSteps);
 
 #ifdef FAST_GL_IMPLEMENTATION
+	static Batch sKekBatch = { 0 };
+	static KekStyle sKekStyle = { 0 };
 	static void* sKekRootNode = 0;
+	static KekDockLayout* sCurrDragDockLayout = 0;
+	static float sCurrDragOffsetX = 0.0F;
+	static float sCurrDragOffsetY = 0.0F;
 	static char const sKekVertexShader[] =
 		GLSL_GL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
@@ -4243,223 +4452,155 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 
 #ifdef FAST_GL_IMPLEMENTATION
-	void Vector2_Zero(Vector2 Result)
+	void Vector2_Zero(Vector2* Result)
 	{
-		Result[0] = 0.0F;
-		Result[1] = 0.0F;
+		Result->X = 0.0F;
+		Result->Y = 0.0F;
 	}
-	void Vector3_Zero(Vector3 Result)
+	void Vector2_Set(Vector2* const Value, Vector2* Result)
 	{
-		Result[0] = 0.0F;
-		Result[1] = 0.0F;
-		Result[2] = 0.0F;
+		Result->X = Value->X;
+		Result->Y = Value->Y;
 	}
-	void Vector4_Zero(Vector4 Result)
+	void Vector2_SetSimple(float X, float Y, Vector2* Result)
 	{
-		Result[0] = 0.0F;
-		Result[1] = 0.0F;
-		Result[2] = 0.0F;
-		Result[3] = 0.0F;
+		Result->X = X;
+		Result->Y = Y;
 	}
-	void Vector2_Set(Vector2 const Value, Vector2 Result)
+	void Vector2_Add(Vector2* const A, Vector2* const B, Vector2* Result)
 	{
-		Result[0] = Value[0];
-		Result[1] = Value[1];
+		Result->X = A->X + B->X;
+		Result->Y = A->Y + B->Y;
 	}
-	void Vector3_Set(Vector3 const Value, Vector3 Result)
+	void Vector2_Sub(Vector2* const A, Vector2* const B, Vector2* Result)
 	{
-		Result[0] = Value[0];
-		Result[1] = Value[1];
-		Result[2] = Value[2];
+		Result->X = A->X - B->X;
+		Result->Y = A->Y - B->Y;
 	}
-	void Vector4_Set(Vector4 const Value, Vector4 Result)
+	void Vector2_Mul(Vector2* const A, Vector2* const B, Vector2* Result)
 	{
-		Result[0] = Value[0];
-		Result[1] = Value[1];
-		Result[2] = Value[2];
-		Result[3] = Value[3];
+		Result->X = A->X * B->X;
+		Result->Y = A->Y * B->Y;
 	}
-	void Vector2_SetSimple(float X, float Y, Vector2 Result)
+	void Vector2_Div(Vector2* const A, Vector2* const B, Vector2* Result)
 	{
-		Result[0] = X;
-		Result[1] = Y;
+		Result->X = A->X / B->X;
+		Result->Y = A->Y / B->Y;
 	}
-	void Vector3_SetSimple(float X, float Y, float Z, Vector3 Result)
+	void Vector2_AddScalar(Vector2* const Value, float Scalar, Vector2* Result)
 	{
-		Result[0] = X;
-		Result[1] = Y;
-		Result[2] = Z;
+		Result->X = Value->X + Scalar;
+		Result->Y = Value->Y + Scalar;
 	}
-	void Vector4_SetSimple(float X, float Y, float Z, float W, Vector4 Result)
+	void Vector2_SubScalar(Vector2* const Value, float Scalar, Vector2* Result)
 	{
-		Result[0] = X;
-		Result[1] = Y;
-		Result[2] = Z;
-		Result[3] = W;
+		Result->X = Value->X - Scalar;
+		Result->Y = Value->Y - Scalar;
 	}
-	void Vector2_Add(Vector2 const A, Vector2 const B, Vector2 Result)
+	void Vector2_MulScalar(Vector2* const Value, float Scalar, Vector2* Result)
 	{
-		Result[0] = A[0] + B[0];
-		Result[1] = A[1] + B[1];
+		Result->X = Value->X * Scalar;
+		Result->Y = Value->Y * Scalar;
 	}
-	void Vector3_Add(Vector3 const A, Vector3 const B, Vector3 Result)
+	void Vector2_DivScalar(Vector2* const Value, float Scalar, Vector2* Result)
 	{
-		Result[0] = A[0] + B[0];
-		Result[1] = A[1] + B[1];
-		Result[2] = A[2] + B[2];
+		Result->X = Value->X / Scalar;
+		Result->Y = Value->Y / Scalar;
 	}
-	void Vector4_Add(Vector4 const A, Vector4 const B, Vector4 Result)
+	void Vector2_MulAdd(Vector2* const Value, float Scalar, Vector2* Result)
 	{
-		Result[0] = A[0] + B[0];
-		Result[1] = A[1] + B[1];
-		Result[2] = A[2] + B[2];
-		Result[3] = A[3] + B[3];
+		Result->X += Value->X * Scalar;
+		Result->Y += Value->Y * Scalar;
 	}
-	void Vector2_Sub(Vector2 const A, Vector2 const B, Vector2 Result)
+	float Vector2_Dot(Vector2* const A, Vector2* const B)
 	{
-		Result[0] = A[0] - B[0];
-		Result[1] = A[1] - B[1];
+		return (A->X * B->X) + (A->Y * B->Y);
 	}
-	void Vector3_Sub(Vector3 const A, Vector3 const B, Vector3 Result)
+	float Vector2_Length(Vector2* const Value)
 	{
-		Result[0] = A[0] - B[0];
-		Result[1] = A[1] - B[1];
-		Result[2] = A[2] - B[2];
+		return sqrtf(Vector2_Dot(Value, Value));
 	}
-	void Vector4_Sub(Vector4 const A, Vector4 const B, Vector4 Result)
+	float Vector2_Length2(Vector2* const Value)
 	{
-		Result[0] = A[0] - B[0];
-		Result[1] = A[1] - B[1];
-		Result[2] = A[2] - B[2];
-		Result[3] = A[3] - B[3];
+		return Vector2_Dot(Value, Value);
 	}
-	void Vector2_Mul(Vector2 const A, Vector2 const B, Vector2 Result)
+	void Vector2_Print(Vector2* const Value)
 	{
-		Result[0] = A[0] * B[0];
-		Result[1] = A[1] * B[1];
+		printf("[%f, %f]\n", Value->X, Value->Y);
 	}
-	void Vector3_Mul(Vector3 const A, Vector3 const B, Vector3 Result)
+	void Vector3_Zero(Vector3* Result)
 	{
-		Result[0] = A[0] * B[0];
-		Result[1] = A[1] * B[1];
-		Result[2] = A[2] * B[2];
+		Result->X = 0.0F;
+		Result->Y = 0.0F;
+		Result->Z = 0.0F;
 	}
-	void Vector4_Mul(Vector4 const A, Vector4 const B, Vector4 Result)
+	void Vector3_Set(Vector3* const Value, Vector3* Result)
 	{
-		Result[0] = A[0] * B[0];
-		Result[1] = A[1] * B[1];
-		Result[2] = A[2] * B[2];
-		Result[3] = A[3] * B[3];
+		Result->X = Value->X;
+		Result->Y = Value->Y;
+		Result->Z = Value->Z;
 	}
-	void Vector2_Div(Vector2 const A, Vector2 const B, Vector2 Result)
+	void Vector3_SetSimple(float X, float Y, float Z, Vector3* Result)
 	{
-		Result[0] = A[0] / B[0];
-		Result[1] = A[1] / B[1];
+		Result->X = X;
+		Result->Y = Y;
+		Result->Z = Z;
 	}
-	void Vector3_Div(Vector3 const A, Vector3 const B, Vector3 Result)
+	void Vector3_Add(Vector3* const A, Vector3* const B, Vector3* Result)
 	{
-		Result[0] = A[0] / B[0];
-		Result[1] = A[1] / B[1];
-		Result[2] = A[2] / B[2];
+		Result->X = A->X + B->X;
+		Result->Y = A->Y + B->Y;
+		Result->Z = A->Z + B->Z;
 	}
-	void Vector4_Div(Vector4 const A, Vector4 const B, Vector4 Result)
+	void Vector3_Sub(Vector3* const A, Vector3* const B, Vector3* Result)
 	{
-		Result[0] = A[0] / B[0];
-		Result[1] = A[1] / B[1];
-		Result[2] = A[2] / B[2];
-		Result[3] = A[3] / B[3];
+		Result->X = A->X - B->X;
+		Result->Y = A->Y - B->Y;
+		Result->Z = A->Z - B->Z;
 	}
-	void Vector2_AddScalar(Vector2 const Value, float Scalar, Vector2 Result)
+	void Vector3_Mul(Vector3* const A, Vector3* const B, Vector3* Result)
 	{
-		Result[0] = Value[0] + Scalar;
-		Result[1] = Value[1] + Scalar;
+		Result->X = A->X * B->X;
+		Result->Y = A->Y * B->Y;
+		Result->Z = A->Z * B->Z;
 	}
-	void Vector3_AddScalar(Vector3 const Value, float Scalar, Vector3 Result)
+	void Vector3_Div(Vector3* const A, Vector3* const B, Vector3* Result)
 	{
-		Result[0] = Value[0] + Scalar;
-		Result[1] = Value[1] + Scalar;
-		Result[2] = Value[2] + Scalar;
+		Result->X = A->X / B->X;
+		Result->Y = A->Y / B->Y;
+		Result->Z = A->Z / B->Z;
 	}
-	void Vector4_AddScalar(Vector4 const Value, float Scalar, Vector4 Result)
+	void Vector3_AddScalar(Vector3* const Value, float Scalar, Vector3* Result)
 	{
-		Result[0] = Value[0] + Scalar;
-		Result[1] = Value[1] + Scalar;
-		Result[2] = Value[2] + Scalar;
-		Result[3] = Value[3] + Scalar;
+		Result->X = Value->X + Scalar;
+		Result->Y = Value->Y + Scalar;
+		Result->Z = Value->Z + Scalar;
 	}
-	void Vector2_SubScalar(Vector2 const Value, float Scalar, Vector2 Result)
+	void Vector3_SubScalar(Vector3* const Value, float Scalar, Vector3* Result)
 	{
-		Result[0] = Value[0] - Scalar;
-		Result[1] = Value[1] - Scalar;
+		Result->X = Value->X - Scalar;
+		Result->Y = Value->Y - Scalar;
+		Result->Z = Value->Z - Scalar;
 	}
-	void Vector3_SubScalar(Vector3 const Value, float Scalar, Vector3 Result)
+	void Vector3_MulScalar(Vector3* const Value, float Scalar, Vector3* Result)
 	{
-		Result[0] = Value[0] - Scalar;
-		Result[1] = Value[1] - Scalar;
-		Result[2] = Value[2] - Scalar;
+		Result->X = Value->X * Scalar;
+		Result->Y = Value->Y * Scalar;
+		Result->Z = Value->Z * Scalar;
 	}
-	void Vector4_SubScalar(Vector4 const Value, float Scalar, Vector4 Result)
+	void Vector3_DivScalar(Vector3* const Value, float Scalar, Vector3* Result)
 	{
-		Result[0] = Value[0] - Scalar;
-		Result[1] = Value[1] - Scalar;
-		Result[2] = Value[2] - Scalar;
-		Result[3] = Value[3] - Scalar;
+		Result->X = Value->X / Scalar;
+		Result->Y = Value->Y / Scalar;
+		Result->Z = Value->Z / Scalar;
 	}
-	void Vector2_MulScalar(Vector2 const Value, float Scalar, Vector2 Result)
+	void Vector3_MulAdd(Vector3* const Value, float Scalar, Vector3* Result)
 	{
-		Result[0] = Value[0] * Scalar;
-		Result[1] = Value[1] * Scalar;
+		Result->X += Value->X * Scalar;
+		Result->Y += Value->Y * Scalar;
+		Result->Z += Value->Z * Scalar;
 	}
-	void Vector3_MulScalar(Vector3 const Value, float Scalar, Vector3 Result)
-	{
-		Result[0] = Value[0] * Scalar;
-		Result[1] = Value[1] * Scalar;
-		Result[2] = Value[2] * Scalar;
-	}
-	void Vector4_MulScalar(Vector4 const Value, float Scalar, Vector4 Result)
-	{
-		Result[0] = Value[0] * Scalar;
-		Result[1] = Value[1] * Scalar;
-		Result[2] = Value[2] * Scalar;
-		Result[3] = Value[3] * Scalar;
-	}
-	void Vector2_DivScalar(Vector2 const Value, float Scalar, Vector2 Result)
-	{
-		Result[0] = Value[0] / Scalar;
-		Result[1] = Value[1] / Scalar;
-	}
-	void Vector3_DivScalar(Vector3 const Value, float Scalar, Vector3 Result)
-	{
-		Result[0] = Value[0] / Scalar;
-		Result[1] = Value[1] / Scalar;
-		Result[2] = Value[2] / Scalar;
-	}
-	void Vector4_DivScalar(Vector4 const Value, float Scalar, Vector4 Result)
-	{
-		Result[0] = Value[0] / Scalar;
-		Result[1] = Value[1] / Scalar;
-		Result[2] = Value[2] / Scalar;
-		Result[3] = Value[3] / Scalar;
-	}
-	void Vector2_MulAdd(Vector2 const Value, float Scalar, Vector2 Result)
-	{
-		Result[0] += Value[0] * Scalar;
-		Result[1] += Value[1] * Scalar;
-	}
-	void Vector3_MulAdd(Vector3 const Value, float Scalar, Vector3 Result)
-	{
-		Result[0] += Value[0] * Scalar;
-		Result[1] += Value[1] * Scalar;
-		Result[2] += Value[2] * Scalar;
-	}
-	void Vector4_MulAdd(Vector4 const Value, float Scalar, Vector4 Result)
-	{
-		Result[0] += Value[0] * Scalar;
-		Result[1] += Value[1] * Scalar;
-		Result[2] += Value[2] * Scalar;
-		Result[3] += Value[3] * Scalar;
-	}
-	void Vector3_Norm(Vector3 const Value, Vector3 Result)
+	void Vector3_Norm(Vector3* const Value, Vector3* Result)
 	{
 		float A = Vector3_Dot(Value, Value);
 		float N = sqrtf(A);
@@ -4473,112 +4614,192 @@ extern "C"
 			Vector3_MulScalar(Value, 1.0F / N, Result);
 		}
 	}
-	float Vector2_Dot(Vector2 const A, Vector2 const B)
+	float Vector3_Dot(Vector3* const A, Vector3* const B)
 	{
-		return (A[0] * B[0]) + (A[1] * B[1]);
+		return (A->X * B->X) + (A->Y * B->Y) + (A->Z * B->Z);
 	}
-	float Vector3_Dot(Vector3 const A, Vector3 const B)
-	{
-		return (A[0] * B[0]) + (A[1] * B[1]) + (A[2] * B[2]);
-	}
-	float Vector2_Length(Vector2 const Value)
-	{
-		return sqrtf(Vector2_Dot(Value, Value));
-	}
-	float Vector3_Length(Vector3 const Value)
+	float Vector3_Length(Vector3* const Value)
 	{
 		return sqrtf(Vector3_Dot(Value, Value));
 	}
-	float Vector2_Length2(Vector2 const Value)
-	{
-		return Vector2_Dot(Value, Value);
-	}
-	float Vector3_Length2(Vector3 const Value)
+	float Vector3_Length2(Vector3* const Value)
 	{
 		return Vector3_Dot(Value, Value);
 	}
-	void Vector3_Cross(Vector3 const A, Vector3 const B, Vector3 Result)
+	void Vector3_Cross(Vector3* const A, Vector3* const B, Vector3* Result)
 	{
-		Result[0] = (A[1] * B[2]) - (A[2] * B[1]);
-		Result[1] = (A[2] * B[0]) - (A[0] * B[2]);
-		Result[2] = (A[0] * B[1]) - (A[1] * B[0]);
+		Result->X = (A->Y * B->Z) - (A->Z * B->Y);
+		Result->Y = (A->Z * B->X) - (A->X * B->Z);
+		Result->Z = (A->X * B->Y) - (A->Y * B->X);
 	}
-	void Vector3_Rotate(Vector3 const Value, Quaternion const Rotation, Vector3 Result)
+	void Vector3_Rotate(Vector3* const Value, Quaternion* const Rotation, Vector3* Result)
 	{
-		float QX2 = Rotation[0] * 2.0F;
-		float QY2 = Rotation[1] * 2.0F;
-		float QZ2 = Rotation[2] * 2.0F;
+		float QX2 = Rotation->X * 2.0F;
+		float QY2 = Rotation->Y * 2.0F;
+		float QZ2 = Rotation->Z * 2.0F;
 
-		float XX = Rotation[0] * QX2;
-		float YY = Rotation[1] * QY2;
-		float ZZ = Rotation[2] * QZ2;
-		float XY = Rotation[0] * QY2;
-		float XZ = Rotation[0] * QZ2;
-		float YZ = Rotation[1] * QZ2;
-		float WX = Rotation[3] * QX2;
-		float WY = Rotation[3] * QY2;
-		float WZ = Rotation[3] * QZ2;
+		float XX = Rotation->X * QX2;
+		float YY = Rotation->Y * QY2;
+		float ZZ = Rotation->Z * QZ2;
+		float XY = Rotation->X * QY2;
+		float XZ = Rotation->X * QZ2;
+		float YZ = Rotation->Y * QZ2;
+		float WX = Rotation->W * QX2;
+		float WY = Rotation->W * QY2;
+		float WZ = Rotation->W * QZ2;
 
-		Result[0] = (1.0F - (YY + ZZ)) * Value[0] + (XY - WZ) * Value[1] + (XZ + WY) * Value[2];
-		Result[1] = (XY + WZ) * Value[0] + (1.0F - (XX + ZZ)) * Value[1] + (YZ - WX) * Value[2];
-		Result[2] = (XZ - WY) * Value[0] + (YZ + WX) * Value[1] + (1.0F - (XX + YY)) * Value[2];
+		Result->X = (1.0F - (YY + ZZ)) * Value->X + (XY - WZ) * Value->Y + (XZ + WY) * Value->Z;
+		Result->Y = (XY + WZ) * Value->X + (1.0F - (XX + ZZ)) * Value->Y + (YZ - WX) * Value->Z;
+		Result->Z = (XZ - WY) * Value->X + (YZ + WX) * Value->Y + (1.0F - (XX + YY)) * Value->Z;
 	}
-	void Quaternion_Zero(Quaternion Result)
+	void Vector3_Print(Vector3* const Value)
 	{
-		Result[0] = 0.0F;
-		Result[1] = 0.0F;
-		Result[2] = 0.0F;
-		Result[3] = 0.0F;
+		printf("[%f, %f, %f]\n", Value->X, Value->Y, Value->Z);
 	}
-	void Quaternion_Identity(Quaternion Result)
+	void Vector4_Zero(Vector4* Result)
 	{
-		Result[0] = 0.0F;
-		Result[1] = 0.0F;
-		Result[2] = 0.0F;
-		Result[3] = 1.0F;
+		Result->X = 0.0F;
+		Result->Y = 0.0F;
+		Result->Z = 0.0F;
+		Result->W = 0.0F;
 	}
-	void Quaternion_Set(Quaternion const Value, Quaternion Result)
+	void Vector4_Set(Vector4* const Value, Vector4* Result)
 	{
-		Result[0] = Value[0];
-		Result[1] = Value[1];
-		Result[2] = Value[2];
-		Result[3] = Value[3];
+		Result->X = Value->X;
+		Result->Y = Value->Y;
+		Result->Z = Value->Z;
+		Result->W = Value->W;
 	}
-	void Quaternion_SetSimple(float X, float Y, float Z, float W, Quaternion Result)
+	void Vector4_SetSimple(float X, float Y, float Z, float W, Vector4* Result)
 	{
-		Result[0] = X;
-		Result[1] = Y;
-		Result[2] = Z;
-		Result[3] = W;
+		Result->X = X;
+		Result->Y = Y;
+		Result->Z = Z;
+		Result->W = W;
 	}
-	void Quaternion_Mul(Quaternion const A, Quaternion const B, Quaternion Result)
+	void Vector4_Add(Vector4* const A, Vector4* const B, Vector4* Result)
 	{
-		Result[0] = (A[3] * B[0]) + (A[0] * B[3]) + (A[1] * B[2]) - (A[2] * B[1]);
-		Result[1] = (A[3] * B[1]) - (A[0] * B[2]) + (A[1] * B[3]) + (A[2] * B[0]);
-		Result[2] = (A[3] * B[2]) + (A[0] * B[1]) - (A[1] * B[0]) + (A[2] * B[3]);
-		Result[3] = (A[3] * B[3]) - (A[0] * B[0]) - (A[1] * B[1]) - (A[2] * B[2]);
+		Result->X = A->X + B->X;
+		Result->Y = A->Y + B->Y;
+		Result->Z = A->Z + B->Z;
+		Result->W = A->W + B->W;
 	}
-	void Quaternion_MulScalar(Quaternion const Value, float Scalar, Quaternion Result)
+	void Vector4_Sub(Vector4* const A, Vector4* const B, Vector4* Result)
 	{
-		Result[0] = Value[0] * Scalar;
-		Result[1] = Value[1] * Scalar;
-		Result[2] = Value[2] * Scalar;
-		Result[3] = Value[3] * Scalar;
+		Result->X = A->X - B->X;
+		Result->Y = A->Y - B->Y;
+		Result->Z = A->Z - B->Z;
+		Result->W = A->W - B->W;
 	}
-	void Quaternion_Conjugate(Quaternion const Value, Quaternion Result)
+	void Vector4_Mul(Vector4* const A, Vector4* const B, Vector4* Result)
 	{
-		Result[0] = -Value[0];
-		Result[1] = -Value[1];
-		Result[2] = -Value[2];
-		Result[3] = Value[3];
+		Result->X = A->X * B->X;
+		Result->Y = A->Y * B->Y;
+		Result->Z = A->Z * B->Z;
+		Result->W = A->W * B->W;
 	}
-	void Quaternion_EulerAngles(Quaternion const Value, Vector3 Result)
+	void Vector4_Div(Vector4* const A, Vector4* const B, Vector4* Result)
 	{
-		float SRCP = 2.0F * ((Value[3] * Value[0]) + (Value[1] * Value[2]));
-		float CRCP = 1.0F - 2.0F * (Value[0] * Value[0] + Value[1] * Value[1]);
+		Result->X = A->X / B->X;
+		Result->Y = A->Y / B->Y;
+		Result->Z = A->Z / B->Z;
+		Result->W = A->W / B->W;
+	}
+	void Vector4_AddScalar(Vector4* const Value, float Scalar, Vector4* Result)
+	{
+		Result->X = Value->X + Scalar;
+		Result->Y = Value->Y + Scalar;
+		Result->Z = Value->Z + Scalar;
+		Result->W = Value->W + Scalar;
+	}
+	void Vector4_SubScalar(Vector4* const Value, float Scalar, Vector4* Result)
+	{
+		Result->X = Value->X - Scalar;
+		Result->Y = Value->Y - Scalar;
+		Result->Z = Value->Z - Scalar;
+		Result->W = Value->W - Scalar;
+	}
+	void Vector4_MulScalar(Vector4* const Value, float Scalar, Vector4* Result)
+	{
+		Result->X = Value->X * Scalar;
+		Result->Y = Value->Y * Scalar;
+		Result->Z = Value->Z * Scalar;
+		Result->W = Value->W * Scalar;
+	}
+	void Vector4_DivScalar(Vector4* const Value, float Scalar, Vector4* Result)
+	{
+		Result->X = Value->X / Scalar;
+		Result->Y = Value->Y / Scalar;
+		Result->Z = Value->Z / Scalar;
+		Result->W = Value->W / Scalar;
+	}
+	void Vector4_MulAdd(Vector4* const Value, float Scalar, Vector4* Result)
+	{
+		Result->X += Value->X * Scalar;
+		Result->Y += Value->Y * Scalar;
+		Result->Z += Value->Z * Scalar;
+		Result->W += Value->W * Scalar;
+	}
+	void Vector4_Print(Vector4* const Value)
+	{
+		printf("[%f, %f, %f, %f]\n", Value->X, Value->Y, Value->Z, Value->W);
+	}
+	void Quaternion_Zero(Quaternion* Result)
+	{
+		Result->X = 0.0F;
+		Result->Y = 0.0F;
+		Result->Z = 0.0F;
+		Result->W = 0.0F;
+	}
+	void Quaternion_Identity(Quaternion* Result)
+	{
+		Result->X = 0.0F;
+		Result->Y = 0.0F;
+		Result->Z = 0.0F;
+		Result->W = 1.0F;
+	}
+	void Quaternion_Set(Quaternion* const Value, Quaternion* Result)
+	{
+		Result->X = Value->X;
+		Result->Y = Value->Y;
+		Result->Z = Value->Z;
+		Result->W = Value->W;
+	}
+	void Quaternion_SetSimple(float X, float Y, float Z, float W, Quaternion* Result)
+	{
+		Result->X = X;
+		Result->Y = Y;
+		Result->Z = Z;
+		Result->W = W;
+	}
+	void Quaternion_Mul(Quaternion* const A, Quaternion* const B, Quaternion* Result)
+	{
+		Result->X = (A->W * B->X) + (A->X * B->W) + (A->Y * B->Z) - (A->Z * B->Y);
+		Result->Y = (A->W * B->Y) - (A->X * B->Z) + (A->Y * B->W) + (A->Z * B->X);
+		Result->Z = (A->W * B->Z) + (A->X * B->Y) - (A->Y * B->X) + (A->Z * B->W);
+		Result->W = (A->W * B->W) - (A->X * B->X) - (A->Y * B->Y) - (A->Z * B->Z);
+	}
+	void Quaternion_MulScalar(Quaternion* const Value, float Scalar, Quaternion* Result)
+	{
+		Result->X = Value->X * Scalar;
+		Result->Y = Value->Y * Scalar;
+		Result->Z = Value->Z * Scalar;
+		Result->W = Value->W * Scalar;
+	}
+	void Quaternion_Conjugate(Quaternion* const Value, Quaternion* Result)
+	{
+		Result->X = -Value->X;
+		Result->Y = -Value->Y;
+		Result->Z = -Value->Z;
+		Result->W = Value->W;
+	}
+	void Quaternion_EulerAngles(Quaternion* const Value, Vector3* Result)
+	{
+		float SRCP = 2.0F * ((Value->W * Value->X) + (Value->Y * Value->Z));
+		float CRCP = 1.0F - 2.0F * (Value->X * Value->X + Value->Y * Value->Y);
 		float R = atan2f(SRCP, CRCP);
 
-		float SP = 2.0F * ((Value[4] * Value[1]) - (Value[2] * Value[0]));
+		float SP = 2.0F * ((Value->W * Value->Y) - (Value->Z * Value->X));
 		float P = 0.0F;
 		if (fabs(SP) >= 1.0F)
 		{
@@ -4589,31 +4810,31 @@ extern "C"
 			P = asinf(SP);
 		}
 
-		float SYCP = 2.0F * ((Value[3] * Value[2]) + (Value[0] * Value[1]));
-		float CYCP = 1.0F - 2.0F * (Value[1] * Value[1] + Value[2] * Value[2]);
+		float SYCP = 2.0F * ((Value->W * Value->Z) + (Value->X * Value->Y));
+		float CYCP = 1.0F - 2.0F * (Value->Y * Value->Y + Value->Z * Value->Z);
 		float Y = atan2f(SYCP, CYCP);
 
-		Result[0] = P;
-		Result[1] = Y;
-		Result[2] = R;
+		Result->X = P;
+		Result->Y = Y;
+		Result->Z = R;
 	}
-	void Quaternion_AngleAxis(float Angle, Vector3 const Axis, Quaternion Result)
+	void Quaternion_AngleAxis(float Angle, Vector3* const Axis, Quaternion* Result)
 	{
 		Vector3 AN = VECTOR3_ZERO;
 
-		Vector3_Norm(Axis, AN);
+		Vector3_Norm(Axis, &AN);
 
 		float HA = Angle / 2.0f;
 		float S = sinf(HA);
 
-		Result[0] = AN[0] * S;
-		Result[1] = AN[1] * S;
-		Result[2] = AN[2] * S;
-		Result[3] = cosf(HA);
+		Result->X = AN.X * S;
+		Result->Y = AN.Y * S;
+		Result->Z = AN.Z * S;
+		Result->W = cosf(HA);
 	}
-	void Quaternion_Norm(Quaternion const Value, Quaternion Result)
+	void Quaternion_Norm(Quaternion* const Value, Quaternion* Result)
 	{
-		float A = (Value[0] * Value[0]) + (Value[1] * Value[1]) + (Value[2] * Value[2]) + (Value[3] * Value[3]);
+		float A = (Value->X * Value->X) + (Value->Y * Value->Y) + (Value->Z * Value->Z) + (Value->W * Value->W);
 		float N = sqrtf(A);
 
 		if (N == 0.0f)
@@ -4625,161 +4846,206 @@ extern "C"
 			Quaternion_MulScalar(Value, 1.0F / N, Result);
 		}
 	}
-	void Matrix4_Set(Matrix4 const Value, Matrix4 Result)
+	void Quaternion_Print(Quaternion* const Value)
 	{
-		Result[0][0] = Value[0][0]; Result[0][1] = Value[0][1]; Result[0][2] = Value[0][2]; Result[0][3] = Value[0][3];
-		Result[1][0] = Value[1][0]; Result[1][1] = Value[1][1]; Result[1][2] = Value[1][2]; Result[1][3] = Value[1][3];
-		Result[2][0] = Value[2][0]; Result[2][1] = Value[2][1]; Result[2][2] = Value[2][2]; Result[2][3] = Value[2][3];
-		Result[3][0] = Value[3][0]; Result[3][1] = Value[3][1]; Result[3][2] = Value[3][2]; Result[3][3] = Value[3][3];
+		printf("[%f, %f, %f, %f]\n", Value->X, Value->Y, Value->Z, Value->W);
 	}
-	void Matrix4_Zero(Matrix4 Result)
+	void Rect_Zero(Rect* Result)
 	{
-		Result[0][0] = Result[0][1] = Result[0][2] = Result[0][3] = 0.0F;
-		Result[1][0] = Result[1][1] = Result[1][2] = Result[1][3] = 0.0F;
-		Result[2][0] = Result[2][1] = Result[2][2] = Result[2][3] = 0.0F;
-		Result[3][0] = Result[3][1] = Result[3][2] = Result[3][3] = 0.0F;
+		Result->Left = 0.0F;
+		Result->Right = 0.0F;
+		Result->Top = 0.0F;
+		Result->Bottom = 0.0F;
 	}
-	void Matrix4_One(Matrix4 Result)
+	void Rect_Set(Rect const* Value, Rect* Result)
 	{
-		Result[0][0] = Result[0][1] = Result[0][2] = Result[0][3] = 1.0F;
-		Result[1][0] = Result[1][1] = Result[1][2] = Result[1][3] = 1.0F;
-		Result[2][0] = Result[2][1] = Result[2][2] = Result[2][3] = 1.0F;
-		Result[3][0] = Result[3][1] = Result[3][2] = Result[3][3] = 1.0F;
+		Result->Left = Value->Left;
+		Result->Right = Value->Right;
+		Result->Top = Value->Top;
+		Result->Bottom = Value->Bottom;
 	}
-	void Matrix4_Copy(Matrix4 const Value, Matrix4 Result)
+	void Rect_SetSimple(float Left, float Right, float Top, float Bottom, Rect* Result)
 	{
-		Result[0][0] = Value[0][0]; Result[1][0] = Value[1][0];
-		Result[0][1] = Value[0][1]; Result[1][1] = Value[1][1];
-		Result[0][2] = Value[0][2]; Result[1][2] = Value[1][2];
-		Result[0][3] = Value[0][3]; Result[1][3] = Value[1][3];
-		Result[2][0] = Value[2][0]; Result[3][0] = Value[3][0];
-		Result[2][1] = Value[2][1]; Result[3][1] = Value[3][1];
-		Result[2][2] = Value[2][2]; Result[3][2] = Value[3][2];
-		Result[2][3] = Value[2][3]; Result[3][3] = Value[3][3];
+		Result->Left = Left;
+		Result->Right = Right;
+		Result->Top = Top;
+		Result->Bottom = Bottom;
 	}
-	void Matrix4_Identity(Matrix4 Result)
+	void Rect_SetPosition(float PositionX, float PositionY, Rect* Result)
 	{
-		Result[0][0] = 1.0F; Result[0][1] = 0.0F; Result[0][2] = 0.0F; Result[0][3] = 0.0F;
-		Result[1][0] = 0.0F; Result[1][1] = 1.0F; Result[1][2] = 0.0F; Result[1][3] = 0.0F;
-		Result[2][0] = 0.0F; Result[2][1] = 0.0F; Result[2][2] = 1.0F; Result[2][3] = 0.0F;
-		Result[3][0] = 0.0F; Result[3][1] = 0.0F; Result[3][2] = 0.0F; Result[3][3] = 1.0F;
+		float Width = Result->Right - Result->Left;
+		float Height = Result->Bottom - Result->Top;
+		Result->Left = PositionX;
+		Result->Right = PositionX + Width;
+		Result->Top = PositionY;
+		Result->Bottom = PositionY + Height;
 	}
-	void Matrix4_GetPosition(Matrix4 const Value, Vector3 Result)
+	void Rect_SetSize(float SizeX, float SizeY, Rect* Result)
 	{
-		Result[0] = Value[3][0];
-		Result[1] = Value[3][1];
-		Result[2] = Value[3][2];
+		Result->Right = Result->Right + SizeX;
+		Result->Bottom = Result->Bottom + SizeY;
 	}
-	void Matrix4_GetRotation(Matrix4 const Value, Quaternion Result)
+	float Rect_Width(Rect const* Value)
 	{
-		Vector3 C0 = { Value[0][0], Value[1][0], Value[2][0] };
-		Vector3 C1 = { Value[0][1], Value[1][1], Value[2][1] };
-		Vector3 C2 = { Value[0][2], Value[1][2], Value[2][2] };
+		return Value->Right - Value->Left;
+	}
+	float Rect_Height(Rect const* Value)
+	{
+		return Value->Bottom - Value->Top;
+	}
+	bool Rect_Overlap(Rect const* Value, float PositionX, float PositionY)
+	{
+		return (PositionX >= Value->Left && PositionX < Value->Right &&
+				PositionY >= Value->Top && PositionY < Value->Bottom);
+	}
+	void Rect_Print(Rect const* Value)
+	{
+		printf("[%f, %f, %f, %f]\n", Value->Left, Value->Right, Value->Top, Value->Bottom);
+	}
+	void Matrix4x4_Set(Matrix4x4* const Value, Matrix4x4* Result)
+	{
+		Result->M00 = Value->M00; Result->M01 = Value->M01; Result->M02 = Value->M02; Result->M03 = Value->M03;
+		Result->M10 = Value->M10; Result->M11 = Value->M11; Result->M12 = Value->M12; Result->M13 = Value->M13;
+		Result->M20 = Value->M20; Result->M21 = Value->M21; Result->M22 = Value->M22; Result->M23 = Value->M23;
+		Result->M30 = Value->M30; Result->M31 = Value->M31; Result->M32 = Value->M32; Result->M33 = Value->M33;
+	}
+	void Matrix4x4_Zero(Matrix4x4* Result)
+	{
+		Result->M00 = Result->M01 = Result->M02 = Result->M03 = 0.0F;
+		Result->M10 = Result->M11 = Result->M12 = Result->M13 = 0.0F;
+		Result->M20 = Result->M21 = Result->M22 = Result->M23 = 0.0F;
+		Result->M30 = Result->M31 = Result->M32 = Result->M33 = 0.0F;
+	}
+	void Matrix4x4_One(Matrix4x4* Result)
+	{
+		Result->M00 = Result->M01 = Result->M02 = Result->M03 = 1.0F;
+		Result->M10 = Result->M11 = Result->M12 = Result->M13 = 1.0F;
+		Result->M20 = Result->M21 = Result->M22 = Result->M23 = 1.0F;
+		Result->M30 = Result->M31 = Result->M32 = Result->M33 = 1.0F;
+	}
+	void Matrix4x4_Identity(Matrix4x4* Result)
+	{
+		Result->M00 = 1.0F; Result->M01 = 0.0F; Result->M02 = 0.0F; Result->M03 = 0.0F;
+		Result->M10 = 0.0F; Result->M11 = 1.0F; Result->M12 = 0.0F; Result->M13 = 0.0F;
+		Result->M20 = 0.0F; Result->M21 = 0.0F; Result->M22 = 1.0F; Result->M23 = 0.0F;
+		Result->M30 = 0.0F; Result->M31 = 0.0F; Result->M32 = 0.0F; Result->M33 = 1.0F;
+	}
+	void Matrix4x4_GetPosition(Matrix4x4* const Value, Vector3* Result)
+	{
+		Result->X = Value->M30;
+		Result->Y = Value->M31;
+		Result->Z = Value->M32;
+	}
+	void Matrix4x4_GetRotation(Matrix4x4* const Value, Quaternion* Result)
+	{
+		Vector3 C0 = { Value->M00, Value->M10, Value->M20 };
+		Vector3 C1 = { Value->M01, Value->M11, Value->M21 };
+		Vector3 C2 = { Value->M02, Value->M12, Value->M22 };
 
 		Vector3 CN0 = VECTOR3_ZERO;
 		Vector3 CN1 = VECTOR3_ZERO;
 		Vector3 CN2 = VECTOR3_ZERO;
 
-		Vector3_Norm(C0, CN0);
-		Vector3_Norm(C1, CN1);
-		Vector3_Norm(C2, CN2);
+		Vector3_Norm(&C0, &CN0);
+		Vector3_Norm(&C1, &CN1);
+		Vector3_Norm(&C2, &CN2);
 
-		float Trace = CN0[0] + CN1[1] + CN2[2];
-		if (Trace > 0)
+		float Trace = CN0.X + CN1.Y + CN2.Z;
+		if (Trace > 0.0F)
 		{
 			float S = 0.5F / sqrtf(Trace + 1.0F);
-			Result[0] = (CN2[1] - CN1[2]) * S;
-			Result[1] = (CN0[2] - CN2[0]) * S;
-			Result[2] = (CN1[0] - CN0[1]) * S;
-			Result[3] = 0.25F / S;
+			Result->X = (CN2.Y - CN1.Z) * S;
+			Result->Y = (CN0.Z - CN2.X) * S;
+			Result->Z = (CN1.X - CN0.Y) * S;
+			Result->W = 0.25F / S;
 		}
 		else
 		{
-			if ((CN0[0] > CN1[1]) && (CN0[0] > CN2[2]))
+			if ((CN0.X > CN1.Y) && (CN0.X > CN2.Z))
 			{
-				float S = 2.0F * sqrtf(1.0F + CN0[0] - CN1[1] - CN2[2]);
-				Result[0] = 0.25F * S;
-				Result[1] = (CN0[1] + CN1[0]) / S;
-				Result[2] = (CN0[2] + CN2[1]) / S;
-				Result[3] = (CN2[1] - CN1[2]) / S;
+				float S = 2.0F * sqrtf(1.0F + CN0.X - CN1.Y - CN2.Z);
+				Result->X = 0.25F * S;
+				Result->Y = (CN0.Y + CN1.X) / S;
+				Result->Z = (CN0.Z + CN2.Y) / S;
+				Result->W = (CN2.Y - CN1.Z) / S;
 			}
-			else if (CN1[1] > CN2[2])
+			else if (CN1.Y > CN2.Z)
 			{
-				float S = 2.0F * sqrtf(1.0F + CN1[1] - CN0[0] - CN2[2]);
-				Result[0] = (CN0[1] + CN1[0]) / S;
-				Result[1] = 0.25F * S;
-				Result[2] = (CN1[2] + CN2[1]) / S;
-				Result[3] = (CN0[2] - CN2[0]) / S;
+				float S = 2.0F * sqrtf(1.0F + CN1.Y - CN0.X - CN2.Z);
+				Result->X = (CN0.Y + CN1.X) / S;
+				Result->Y = 0.25F * S;
+				Result->Z = (CN1.Z + CN2.Y) / S;
+				Result->W = (CN0.Z - CN2.X) / S;
 			}
 			else
 			{
-				float S = 2.0F * sqrtf(1.0F + CN2[2] - CN0[0] - CN1[1]);
-				Result[0] = (CN0[2] + CN2[0]) / S;
-				Result[1] = (CN1[2] + CN2[1]) / S;
-				Result[2] = 0.25F * S;
-				Result[3] = (CN1[0] - CN0[1]) / S;
+				float S = 2.0F * sqrtf(1.0F + CN2.Z - CN0.X - CN1.Y);
+				Result->X = (CN0.Z + CN2.X) / S;
+				Result->Y = (CN1.Z + CN2.Y) / S;
+				Result->Z = 0.25F * S;
+				Result->W = (CN1.X - CN0.Y) / S;
 			}
 		}
 	}
-	void Matrix4_GetRotationEulerAngles(Matrix4 const Value, Vector3 Result)
+	void Matrix4x4_GetRotationEulerAngles(Matrix4x4* const Value, Vector3* Result)
 	{
-		if (fabsf(Value[0][2]) < 1.0F - EPSILON_6)
+		if (fabsf(Value->M02) < 1.0F - EPSILON_6)
 		{
-			Result[0] = atan2f(-Value[1][2], Value[2][2]);
-			Result[1] = asinf(Value[0][2]);
-			Result[2] = atan2f(-Value[0][1], Value[0][0]);
+			Result->X = atan2f(-Value->M12, Value->M22);
+			Result->Y = asinf(Value->M02);
+			Result->Z = atan2f(-Value->M01, Value->M00);
 		}
 		else
 		{
-			Result[0] = atan2f(Value[1][0], Value[1][1]);
-			Result[1] = (Value[0][2] > 0) ? PI / 2.0F : -PI / 2.0F;
-			Result[2] = 0.0F;
+			Result->X = atan2f(Value->M10, Value->M11);
+			Result->Y = (Value->M02 > 0.0F) ? PI / 2.0F : -PI / 2.0F;
+			Result->Z = 0.0F;
 		}
 	}
-	void Matrix4_GetScale(Matrix4 const Value, Vector3 Result)
+	void Matrix4x4_GetScale(Matrix4x4* const Value, Vector3* Result)
 	{
-		Result[0] = Value[0][0];
-		Result[1] = Value[1][1];
-		Result[2] = Value[2][2];
+		Result->X = Value->M00;
+		Result->Y = Value->M11;
+		Result->Z = Value->M22;
 	}
-	void Matrix4_SetPosition(Vector3 const Value, Matrix4 Result)
+	void Matrix4x4_SetPosition(Vector3* const Value, Matrix4x4* Result)
 	{
-		Result[3][0] = Value[0];
-		Result[3][1] = Value[1];
-		Result[3][2] = Value[2];
+		Result->M30 = Value->X;
+		Result->M31 = Value->Y;
+		Result->M32 = Value->Z;
 	}
-	void Matrix4_SetPositionSimple(float ValueX, float ValueY, float ValueZ, Matrix4 Result)
+	void Matrix4x4_SetPositionSimple(float ValueX, float ValueY, float ValueZ, Matrix4x4* Result)
 	{
-		Result[3][0] = ValueX;
-		Result[3][1] = ValueY;
-		Result[3][2] = ValueZ;
+		Result->M30 = ValueX;
+		Result->M31 = ValueY;
+		Result->M32 = ValueZ;
 	}
-	void Matrix4_SetRotation(Quaternion const Value, Matrix4 Result)
+	void Matrix4x4_SetRotation(Quaternion* const Value, Matrix4x4* Result)
 	{
-		float XX = Value[0] * Value[0];
-		float YY = Value[1] * Value[1];
-		float ZZ = Value[2] * Value[2];
-		float XY = Value[0] * Value[1];
-		float XZ = Value[0] * Value[2];
-		float YZ = Value[1] * Value[2];
-		float WX = Value[3] * Value[0];
-		float WY = Value[3] * Value[1];
-		float WZ = Value[3] * Value[2];
+		float XX = Value->X * Value->X;
+		float YY = Value->Y * Value->Y;
+		float ZZ = Value->Z * Value->Z;
+		float XY = Value->X * Value->Y;
+		float XZ = Value->X * Value->Z;
+		float YZ = Value->Y * Value->Z;
+		float WX = Value->W * Value->X;
+		float WY = Value->W * Value->Y;
+		float WZ = Value->W * Value->Z;
 
-		Result[0][0] = 1.0F - 2.0F * (YY + ZZ);
-		Result[0][1] = 2.0F * (XY - WZ);
-		Result[0][2] = 2.0F * (XZ + WY);
-		Result[0][3] = 0.0F;
-		Result[1][0] = 2.0F * (XY + WZ);
-		Result[1][1] = 1.0F - 2.0F * (XX + ZZ);
-		Result[1][2] = 2.0F * (YZ - WX);
-		Result[1][3] = 0.0F;
-		Result[2][0] = 2.0F * (XZ - WY);
-		Result[2][1] = 2.0F * (YZ + WX);
-		Result[2][2] = 1.0F - 2.0F * (XX + YY);
-		Result[2][3] = 0.0F;
+		Result->M00 = 1.0F - 2.0F * (YY + ZZ);
+		Result->M01 = 2.0F * (XY - WZ);
+		Result->M02 = 2.0F * (XZ + WY);
+		Result->M03 = 0.0F;
+		Result->M10 = 2.0F * (XY + WZ);
+		Result->M11 = 1.0F - 2.0F * (XX + ZZ);
+		Result->M12 = 2.0F * (YZ - WX);
+		Result->M13 = 0.0F;
+		Result->M20 = 2.0F * (XZ - WY);
+		Result->M21 = 2.0F * (YZ + WX);
+		Result->M22 = 1.0F - 2.0F * (XX + YY);
+		Result->M23 = 0.0F;
 	}
-	void Matrix4_SetRotationSimple(float ValueX, float ValueY, float ValueZ, float ValueW, Matrix4 Result)
+	void Matrix4x4_SetRotationSimple(float ValueX, float ValueY, float ValueZ, float ValueW, Matrix4x4* Result)
 	{
 		float XX = ValueX * ValueX;
 		float YY = ValueY * ValueY;
@@ -4791,43 +5057,43 @@ extern "C"
 		float WY = ValueW * ValueY;
 		float WZ = ValueW * ValueZ;
 
-		Result[0][0] = 1.0F - 2.0F * (YY + ZZ);
-		Result[0][1] = 2.0F * (XY - WZ);
-		Result[0][2] = 2.0F * (XZ + WY);
-		Result[0][3] = 0.0F;
-		Result[1][0] = 2.0F * (XY + WZ);
-		Result[1][1] = 1.0F - 2.0F * (XX + ZZ);
-		Result[1][2] = 2.0F * (YZ - WX);
-		Result[1][3] = 0.0F;
-		Result[2][0] = 2.0F * (XZ - WY);
-		Result[2][1] = 2.0F * (YZ + WX);
-		Result[2][2] = 1.0F - 2.0F * (XX + YY);
-		Result[2][3] = 0.0F;
+		Result->M00 = 1.0F - 2.0F * (YY + ZZ);
+		Result->M01 = 2.0F * (XY - WZ);
+		Result->M02 = 2.0F * (XZ + WY);
+		Result->M03 = 0.0F;
+		Result->M10 = 2.0F * (XY + WZ);
+		Result->M11 = 1.0F - 2.0F * (XX + ZZ);
+		Result->M12 = 2.0F * (YZ - WX);
+		Result->M13 = 0.0F;
+		Result->M20 = 2.0F * (XZ - WY);
+		Result->M21 = 2.0F * (YZ + WX);
+		Result->M22 = 1.0F - 2.0F * (XX + YY);
+		Result->M23 = 0.0F;
 	}
-	void Matrix4_SetRotationEulerAngles(Vector3 const Value, Matrix4 Result)
+	void Matrix4x4_SetRotationEulerAngles(Vector3* const Value, Matrix4x4* Result)
 	{
-		float Pitch = DEG_TO_RAD(Value[0]);
-		float Yaw = DEG_TO_RAD(Value[1]);
-		float Roll = DEG_TO_RAD(Value[2]);
+		float Pitch = DEG_TO_RAD(Value->X);
+		float Yaw = DEG_TO_RAD(Value->Y);
+		float Roll = DEG_TO_RAD(Value->Z);
 
 		float CX = cosf(Pitch), SX = sinf(Pitch);
 		float CY = cosf(Yaw), SY = sinf(Yaw);
 		float CZ = cosf(Roll), SZ = sinf(Roll);
 
-		Result[0][0] = CY * CZ;
-		Result[0][1] = -CY * SZ;
-		Result[0][2] = SY;
-		Result[0][3] = 0.0F;
-		Result[1][0] = SX * SY * CZ + CX * SZ;
-		Result[1][1] = -SX * SY * SZ + CX * CZ;
-		Result[1][2] = -SX * CY;
-		Result[1][3] = 0.0F;
-		Result[2][0] = -CX * SY * CZ + SX * SZ;
-		Result[2][1] = CX * SY * SZ + SX * CZ;
-		Result[2][2] = CX * CY;
-		Result[2][3] = 0.0F;
+		Result->M00 = CY * CZ;
+		Result->M01 = -CY * SZ;
+		Result->M02 = SY;
+		Result->M03 = 0.0F;
+		Result->M10 = SX * SY * CZ + CX * SZ;
+		Result->M11 = -SX * SY * SZ + CX * CZ;
+		Result->M12 = -SX * CY;
+		Result->M13 = 0.0F;
+		Result->M20 = -CX * SY * CZ + SX * SZ;
+		Result->M21 = CX * SY * SZ + SX * CZ;
+		Result->M22 = CX * CY;
+		Result->M23 = 0.0F;
 	}
-	void Matrix4_SetRotationEulerAnglesSimple(float Pitch, float Yaw, float Roll, Matrix4 Result)
+	void Matrix4x4_SetRotationEulerAnglesSimple(float Pitch, float Yaw, float Roll, Matrix4x4* Result)
 	{
 		Pitch = DEG_TO_RAD(Pitch);
 		Yaw = DEG_TO_RAD(Yaw);
@@ -4837,171 +5103,167 @@ extern "C"
 		float CY = cosf(Yaw), SY = sinf(Yaw);
 		float CZ = cosf(Roll), SZ = sinf(Roll);
 
-		Result[0][0] = CY * CZ;
-		Result[0][1] = -CY * SZ;
-		Result[0][2] = SY;
-		Result[0][3] = 0.0F;
-
-		Result[1][0] = SX * SY * CZ + CX * SZ;
-		Result[1][1] = -SX * SY * SZ + CX * CZ;
-		Result[1][2] = -SX * CY;
-		Result[1][3] = 0.0F;
-
-		Result[2][0] = -CX * SY * CZ + SX * SZ;
-		Result[2][1] = CX * SY * SZ + SX * CZ;
-		Result[2][2] = CX * CY;
-		Result[2][3] = 0.0F;
+		Result->M00 = CY * CZ;
+		Result->M01 = -CY * SZ;
+		Result->M02 = SY;
+		Result->M03 = 0.0F;
+		Result->M10 = SX * SY * CZ + CX * SZ;
+		Result->M11 = -SX * SY * SZ + CX * CZ;
+		Result->M12 = -SX * CY;
+		Result->M13 = 0.0F;
+		Result->M20 = -CX * SY * CZ + SX * SZ;
+		Result->M21 = CX * SY * SZ + SX * CZ;
+		Result->M22 = CX * CY;
+		Result->M23 = 0.0F;
 	}
-	void Matrix4_SetScale(Vector3 const Value, Matrix4 Result)
+	void Matrix4x4_SetScale(Vector3* const Value, Matrix4x4* Result)
 	{
-		Result[0][0] = Value[0];
-		Result[1][1] = Value[1];
-		Result[2][2] = Value[2];
+		Result->M00 = Value->X;
+		Result->M11 = Value->Y;
+		Result->M22 = Value->Z;
 	}
-	void Matrix4_SetScaleSimple(float ValueX, float ValueY, float ValueZ, Matrix4 Result)
+	void Matrix4x4_SetScaleSimple(float ValueX, float ValueY, float ValueZ, Matrix4x4* Result)
 	{
-		Result[0][0] = ValueX;
-		Result[1][1] = ValueY;
-		Result[2][2] = ValueZ;
+		Result->M00 = ValueX;
+		Result->M11 = ValueY;
+		Result->M22 = ValueZ;
 	}
-	void Matrix4_Decompose(Matrix4 const Value, Vector3 Position, Quaternion Rotation, Vector3 Scale)
+	void Matrix4x4_Decompose(Matrix4x4* const Value, Vector3* Position, Quaternion* Rotation, Vector3* Scale)
 	{
-		Position[0] = Value[3][0];
-		Position[1] = Value[3][1];
-		Position[2] = Value[3][2];
+		Position->X = Value->M30;
+		Position->Y = Value->M31;
+		Position->Z = Value->M32;
 
-		Vector3 C0 = { Value[0][0], Value[1][0], Value[2][0] };
-		Vector3 C1 = { Value[0][1], Value[1][1], Value[2][1] };
-		Vector3 C2 = { Value[0][2], Value[1][2], Value[2][2] };
+		Vector3 C0 = { Value->M00, Value->M10, Value->M20 };
+		Vector3 C1 = { Value->M01, Value->M11, Value->M21 };
+		Vector3 C2 = { Value->M02, Value->M12, Value->M22 };
 
-		Scale[0] = Vector3_Length(C0);
-		Scale[1] = Vector3_Length(C1);
-		Scale[2] = Vector3_Length(C2);
+		Scale->X = Vector3_Length(&C0);
+		Scale->Y = Vector3_Length(&C1);
+		Scale->Z = Vector3_Length(&C2);
 
 		Vector3 CN0 = VECTOR3_ZERO;
 		Vector3 CN1 = VECTOR3_ZERO;
 		Vector3 CN2 = VECTOR3_ZERO;
 
-		Vector3_Norm(C0, CN0);
-		Vector3_Norm(C1, CN1);
-		Vector3_Norm(C2, CN2);
+		Vector3_Norm(&C0, &CN0);
+		Vector3_Norm(&C1, &CN1);
+		Vector3_Norm(&C2, &CN2);
 
-		float Trace = CN0[0] + CN1[1] + CN2[2];
-		if (Trace > 0)
+		float Trace = CN0.X + CN1.Y + CN2.Z;
+		if (Trace > 0.0F)
 		{
 			float S = 0.5F / sqrtf(Trace + 1.0F);
-			Rotation[0] = (CN2[1] - CN1[2]) * S;
-			Rotation[1] = (CN0[2] - CN2[0]) * S;
-			Rotation[2] = (CN1[0] - CN0[1]) * S;
-			Rotation[3] = 0.25F / S;
+			Rotation->X = (CN2.Y - CN1.Z) * S;
+			Rotation->Y = (CN0.Z - CN2.X) * S;
+			Rotation->Z = (CN1.X - CN0.Y) * S;
+			Rotation->W = 0.25F / S;
 		}
 		else
 		{
-			if ((CN0[0] > CN1[1]) && (CN0[0] > CN2[2]))
+			if ((CN0.X > CN1.Y) && (CN0.X > CN2.Z))
 			{
-				float S = 2.0F * sqrtf(1.0F + CN0[0] - CN1[1] - CN2[2]);
-				Rotation[0] = 0.25F * S;
-				Rotation[1] = (CN0[1] + CN1[0]) / S;
-				Rotation[2] = (CN0[2] + CN2[1]) / S;
-				Rotation[3] = (CN2[1] - CN1[2]) / S;
+				float S = 2.0F * sqrtf(1.0F + CN0.X - CN1.Y - CN2.Z);
+				Rotation->X = 0.25F * S;
+				Rotation->Y = (CN0.Y + CN1.X) / S;
+				Rotation->Z = (CN0.Z + CN2.Y) / S;
+				Rotation->W = (CN2.Y - CN1.Z) / S;
 			}
-			else if (CN1[1] > CN2[2])
+			else if (CN1.Y > CN2.Z)
 			{
-				float S = 2.0F * sqrtf(1.0F + CN1[1] - CN0[0] - CN2[2]);
-				Rotation[0] = (CN0[1] + CN1[0]) / S;
-				Rotation[1] = 0.25F * S;
-				Rotation[2] = (CN1[2] + CN2[1]) / S;
-				Rotation[3] = (CN0[2] - CN2[0]) / S;
+				float S = 2.0F * sqrtf(1.0F + CN1.Y - CN0.X - CN2.Z);
+				Rotation->X = (CN0.Y + CN1.X) / S;
+				Rotation->Y = 0.25F * S;
+				Rotation->Z = (CN1.Z + CN2.Y) / S;
+				Rotation->W = (CN0.Z - CN2.X) / S;
 			}
 			else
 			{
-				float S = 2.0F * sqrtf(1.0F + CN2[2] - CN0[0] - CN1[1]);
-				Rotation[0] = (CN0[2] + CN2[0]) / S;
-				Rotation[1] = (CN1[2] + CN2[1]) / S;
-				Rotation[2] = 0.25F * S;
-				Rotation[3] = (CN1[0] - CN0[1]) / S;
+				float S = 2.0F * sqrtf(1.0F + CN2.Z - CN0.X - CN1.Y);
+				Rotation->X = (CN0.Z + CN2.X) / S;
+				Rotation->Y = (CN1.Z + CN2.Y) / S;
+				Rotation->Z = 0.25F * S;
+				Rotation->W = (CN1.X - CN0.Y) / S;
 			}
 		}
 	}
-	void Matrix4_Mul(Matrix4 const A, Matrix4 const B, Matrix4 Result)
+	void Matrix4x4_Mul(Matrix4x4* const A, Matrix4x4* const B, Matrix4x4* Result)
 	{
-		float A00 = A[0][0], A01 = A[0][1], A02 = A[0][2], A03 = A[0][3];
-		float A10 = A[1][0], A11 = A[1][1], A12 = A[1][2], A13 = A[1][3];
-		float A20 = A[2][0], A21 = A[2][1], A22 = A[2][2], A23 = A[2][3];
-		float A30 = A[3][0], A31 = A[3][1], A32 = A[3][2], A33 = A[3][3];
-		float B00 = B[0][0], B01 = B[0][1], B02 = B[0][2], B03 = B[0][3];
-		float B10 = B[1][0], B11 = B[1][1], B12 = B[1][2], B13 = B[1][3];
-		float B20 = B[2][0], B21 = B[2][1], B22 = B[2][2], B23 = B[2][3];
-		float B30 = B[3][0], B31 = B[3][1], B32 = B[3][2], B33 = B[3][3];
-
-		Result[0][0] = (A00 * B00) + (A10 * B01) + (A20 * B02) + (A30 * B03);
-		Result[0][1] = (A01 * B00) + (A11 * B01) + (A21 * B02) + (A31 * B03);
-		Result[0][2] = (A02 * B00) + (A12 * B01) + (A22 * B02) + (A32 * B03);
-		Result[0][3] = (A03 * B00) + (A13 * B01) + (A23 * B02) + (A33 * B03);
-		Result[1][0] = (A00 * B10) + (A10 * B11) + (A20 * B12) + (A30 * B13);
-		Result[1][1] = (A01 * B10) + (A11 * B11) + (A21 * B12) + (A31 * B13);
-		Result[1][2] = (A02 * B10) + (A12 * B11) + (A22 * B12) + (A32 * B13);
-		Result[1][3] = (A03 * B10) + (A13 * B11) + (A23 * B12) + (A33 * B13);
-		Result[2][0] = (A00 * B20) + (A10 * B21) + (A20 * B22) + (A30 * B23);
-		Result[2][1] = (A01 * B20) + (A11 * B21) + (A21 * B22) + (A31 * B23);
-		Result[2][2] = (A02 * B20) + (A12 * B21) + (A22 * B22) + (A32 * B23);
-		Result[2][3] = (A03 * B20) + (A13 * B21) + (A23 * B22) + (A33 * B23);
-		Result[3][0] = (A00 * B30) + (A10 * B31) + (A20 * B32) + (A30 * B33);
-		Result[3][1] = (A01 * B30) + (A11 * B31) + (A21 * B32) + (A31 * B33);
-		Result[3][2] = (A02 * B30) + (A12 * B31) + (A22 * B32) + (A32 * B33);
-		Result[3][3] = (A03 * B30) + (A13 * B31) + (A23 * B32) + (A33 * B33);
+		Result->M00 = (A->M00 * B->M00) + (A->M10 * B->M01) + (A->M20 * B->M02) + (A->M30 * B->M03);
+		Result->M01 = (A->M01 * B->M00) + (A->M11 * B->M01) + (A->M21 * B->M02) + (A->M31 * B->M03);
+		Result->M02 = (A->M02 * B->M00) + (A->M12 * B->M01) + (A->M22 * B->M02) + (A->M32 * B->M03);
+		Result->M03 = (A->M03 * B->M00) + (A->M13 * B->M01) + (A->M23 * B->M02) + (A->M33 * B->M03);
+		Result->M10 = (A->M00 * B->M10) + (A->M10 * B->M11) + (A->M20 * B->M12) + (A->M30 * B->M13);
+		Result->M11 = (A->M01 * B->M10) + (A->M11 * B->M11) + (A->M21 * B->M12) + (A->M31 * B->M13);
+		Result->M12 = (A->M02 * B->M10) + (A->M12 * B->M11) + (A->M22 * B->M12) + (A->M32 * B->M13);
+		Result->M13 = (A->M03 * B->M10) + (A->M13 * B->M11) + (A->M23 * B->M12) + (A->M33 * B->M13);
+		Result->M20 = (A->M00 * B->M20) + (A->M10 * B->M21) + (A->M20 * B->M22) + (A->M30 * B->M23);
+		Result->M21 = (A->M01 * B->M20) + (A->M11 * B->M21) + (A->M21 * B->M22) + (A->M31 * B->M23);
+		Result->M22 = (A->M02 * B->M20) + (A->M12 * B->M21) + (A->M22 * B->M22) + (A->M32 * B->M23);
+		Result->M23 = (A->M03 * B->M20) + (A->M13 * B->M21) + (A->M23 * B->M22) + (A->M33 * B->M23);
+		Result->M30 = (A->M00 * B->M30) + (A->M10 * B->M31) + (A->M20 * B->M32) + (A->M30 * B->M33);
+		Result->M31 = (A->M01 * B->M30) + (A->M11 * B->M31) + (A->M21 * B->M32) + (A->M31 * B->M33);
+		Result->M32 = (A->M02 * B->M30) + (A->M12 * B->M31) + (A->M22 * B->M32) + (A->M32 * B->M33);
+		Result->M33 = (A->M03 * B->M30) + (A->M13 * B->M31) + (A->M23 * B->M32) + (A->M33 * B->M33);
 	}
-	void Matrix4_Orthographic(float Left, float Right, float Bottom, float Top, float NearZ, float FarZ, Matrix4 Result)
+	void Matrix4x4_Orthographic(float Left, float Right, float Bottom, float Top, float NearZ, float FarZ, Matrix4x4* Result)
 	{
-		Matrix4_Zero(Result);
+		Matrix4x4_Zero(Result);
 
-		Result[0][0] = 2.0F / (Right - Left);
-		Result[1][1] = 2.0F / (Top - Bottom);
-		Result[2][2] = 1.0F / (FarZ - NearZ);
-		Result[3][0] = -(Right + Left) / (Right - Left);
-		Result[3][1] = -(Top + Bottom) / (Top - Bottom);
-		Result[3][2] = -NearZ / (FarZ - NearZ);
-		Result[3][3] = 1.0F;
+		Result->M00 = 2.0F / (Right - Left);
+		Result->M11 = 2.0F / (Top - Bottom);
+		Result->M22 = 1.0F / (FarZ - NearZ);
+		Result->M30 = -(Right + Left) / (Right - Left);
+		Result->M31 = -(Top + Bottom) / (Top - Bottom);
+		Result->M32 = -NearZ / (FarZ - NearZ);
+		Result->M33 = 1.0F;
 	}
-	void Matrix4_Perspective(float FieldOfView, float AspectRatio, float NearZ, float FarZ, Matrix4 Result)
+	void Matrix4x4_Perspective(float FieldOfView, float AspectRatio, float NearZ, float FarZ, Matrix4x4* Result)
 	{
-		Matrix4_Zero(Result);
+		Matrix4x4_Zero(Result);
 
 		float TanHalfFovy = tanf(FieldOfView / 2.0F);
 
-		Result[0][0] = 1.0F / (AspectRatio * TanHalfFovy);
-		Result[1][1] = 1.0F / (TanHalfFovy);
-		Result[2][2] = FarZ / (FarZ - NearZ);
-		Result[2][3] = 1.0F;
-		Result[3][2] = -(FarZ * NearZ) / (FarZ - NearZ);
+		Result->M00 = 1.0F / (AspectRatio * TanHalfFovy);
+		Result->M11 = 1.0F / (TanHalfFovy);
+		Result->M22 = FarZ / (FarZ - NearZ);
+		Result->M23 = 1.0F;
+		Result->M32 = -(FarZ * NearZ) / (FarZ - NearZ);
 	}
-	void Matrix4_LookAt(Vector3 const Eye, Vector3 const Center, Vector3 const Up, Matrix4 Result)
+	void Matrix4x4_LookAt(Vector3* const Eye, Vector3* const Center, Vector3* const Up, Matrix4x4* Result)
 	{
 		Vector3 F = VECTOR3_ZERO, U = VECTOR3_ZERO, S = VECTOR3_ZERO;
 		Vector3 FN = VECTOR3_ZERO, SN = VECTOR3_ZERO;
 
-		Vector3_Sub(Center, Eye, F);
-		Vector3_Norm(F, FN);
-		Vector3_Cross(Up, FN, S);
-		Vector3_Norm(S, SN);
-		Vector3_Cross(FN, SN, U);
+		Vector3_Sub(Center, Eye, &F);
+		Vector3_Norm(&F, &FN);
+		Vector3_Cross(Up, &FN, &S);
+		Vector3_Norm(&S, &SN);
+		Vector3_Cross(&FN, &SN, &U);
 
-		Result[0][0] = S[0];
-		Result[0][1] = U[0];
-		Result[0][2] = FN[0];
-		Result[1][0] = S[1];
-		Result[1][1] = U[1];
-		Result[1][2] = FN[1];
-		Result[2][0] = S[2];
-		Result[2][1] = U[2];
-		Result[2][2] = FN[2];
-		Result[3][0] = -Vector3_Dot(S, Eye);
-		Result[3][1] = -Vector3_Dot(U, Eye);
-		Result[3][2] = -Vector3_Dot(FN, Eye);
-		Result[0][3] = 0.0F;
-		Result[1][3] = 0.0F;
-		Result[2][3] = 0.0F;
-		Result[3][3] = 1.0F;
+		Result->M00 = S.X;
+		Result->M01 = U.X;
+		Result->M02 = FN.X;
+		Result->M10 = S.Y;
+		Result->M11 = U.Y;
+		Result->M12 = FN.Y;
+		Result->M20 = S.Z;
+		Result->M21 = U.Z;
+		Result->M22 = FN.Z;
+		Result->M30 = -Vector3_Dot(&S, Eye);
+		Result->M31 = -Vector3_Dot(&U, Eye);
+		Result->M32 = -Vector3_Dot(&FN, Eye);
+		Result->M03 = 0.0F;
+		Result->M13 = 0.0F;
+		Result->M23 = 0.0F;
+		Result->M33 = 1.0F;
+	}
+	void Matrix4x4_Print(Matrix4x4* const Value)
+	{
+		printf("[%f, %f, %f, %f]\n", Value->M00, Value->M01, Value->M02, Value->M03);
+		printf("[%f, %f, %f, %f]\n", Value->M10, Value->M11, Value->M12, Value->M13);
+		printf("[%f, %f, %f, %f]\n", Value->M20, Value->M21, Value->M22, Value->M23);
+		printf("[%f, %f, %f, %f]\n", Value->M30, Value->M31, Value->M32, Value->M33);
 	}
 	float Math_StepTowards(float Current, float Target, float Step)
 	{
@@ -5032,9 +5294,24 @@ extern "C"
 		List->Prev->Next = Entry;
 		List->Prev = Entry;
 	}
-	bool List_IsEmpty(ListEntry* List)
+	void List_InsertAfter(ListEntry* Curr, ListEntry* Entry)
 	{
-		return (List->Next == List) && (List->Prev == List);
+		Entry->Next = Curr->Next;
+		Entry->Prev = Curr;
+
+		Curr->Next = Entry;
+	}
+	void List_InsertBefore(ListEntry* Curr, ListEntry* Entry)
+	{
+		Entry->Next = Curr;
+		Entry->Prev = Curr->Prev;
+
+		Curr->Prev = Curr;
+	}
+	void List_Remove(ListEntry* Entry)
+	{
+		Entry->Prev->Next = Entry->Next;
+		Entry->Next->Prev = Entry->Prev;
 	}
 	ListEntry* List_RemoveHead(ListEntry* List)
 	{
@@ -5052,6 +5329,10 @@ extern "C"
 		Entry->Next = Entry->Prev = 0;
 
 		return Entry;
+	}
+	bool List_IsEmpty(ListEntry* List)
+	{
+		return (List->Next == List) && (List->Prev == List);
 	}
 	long long unsigned List_Num(ListEntry* List)
 	{
@@ -5808,106 +6089,106 @@ extern "C"
 
 		Trans->Parent = 0;
 
-		Vector3_SetSimple(1.0F, 0.0F, 0.0F, Trans->LocalRight);
-		Vector3_SetSimple(0.0F, 1.0F, 0.0F, Trans->LocalUp);
-		Vector3_SetSimple(0.0F, 0.0F, 1.0F, Trans->LocalForward);
-		Vector3_SetSimple(-1.0F, 0.0F, 0.0F, Trans->LocalLeft);
-		Vector3_SetSimple(0.0F, -1.0F, 0.0F, Trans->LocalDown);
-		Vector3_SetSimple(0.0F, 0.0F, -1.0F, Trans->LocalBack);
-		Vector3_SetSimple(0.0F, 0.0F, 0.0F, Trans->LocalPosition);
-		Quaternion_Identity(Trans->LocalRotation);
-		Vector3_SetSimple(1.0F, 1.0F, 1.0F, Trans->LocalScale);
-		Vector3_SetSimple(0.0F, 0.0F, 0.0F, Trans->WorldPosition);
-		Quaternion_Identity(Trans->WorldRotation);
-		Vector3_SetSimple(1.0F, 1.0F, 1.0F, Trans->WorldScale);
+		Vector3_SetSimple(1.0F, 0.0F, 0.0F, &Trans->LocalRight);
+		Vector3_SetSimple(0.0F, 1.0F, 0.0F, &Trans->LocalUp);
+		Vector3_SetSimple(0.0F, 0.0F, 1.0F, &Trans->LocalForward);
+		Vector3_SetSimple(-1.0F, 0.0F, 0.0F, &Trans->LocalLeft);
+		Vector3_SetSimple(0.0F, -1.0F, 0.0F, &Trans->LocalDown);
+		Vector3_SetSimple(0.0F, 0.0F, -1.0F, &Trans->LocalBack);
+		Vector3_SetSimple(0.0F, 0.0F, 0.0F, &Trans->LocalPosition);
+		Quaternion_Identity(&Trans->LocalRotation);
+		Vector3_SetSimple(1.0F, 1.0F, 1.0F, &Trans->LocalScale);
+		Vector3_SetSimple(0.0F, 0.0F, 0.0F, &Trans->WorldPosition);
+		Quaternion_Identity(&Trans->WorldRotation);
+		Vector3_SetSimple(1.0F, 1.0F, 1.0F, &Trans->WorldScale);
 	}
-	void Transform_GetWorldPosition(Transform* Trans, Vector3 Position)
+	void Transform_GetWorldPosition(Transform* Trans, Vector3* Position)
 	{
-		Position[0] = Trans->WorldPosition[0];
-		Position[1] = Trans->WorldPosition[1];
-		Position[2] = Trans->WorldPosition[2];
+		Position->X = Trans->WorldPosition.X;
+		Position->Y = Trans->WorldPosition.Y;
+		Position->Z = Trans->WorldPosition.Z;
 	}
-	void Transform_GetWorldRotation(Transform* Trans, Quaternion Rotation)
+	void Transform_GetWorldRotation(Transform* Trans, Quaternion* Rotation)
 	{
-		Rotation[0] = Trans->WorldRotation[0];
-		Rotation[1] = Trans->WorldRotation[1];
-		Rotation[2] = Trans->WorldRotation[2];
-		Rotation[3] = Trans->WorldRotation[3];
+		Rotation->X = Trans->WorldRotation.X;
+		Rotation->Y = Trans->WorldRotation.Y;
+		Rotation->Z = Trans->WorldRotation.Z;
+		Rotation->W = Trans->WorldRotation.W;
 	}
-	void Transform_GetWorldEulerAngles(Transform* Trans, Vector3 Rotation)
+	void Transform_GetWorldEulerAngles(Transform* Trans, Vector3* Rotation)
 	{
-		Quaternion_EulerAngles(Trans->WorldRotation, Rotation);
+		Quaternion_EulerAngles(&Trans->WorldRotation, Rotation);
 
-		Rotation[0] = RAD_TO_DEG(Rotation[0]);
-		Rotation[1] = RAD_TO_DEG(Rotation[1]);
-		Rotation[2] = RAD_TO_DEG(Rotation[2]);
+		Rotation->X = RAD_TO_DEG(Rotation->X);
+		Rotation->Y = RAD_TO_DEG(Rotation->Y);
+		Rotation->Z = RAD_TO_DEG(Rotation->Z);
 	}
-	void Transform_GetWorldScale(Transform* Trans, Vector3 Scale)
+	void Transform_GetWorldScale(Transform* Trans, Vector3* Scale)
 	{
-		Scale[0] = Trans->WorldScale[0];
-		Scale[1] = Trans->WorldScale[1];
-		Scale[2] = Trans->WorldScale[2];
+		Scale->X = Trans->WorldScale.X;
+		Scale->Y = Trans->WorldScale.Y;
+		Scale->Z = Trans->WorldScale.Z;
 	}
-	void Transform_GetLocalPosition(Transform* Trans, Vector3 Position)
+	void Transform_GetLocalPosition(Transform* Trans, Vector3* Position)
 	{
-		Position[0] = Trans->LocalPosition[0];
-		Position[1] = Trans->LocalPosition[1];
-		Position[2] = Trans->LocalPosition[2];
+		Position->X = Trans->LocalPosition.X;
+		Position->Y = Trans->LocalPosition.Y;
+		Position->Z = Trans->LocalPosition.Z;
 	}
-	void Transform_GetLocalRotation(Transform* Trans, Quaternion Rotation)
+	void Transform_GetLocalRotation(Transform* Trans, Quaternion* Rotation)
 	{
-		Rotation[0] = Trans->LocalRotation[0];
-		Rotation[1] = Trans->LocalRotation[1];
-		Rotation[2] = Trans->LocalRotation[2];
-		Rotation[3] = Trans->LocalRotation[3];
+		Rotation->X = Trans->LocalRotation.X;
+		Rotation->Y = Trans->LocalRotation.Y;
+		Rotation->Z = Trans->LocalRotation.Z;
+		Rotation->W = Trans->LocalRotation.W;
 	}
-	void Transform_GetLocalEulerAngles(Transform* Trans, Vector3 Rotation)
+	void Transform_GetLocalEulerAngles(Transform* Trans, Vector3* Rotation)
 	{
-		Quaternion_EulerAngles(Trans->LocalRotation, Rotation);
+		Quaternion_EulerAngles(&Trans->LocalRotation, Rotation);
 
-		Rotation[0] = RAD_TO_DEG(Rotation[0]);
-		Rotation[1] = RAD_TO_DEG(Rotation[1]);
-		Rotation[2] = RAD_TO_DEG(Rotation[2]);
+		Rotation->X = RAD_TO_DEG(Rotation->X);
+		Rotation->Y = RAD_TO_DEG(Rotation->Y);
+		Rotation->Z = RAD_TO_DEG(Rotation->Z);
 	}
-	void Transform_GetLocalScale(Transform* Trans, Vector3 Scale)
+	void Transform_GetLocalScale(Transform* Trans, Vector3* Scale)
 	{
-		Scale[0] = Trans->LocalScale[0];
-		Scale[1] = Trans->LocalScale[1];
-		Scale[2] = Trans->LocalScale[2];
+		Scale->X = Trans->LocalScale.X;
+		Scale->Y = Trans->LocalScale.Y;
+		Scale->Z = Trans->LocalScale.Z;
 	}
-	void Transform_SetPosition(Transform* Trans, Vector3 Position)
+	void Transform_SetPosition(Transform* Trans, Vector3 const* Position)
 	{
-		Trans->LocalPosition[0] = Position[0];
-		Trans->LocalPosition[1] = Position[1];
-		Trans->LocalPosition[2] = Position[2];
+		Trans->LocalPosition.X = Position->X;
+		Trans->LocalPosition.Y = Position->Y;
+		Trans->LocalPosition.Z = Position->Z;
 
 		Transform_ComputeWorldPositionInternal(Trans);
 	}
 	void Transform_SetPositionSimple(Transform* Trans, float PositionX, float PositionY, float PositionZ)
 	{
-		Trans->LocalPosition[0] = PositionX;
-		Trans->LocalPosition[1] = PositionY;
-		Trans->LocalPosition[2] = PositionZ;
+		Trans->LocalPosition.X = PositionX;
+		Trans->LocalPosition.Y = PositionY;
+		Trans->LocalPosition.Z = PositionZ;
 
 		Transform_ComputeWorldPositionInternal(Trans);
 	}
-	void Transform_SetRelativePosition(Transform* Trans, Vector3 Position)
+	void Transform_SetRelativePosition(Transform* Trans, Vector3 const* Position)
 	{
-		Trans->LocalPosition[0] += Position[0];
-		Trans->LocalPosition[1] += Position[1];
-		Trans->LocalPosition[2] += Position[2];
+		Trans->LocalPosition.X += Position->X;
+		Trans->LocalPosition.Y += Position->Y;
+		Trans->LocalPosition.Z += Position->Z;
 
 		Transform_ComputeWorldPositionInternal(Trans);
 	}
 	void Transform_SetRelativePositionSimple(Transform* Trans, float PositionX, float PositionY, float PositionZ)
 	{
-		Trans->LocalPosition[0] += PositionX;
-		Trans->LocalPosition[1] += PositionY;
-		Trans->LocalPosition[2] += PositionZ;
+		Trans->LocalPosition.X += PositionX;
+		Trans->LocalPosition.Y += PositionY;
+		Trans->LocalPosition.Z += PositionZ;
 
 		Transform_ComputeWorldPositionInternal(Trans);
 	}
-	void Transform_SetRotation(Transform* Trans, Quaternion Rotation)
+	void Transform_SetRotation(Transform* Trans, Quaternion const* Rotation)
 	{
 		UNREFERENCED_PARAMETER(Trans);
 		UNREFERENCED_PARAMETER(Rotation);
@@ -5924,7 +6205,7 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void Transform_SetRelativeRotation(Transform* Trans, Quaternion Rotation)
+	void Transform_SetRelativeRotation(Transform* Trans, Quaternion const* Rotation)
 	{
 		UNREFERENCED_PARAMETER(Trans);
 		UNREFERENCED_PARAMETER(Rotation);
@@ -5941,11 +6222,11 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void Transform_SetEulerAngles(Transform* Trans, Vector3 Rotation)
+	void Transform_SetEulerAngles(Transform* Trans, Vector3 const* Rotation)
 	{
-		float Pitch = DEG_TO_RAD(Rotation[0]);
-		float Yaw = DEG_TO_RAD(Rotation[1]);
-		float Roll = DEG_TO_RAD(Rotation[2]);
+		float Pitch = DEG_TO_RAD(Rotation->X);
+		float Yaw = DEG_TO_RAD(Rotation->Y);
+		float Roll = DEG_TO_RAD(Rotation->Z);
 
 		Vector3 LocalLeft = VECTOR3_ZERO;
 		Vector3 LocalDown = VECTOR3_ZERO;
@@ -5969,81 +6250,81 @@ extern "C"
 
 		if (ParentTrans)
 		{
-			Quaternion_AngleAxis(Pitch, ParentTrans->LocalRight, QX);
-			Quaternion_AngleAxis(Yaw, ParentTrans->LocalUp, QY);
-			Quaternion_AngleAxis(Roll, ParentTrans->LocalForward, QZ);
+			Quaternion_AngleAxis(Pitch, &ParentTrans->LocalRight, &QX);
+			Quaternion_AngleAxis(Yaw, &ParentTrans->LocalUp, &QY);
+			Quaternion_AngleAxis(Roll, &ParentTrans->LocalForward, &QZ);
 
-			Quaternion_Mul(QX, QZ, QXZ);
-			Quaternion_Mul(QY, QXZ, QYXZ);
-			Quaternion_Norm(QYXZ, QNYXZ);
-			Quaternion_Set(QNYXZ, Trans->LocalRotation);
+			Quaternion_Mul(&QX, &QZ, &QXZ);
+			Quaternion_Mul(&QY, &QXZ, &QYXZ);
+			Quaternion_Norm(&QYXZ, &QNYXZ);
+			Quaternion_Set(&QNYXZ, &Trans->LocalRotation);
 
-			Vector3_Rotate(ParentTrans->LocalRight, Trans->LocalRotation, LR);
-			Vector3_Rotate(ParentTrans->LocalUp, Trans->LocalRotation, LU);
-			Vector3_Rotate(ParentTrans->LocalForward, Trans->LocalRotation, LF);
+			Vector3_Rotate(&ParentTrans->LocalRight, &Trans->LocalRotation, &LR);
+			Vector3_Rotate(&ParentTrans->LocalUp, &Trans->LocalRotation, &LU);
+			Vector3_Rotate(&ParentTrans->LocalForward, &Trans->LocalRotation, &LF);
 
-			Vector3_Norm(LR, LRN);
-			Vector3_Norm(LU, LUN);
-			Vector3_Norm(LF, LFN);
+			Vector3_Norm(&LR, &LRN);
+			Vector3_Norm(&LU, &LUN);
+			Vector3_Norm(&LF, &LFN);
 
-			Vector3_Set(LRN, Trans->LocalRight);
-			Vector3_Set(LUN, Trans->LocalUp);
-			Vector3_Set(LFN, Trans->LocalForward);
+			Vector3_Set(&LRN, &Trans->LocalRight);
+			Vector3_Set(&LUN, &Trans->LocalUp);
+			Vector3_Set(&LFN, &Trans->LocalForward);
 
-			LocalLeft[0] = -Trans->LocalRight[0];
-			LocalLeft[1] = -Trans->LocalRight[1];
-			LocalLeft[2] = -Trans->LocalRight[2];
+			LocalLeft.X = -Trans->LocalRight.X;
+			LocalLeft.Y = -Trans->LocalRight.Y;
+			LocalLeft.Z = -Trans->LocalRight.Z;
 
-			LocalDown[0] = -Trans->LocalUp[0];
-			LocalDown[1] = -Trans->LocalUp[1];
-			LocalDown[2] = -Trans->LocalUp[2];
+			LocalDown.X = -Trans->LocalUp.X;
+			LocalDown.Y = -Trans->LocalUp.Y;
+			LocalDown.Z = -Trans->LocalUp.Z;
 
-			LocalBack[0] = -Trans->LocalForward[0];
-			LocalBack[1] = -Trans->LocalForward[1];
-			LocalBack[2] = -Trans->LocalForward[2];
+			LocalBack.X = -Trans->LocalForward.X;
+			LocalBack.Y = -Trans->LocalForward.Y;
+			LocalBack.Z = -Trans->LocalForward.Z;
 
-			Vector3_Set(LocalLeft, Trans->LocalLeft);
-			Vector3_Set(LocalDown, Trans->LocalDown);
-			Vector3_Set(LocalBack, Trans->LocalBack);
+			Vector3_Set(&LocalLeft, &Trans->LocalLeft);
+			Vector3_Set(&LocalDown, &Trans->LocalDown);
+			Vector3_Set(&LocalBack, &Trans->LocalBack);
 		}
 		else
 		{
-			Quaternion_AngleAxis(Pitch, sWorldRight, QX);
-			Quaternion_AngleAxis(Yaw, sWorldUp, QY);
-			Quaternion_AngleAxis(Roll, sWorldForward, QZ);
+			Quaternion_AngleAxis(Pitch, &sWorldRight, &QX);
+			Quaternion_AngleAxis(Yaw, &sWorldUp, &QY);
+			Quaternion_AngleAxis(Roll, &sWorldForward, &QZ);
 
-			Quaternion_Mul(QX, QZ, QXZ);
-			Quaternion_Mul(QY, QXZ, QYXZ);
-			Quaternion_Norm(QYXZ, QNYXZ);
-			Quaternion_Set(QNYXZ, Trans->LocalRotation);
+			Quaternion_Mul(&QX, &QZ, &QXZ);
+			Quaternion_Mul(&QY, &QXZ, &QYXZ);
+			Quaternion_Norm(&QYXZ, &QNYXZ);
+			Quaternion_Set(&QNYXZ, &Trans->LocalRotation);
 
-			Vector3_Rotate(sWorldRight, Trans->LocalRotation, LR);
-			Vector3_Rotate(sWorldUp, Trans->LocalRotation, LU);
-			Vector3_Rotate(sWorldForward, Trans->LocalRotation, LF);
+			Vector3_Rotate(&sWorldRight, &Trans->LocalRotation, &LR);
+			Vector3_Rotate(&sWorldUp, &Trans->LocalRotation, &LU);
+			Vector3_Rotate(&sWorldForward, &Trans->LocalRotation, &LF);
 
-			Vector3_Norm(LR, LRN);
-			Vector3_Norm(LU, LUN);
-			Vector3_Norm(LF, LFN);
+			Vector3_Norm(&LR, &LRN);
+			Vector3_Norm(&LU, &LUN);
+			Vector3_Norm(&LF, &LFN);
 
-			Vector3_Set(LRN, Trans->LocalRight);
-			Vector3_Set(LUN, Trans->LocalUp);
-			Vector3_Set(LFN, Trans->LocalForward);
+			Vector3_Set(&LRN, &Trans->LocalRight);
+			Vector3_Set(&LUN, &Trans->LocalUp);
+			Vector3_Set(&LFN, &Trans->LocalForward);
 
-			LocalLeft[0] = -Trans->LocalRight[0];
-			LocalLeft[1] = -Trans->LocalRight[1];
-			LocalLeft[2] = -Trans->LocalRight[2];
+			LocalLeft.X = -Trans->LocalRight.X;
+			LocalLeft.Y = -Trans->LocalRight.Y;
+			LocalLeft.Z = -Trans->LocalRight.Z;
 
-			LocalDown[0] = -Trans->LocalUp[0];
-			LocalDown[1] = -Trans->LocalUp[1];
-			LocalDown[2] = -Trans->LocalUp[2];
+			LocalDown.X = -Trans->LocalUp.X;
+			LocalDown.Y = -Trans->LocalUp.Y;
+			LocalDown.Z = -Trans->LocalUp.Z;
 
-			LocalBack[0] = -Trans->LocalForward[0];
-			LocalBack[1] = -Trans->LocalForward[1];
-			LocalBack[2] = -Trans->LocalForward[2];
+			LocalBack.X = -Trans->LocalForward.X;
+			LocalBack.Y = -Trans->LocalForward.Y;
+			LocalBack.Z = -Trans->LocalForward.Z;
 
-			Vector3_Set(LocalLeft, Trans->LocalLeft);
-			Vector3_Set(LocalDown, Trans->LocalDown);
-			Vector3_Set(LocalBack, Trans->LocalBack);
+			Vector3_Set(&LocalLeft, &Trans->LocalLeft);
+			Vector3_Set(&LocalDown, &Trans->LocalDown);
+			Vector3_Set(&LocalBack, &Trans->LocalBack);
 		}
 
 		Transform_ComputeWorldRotationInternal(Trans);
@@ -6077,91 +6358,91 @@ extern "C"
 
 		if (ParentTrans)
 		{
-			Quaternion_AngleAxis(Pitch, ParentTrans->LocalRight, QX);
-			Quaternion_AngleAxis(Yaw, ParentTrans->LocalUp, QY);
-			Quaternion_AngleAxis(Roll, ParentTrans->LocalForward, QZ);
+			Quaternion_AngleAxis(Pitch, &ParentTrans->LocalRight, &QX);
+			Quaternion_AngleAxis(Yaw, &ParentTrans->LocalUp, &QY);
+			Quaternion_AngleAxis(Roll, &ParentTrans->LocalForward, &QZ);
 
-			Quaternion_Mul(QX, QZ, QXZ);
-			Quaternion_Mul(QY, QXZ, QYXZ);
-			Quaternion_Norm(QYXZ, QNYXZ);
-			Quaternion_Set(QNYXZ, Trans->LocalRotation);
+			Quaternion_Mul(&QX, &QZ, &QXZ);
+			Quaternion_Mul(&QY, &QXZ, &QYXZ);
+			Quaternion_Norm(&QYXZ, &QNYXZ);
+			Quaternion_Set(&QNYXZ, &Trans->LocalRotation);
 
-			Vector3_Rotate(ParentTrans->LocalRight, Trans->LocalRotation, LR);
-			Vector3_Rotate(ParentTrans->LocalUp, Trans->LocalRotation, LU);
-			Vector3_Rotate(ParentTrans->LocalForward, Trans->LocalRotation, LF);
+			Vector3_Rotate(&ParentTrans->LocalRight, &Trans->LocalRotation, &LR);
+			Vector3_Rotate(&ParentTrans->LocalUp, &Trans->LocalRotation, &LU);
+			Vector3_Rotate(&ParentTrans->LocalForward, &Trans->LocalRotation, &LF);
 
-			Vector3_Norm(LR, LRN);
-			Vector3_Norm(LU, LUN);
-			Vector3_Norm(LF, LFN);
+			Vector3_Norm(&LR, &LRN);
+			Vector3_Norm(&LU, &LUN);
+			Vector3_Norm(&LF, &LFN);
 
-			Vector3_Set(LRN, Trans->LocalRight);
-			Vector3_Set(LUN, Trans->LocalUp);
-			Vector3_Set(LFN, Trans->LocalForward);
+			Vector3_Set(&LRN, &Trans->LocalRight);
+			Vector3_Set(&LUN, &Trans->LocalUp);
+			Vector3_Set(&LFN, &Trans->LocalForward);
 
-			LocalLeft[0] = -Trans->LocalRight[0];
-			LocalLeft[1] = -Trans->LocalRight[1];
-			LocalLeft[2] = -Trans->LocalRight[2];
+			LocalLeft.X = -Trans->LocalRight.X;
+			LocalLeft.Y = -Trans->LocalRight.Y;
+			LocalLeft.Z = -Trans->LocalRight.Z;
 
-			LocalDown[0] = -Trans->LocalUp[0];
-			LocalDown[1] = -Trans->LocalUp[1];
-			LocalDown[2] = -Trans->LocalUp[2];
+			LocalDown.X = -Trans->LocalUp.X;
+			LocalDown.Y = -Trans->LocalUp.Y;
+			LocalDown.Z = -Trans->LocalUp.Z;
 
-			LocalBack[0] = -Trans->LocalForward[0];
-			LocalBack[1] = -Trans->LocalForward[1];
-			LocalBack[2] = -Trans->LocalForward[2];
+			LocalBack.X = -Trans->LocalForward.X;
+			LocalBack.Y = -Trans->LocalForward.Y;
+			LocalBack.Z = -Trans->LocalForward.Z;
 
-			Vector3_Set(LocalLeft, Trans->LocalLeft);
-			Vector3_Set(LocalDown, Trans->LocalDown);
-			Vector3_Set(LocalBack, Trans->LocalBack);
+			Vector3_Set(&LocalLeft, &Trans->LocalLeft);
+			Vector3_Set(&LocalDown, &Trans->LocalDown);
+			Vector3_Set(&LocalBack, &Trans->LocalBack);
 		}
 		else
 		{
-			Quaternion_AngleAxis(Pitch, sWorldRight, QX);
-			Quaternion_AngleAxis(Yaw, sWorldUp, QY);
-			Quaternion_AngleAxis(Roll, sWorldForward, QZ);
+			Quaternion_AngleAxis(Pitch, &sWorldRight, &QX);
+			Quaternion_AngleAxis(Yaw, &sWorldUp, &QY);
+			Quaternion_AngleAxis(Roll, &sWorldForward, &QZ);
 
-			Quaternion_Mul(QX, QZ, QXZ);
-			Quaternion_Mul(QY, QXZ, QYXZ);
-			Quaternion_Norm(QYXZ, QNYXZ);
-			Quaternion_Set(QNYXZ, Trans->LocalRotation);
+			Quaternion_Mul(&QX, &QZ, &QXZ);
+			Quaternion_Mul(&QY, &QXZ, &QYXZ);
+			Quaternion_Norm(&QYXZ, &QNYXZ);
+			Quaternion_Set(&QNYXZ, &Trans->LocalRotation);
 
-			Vector3_Rotate(sWorldRight, Trans->LocalRotation, LR);
-			Vector3_Rotate(sWorldUp, Trans->LocalRotation, LU);
-			Vector3_Rotate(sWorldForward, Trans->LocalRotation, LF);
+			Vector3_Rotate(&sWorldRight, &Trans->LocalRotation, &LR);
+			Vector3_Rotate(&sWorldUp, &Trans->LocalRotation, &LU);
+			Vector3_Rotate(&sWorldForward, &Trans->LocalRotation, &LF);
 
-			Vector3_Norm(LR, LRN);
-			Vector3_Norm(LU, LUN);
-			Vector3_Norm(LF, LFN);
+			Vector3_Norm(&LR, &LRN);
+			Vector3_Norm(&LU, &LUN);
+			Vector3_Norm(&LF, &LFN);
 
-			Vector3_Set(LRN, Trans->LocalRight);
-			Vector3_Set(LUN, Trans->LocalUp);
-			Vector3_Set(LFN, Trans->LocalForward);
+			Vector3_Set(&LRN, &Trans->LocalRight);
+			Vector3_Set(&LUN, &Trans->LocalUp);
+			Vector3_Set(&LFN, &Trans->LocalForward);
 
-			LocalLeft[0] = -Trans->LocalRight[0];
-			LocalLeft[1] = -Trans->LocalRight[1];
-			LocalLeft[2] = -Trans->LocalRight[2];
+			LocalLeft.X = -Trans->LocalRight.X;
+			LocalLeft.Y = -Trans->LocalRight.Y;
+			LocalLeft.Z = -Trans->LocalRight.Z;
 
-			LocalDown[0] = -Trans->LocalUp[0];
-			LocalDown[1] = -Trans->LocalUp[1];
-			LocalDown[2] = -Trans->LocalUp[2];
+			LocalDown.X = -Trans->LocalUp.X;
+			LocalDown.Y = -Trans->LocalUp.Y;
+			LocalDown.Z = -Trans->LocalUp.Z;
 
-			LocalBack[0] = -Trans->LocalForward[0];
-			LocalBack[1] = -Trans->LocalForward[1];
-			LocalBack[2] = -Trans->LocalForward[2];
+			LocalBack.X = -Trans->LocalForward.X;
+			LocalBack.Y = -Trans->LocalForward.Y;
+			LocalBack.Z = -Trans->LocalForward.Z;
 
-			Vector3_Set(LocalLeft, Trans->LocalLeft);
-			Vector3_Set(LocalDown, Trans->LocalDown);
-			Vector3_Set(LocalBack, Trans->LocalBack);
+			Vector3_Set(&LocalLeft, &Trans->LocalLeft);
+			Vector3_Set(&LocalDown, &Trans->LocalDown);
+			Vector3_Set(&LocalBack, &Trans->LocalBack);
 		}
 
 		Transform_ComputeWorldRotationInternal(Trans);
 		Transform_ComputeWorldPositionInternal(Trans);
 	}
-	void Transform_SetRelativeEulerAngles(Transform* Trans, Vector3 Rotation)
+	void Transform_SetRelativeEulerAngles(Transform* Trans, Vector3 const* Rotation)
 	{
-		float Pitch = DEG_TO_RAD(Rotation[0]);
-		float Yaw = DEG_TO_RAD(Rotation[1]);
-		float Roll = DEG_TO_RAD(Rotation[2]);
+		float Pitch = DEG_TO_RAD(Rotation->X);
+		float Yaw = DEG_TO_RAD(Rotation->Y);
+		float Roll = DEG_TO_RAD(Rotation->Z);
 
 		Vector3 LocalLeft = VECTOR3_ZERO;
 		Vector3 LocalDown = VECTOR3_ZERO;
@@ -6186,83 +6467,83 @@ extern "C"
 
 		if (ParentTrans)
 		{
-			Quaternion_AngleAxis(Pitch, ParentTrans->LocalRight, QX);
-			Quaternion_AngleAxis(Yaw, ParentTrans->LocalUp, QY);
-			Quaternion_AngleAxis(Roll, ParentTrans->LocalForward, QZ);
+			Quaternion_AngleAxis(Pitch, &ParentTrans->LocalRight, &QX);
+			Quaternion_AngleAxis(Yaw, &ParentTrans->LocalUp, &QY);
+			Quaternion_AngleAxis(Roll, &ParentTrans->LocalForward, &QZ);
 
-			Quaternion_Mul(QX, QZ, QXZ);
-			Quaternion_Mul(QY, QXZ, QYXZ);
-			Quaternion_Norm(QYXZ, QNYXZ);
-			Quaternion_Mul(Trans->LocalRotation, QNYXZ, QNYXZR);
-			Quaternion_Set(QNYXZR, Trans->LocalRotation);
+			Quaternion_Mul(&QX, &QZ, &QXZ);
+			Quaternion_Mul(&QY, &QXZ, &QYXZ);
+			Quaternion_Norm(&QYXZ, &QNYXZ);
+			Quaternion_Mul(&Trans->LocalRotation, &QNYXZ, &QNYXZR);
+			Quaternion_Set(&QNYXZR, &Trans->LocalRotation);
 
-			Vector3_Rotate(ParentTrans->LocalRight, Trans->LocalRotation, LR);
-			Vector3_Rotate(ParentTrans->LocalUp, Trans->LocalRotation, LU);
-			Vector3_Rotate(ParentTrans->LocalForward, Trans->LocalRotation, LF);
+			Vector3_Rotate(&ParentTrans->LocalRight, &Trans->LocalRotation, &LR);
+			Vector3_Rotate(&ParentTrans->LocalUp, &Trans->LocalRotation, &LU);
+			Vector3_Rotate(&ParentTrans->LocalForward, &Trans->LocalRotation, &LF);
 
-			Vector3_Norm(LR, LRN);
-			Vector3_Norm(LU, LUN);
-			Vector3_Norm(LF, LFN);
+			Vector3_Norm(&LR, &LRN);
+			Vector3_Norm(&LU, &LUN);
+			Vector3_Norm(&LF, &LFN);
 
-			Vector3_Set(LRN, Trans->LocalRight);
-			Vector3_Set(LUN, Trans->LocalUp);
-			Vector3_Set(LFN, Trans->LocalForward);
+			Vector3_Set(&LRN, &Trans->LocalRight);
+			Vector3_Set(&LUN, &Trans->LocalUp);
+			Vector3_Set(&LFN, &Trans->LocalForward);
 
-			LocalLeft[0] = -Trans->LocalRight[0];
-			LocalLeft[1] = -Trans->LocalRight[1];
-			LocalLeft[2] = -Trans->LocalRight[2];
+			LocalLeft.X = -Trans->LocalRight.X;
+			LocalLeft.Y = -Trans->LocalRight.Y;
+			LocalLeft.Z = -Trans->LocalRight.Z;
 
-			LocalDown[0] = -Trans->LocalUp[0];
-			LocalDown[1] = -Trans->LocalUp[1];
-			LocalDown[2] = -Trans->LocalUp[2];
+			LocalDown.X = -Trans->LocalUp.X;
+			LocalDown.Y = -Trans->LocalUp.Y;
+			LocalDown.Z = -Trans->LocalUp.Z;
 
-			LocalBack[0] = -Trans->LocalForward[0];
-			LocalBack[1] = -Trans->LocalForward[1];
-			LocalBack[2] = -Trans->LocalForward[2];
+			LocalBack.X = -Trans->LocalForward.X;
+			LocalBack.Y = -Trans->LocalForward.Y;
+			LocalBack.Z = -Trans->LocalForward.Z;
 
-			Vector3_Set(LocalLeft, Trans->LocalLeft);
-			Vector3_Set(LocalDown, Trans->LocalDown);
-			Vector3_Set(LocalBack, Trans->LocalBack);
+			Vector3_Set(&LocalLeft, &Trans->LocalLeft);
+			Vector3_Set(&LocalDown, &Trans->LocalDown);
+			Vector3_Set(&LocalBack, &Trans->LocalBack);
 		}
 		else
 		{
-			Quaternion_AngleAxis(Pitch, sWorldRight, QX);
-			Quaternion_AngleAxis(Yaw, sWorldUp, QY);
-			Quaternion_AngleAxis(Roll, sWorldForward, QZ);
+			Quaternion_AngleAxis(Pitch, &sWorldRight, &QX);
+			Quaternion_AngleAxis(Yaw, &sWorldUp, &QY);
+			Quaternion_AngleAxis(Roll, &sWorldForward, &QZ);
 
-			Quaternion_Mul(QX, QZ, QXZ);
-			Quaternion_Mul(QY, QXZ, QYXZ);
-			Quaternion_Norm(QYXZ, QNYXZ);
-			Quaternion_Mul(Trans->LocalRotation, QNYXZ, QNYXZR);
-			Quaternion_Set(QNYXZR, Trans->LocalRotation);
+			Quaternion_Mul(&QX, &QZ, &QXZ);
+			Quaternion_Mul(&QY, &QXZ, &QYXZ);
+			Quaternion_Norm(&QYXZ, &QNYXZ);
+			Quaternion_Mul(&Trans->LocalRotation, &QNYXZ, &QNYXZR);
+			Quaternion_Set(&QNYXZR, &Trans->LocalRotation);
 
-			Vector3_Rotate(sWorldRight, Trans->LocalRotation, LR);
-			Vector3_Rotate(sWorldUp, Trans->LocalRotation, LU);
-			Vector3_Rotate(sWorldForward, Trans->LocalRotation, LF);
+			Vector3_Rotate(&sWorldRight, &Trans->LocalRotation, &LR);
+			Vector3_Rotate(&sWorldUp, &Trans->LocalRotation, &LU);
+			Vector3_Rotate(&sWorldForward, &Trans->LocalRotation, &LF);
 
-			Vector3_Norm(LR, LRN);
-			Vector3_Norm(LU, LUN);
-			Vector3_Norm(LF, LFN);
+			Vector3_Norm(&LR, &LRN);
+			Vector3_Norm(&LU, &LUN);
+			Vector3_Norm(&LF, &LFN);
 
-			Vector3_Set(LRN, Trans->LocalRight);
-			Vector3_Set(LUN, Trans->LocalUp);
-			Vector3_Set(LFN, Trans->LocalForward);
+			Vector3_Set(&LRN, &Trans->LocalRight);
+			Vector3_Set(&LUN, &Trans->LocalUp);
+			Vector3_Set(&LFN, &Trans->LocalForward);
 
-			LocalLeft[0] = -Trans->LocalRight[0];
-			LocalLeft[1] = -Trans->LocalRight[1];
-			LocalLeft[2] = -Trans->LocalRight[2];
+			LocalLeft.X = -Trans->LocalRight.X;
+			LocalLeft.Y = -Trans->LocalRight.Y;
+			LocalLeft.Z = -Trans->LocalRight.Z;
 
-			LocalDown[0] = -Trans->LocalUp[0];
-			LocalDown[1] = -Trans->LocalUp[1];
-			LocalDown[2] = -Trans->LocalUp[2];
+			LocalDown.X = -Trans->LocalUp.X;
+			LocalDown.Y = -Trans->LocalUp.Y;
+			LocalDown.Z = -Trans->LocalUp.Z;
 
-			LocalBack[0] = -Trans->LocalForward[0];
-			LocalBack[1] = -Trans->LocalForward[1];
-			LocalBack[2] = -Trans->LocalForward[2];
+			LocalBack.X = -Trans->LocalForward.X;
+			LocalBack.Y = -Trans->LocalForward.Y;
+			LocalBack.Z = -Trans->LocalForward.Z;
 
-			Vector3_Set(LocalLeft, Trans->LocalLeft);
-			Vector3_Set(LocalDown, Trans->LocalDown);
-			Vector3_Set(LocalBack, Trans->LocalBack);
+			Vector3_Set(&LocalLeft, &Trans->LocalLeft);
+			Vector3_Set(&LocalDown, &Trans->LocalDown);
+			Vector3_Set(&LocalBack, &Trans->LocalBack);
 		}
 
 		Transform_ComputeWorldRotationInternal(Trans);
@@ -6297,155 +6578,152 @@ extern "C"
 
 		if (ParentTrans)
 		{
-			Quaternion_AngleAxis(Pitch, ParentTrans->LocalRight, QX);
-			Quaternion_AngleAxis(Yaw, ParentTrans->LocalUp, QY);
-			Quaternion_AngleAxis(Roll, ParentTrans->LocalForward, QZ);
+			Quaternion_AngleAxis(Pitch, &ParentTrans->LocalRight, &QX);
+			Quaternion_AngleAxis(Yaw, &ParentTrans->LocalUp, &QY);
+			Quaternion_AngleAxis(Roll, &ParentTrans->LocalForward, &QZ);
 
-			Quaternion_Mul(QX, QZ, QXZ);
-			Quaternion_Mul(QY, QXZ, QYXZ);
-			Quaternion_Norm(QYXZ, QNYXZ);
-			Quaternion_Mul(Trans->LocalRotation, QNYXZ, QNYXZR);
-			Quaternion_Set(QNYXZR, Trans->LocalRotation);
+			Quaternion_Mul(&QX, &QZ, &QXZ);
+			Quaternion_Mul(&QY, &QXZ, &QYXZ);
+			Quaternion_Norm(&QYXZ, &QNYXZ);
+			Quaternion_Mul(&Trans->LocalRotation, &QNYXZ, &QNYXZR);
+			Quaternion_Set(&QNYXZR, &Trans->LocalRotation);
 
-			Vector3_Rotate(ParentTrans->LocalRight, Trans->LocalRotation, LR);
-			Vector3_Rotate(ParentTrans->LocalUp, Trans->LocalRotation, LU);
-			Vector3_Rotate(ParentTrans->LocalForward, Trans->LocalRotation, LF);
+			Vector3_Rotate(&ParentTrans->LocalRight, &Trans->LocalRotation, &LR);
+			Vector3_Rotate(&ParentTrans->LocalUp, &Trans->LocalRotation, &LU);
+			Vector3_Rotate(&ParentTrans->LocalForward, &Trans->LocalRotation, &LF);
 
-			Vector3_Norm(LR, LRN);
-			Vector3_Norm(LU, LUN);
-			Vector3_Norm(LF, LFN);
+			Vector3_Norm(&LR, &LRN);
+			Vector3_Norm(&LU, &LUN);
+			Vector3_Norm(&LF, &LFN);
 
-			Vector3_Set(LRN, Trans->LocalRight);
-			Vector3_Set(LUN, Trans->LocalUp);
-			Vector3_Set(LFN, Trans->LocalForward);
+			Vector3_Set(&LRN, &Trans->LocalRight);
+			Vector3_Set(&LUN, &Trans->LocalUp);
+			Vector3_Set(&LFN, &Trans->LocalForward);
 
-			LocalLeft[0] = -Trans->LocalRight[0];
-			LocalLeft[1] = -Trans->LocalRight[1];
-			LocalLeft[2] = -Trans->LocalRight[2];
+			LocalLeft.X = -Trans->LocalRight.X;
+			LocalLeft.Y = -Trans->LocalRight.Y;
+			LocalLeft.Z = -Trans->LocalRight.Z;
 
-			LocalDown[0] = -Trans->LocalUp[0];
-			LocalDown[1] = -Trans->LocalUp[1];
-			LocalDown[2] = -Trans->LocalUp[2];
+			LocalDown.X = -Trans->LocalUp.X;
+			LocalDown.Y = -Trans->LocalUp.Y;
+			LocalDown.Z = -Trans->LocalUp.Z;
 
-			LocalBack[0] = -Trans->LocalForward[0];
-			LocalBack[1] = -Trans->LocalForward[1];
-			LocalBack[2] = -Trans->LocalForward[2];
+			LocalBack.X = -Trans->LocalForward.X;
+			LocalBack.Y = -Trans->LocalForward.Y;
+			LocalBack.Z = -Trans->LocalForward.Z;
 
-			Vector3_Set(LocalLeft, Trans->LocalLeft);
-			Vector3_Set(LocalDown, Trans->LocalDown);
-			Vector3_Set(LocalBack, Trans->LocalBack);
+			Vector3_Set(&LocalLeft, &Trans->LocalLeft);
+			Vector3_Set(&LocalDown, &Trans->LocalDown);
+			Vector3_Set(&LocalBack, &Trans->LocalBack);
 		}
 		else
 		{
-			Quaternion_AngleAxis(Pitch, sWorldRight, QX);
-			Quaternion_AngleAxis(Yaw, sWorldUp, QY);
-			Quaternion_AngleAxis(Roll, sWorldForward, QZ);
+			Quaternion_AngleAxis(Pitch, &sWorldRight, &QX);
+			Quaternion_AngleAxis(Yaw, &sWorldUp, &QY);
+			Quaternion_AngleAxis(Roll, &sWorldForward, &QZ);
 
-			Quaternion_Mul(QX, QZ, QXZ);
-			Quaternion_Mul(QY, QXZ, QYXZ);
-			Quaternion_Norm(QYXZ, QNYXZ);
-			Quaternion_Mul(Trans->LocalRotation, QNYXZ, QNYXZR);
-			Quaternion_Set(QNYXZR, Trans->LocalRotation);
+			Quaternion_Mul(&QX, &QZ, &QXZ);
+			Quaternion_Mul(&QY, &QXZ, &QYXZ);
+			Quaternion_Norm(&QYXZ, &QNYXZ);
+			Quaternion_Mul(&Trans->LocalRotation, &QNYXZ, &QNYXZR);
+			Quaternion_Set(&QNYXZR, &Trans->LocalRotation);
 
-			Vector3_Rotate(sWorldRight, Trans->LocalRotation, LR);
-			Vector3_Rotate(sWorldUp, Trans->LocalRotation, LU);
-			Vector3_Rotate(sWorldForward, Trans->LocalRotation, LF);
+			Vector3_Rotate(&sWorldRight, &Trans->LocalRotation, &LR);
+			Vector3_Rotate(&sWorldUp, &Trans->LocalRotation, &LU);
+			Vector3_Rotate(&sWorldForward, &Trans->LocalRotation, &LF);
 
-			Vector3_Norm(LR, LRN);
-			Vector3_Norm(LU, LUN);
-			Vector3_Norm(LF, LFN);
+			Vector3_Norm(&LR, &LRN);
+			Vector3_Norm(&LU, &LUN);
+			Vector3_Norm(&LF, &LFN);
 
-			Vector3_Set(LRN, Trans->LocalRight);
-			Vector3_Set(LUN, Trans->LocalUp);
-			Vector3_Set(LFN, Trans->LocalForward);
+			Vector3_Set(&LRN, &Trans->LocalRight);
+			Vector3_Set(&LUN, &Trans->LocalUp);
+			Vector3_Set(&LFN, &Trans->LocalForward);
 
-			LocalLeft[0] = -Trans->LocalRight[0];
-			LocalLeft[1] = -Trans->LocalRight[1];
-			LocalLeft[2] = -Trans->LocalRight[2];
+			LocalLeft.X = -Trans->LocalRight.X;
+			LocalLeft.Y = -Trans->LocalRight.Y;
+			LocalLeft.Z = -Trans->LocalRight.Z;
 
-			LocalDown[0] = -Trans->LocalUp[0];
-			LocalDown[1] = -Trans->LocalUp[1];
-			LocalDown[2] = -Trans->LocalUp[2];
+			LocalDown.X = -Trans->LocalUp.X;
+			LocalDown.Y = -Trans->LocalUp.Y;
+			LocalDown.Z = -Trans->LocalUp.Z;
 
-			LocalBack[0] = -Trans->LocalForward[0];
-			LocalBack[1] = -Trans->LocalForward[1];
-			LocalBack[2] = -Trans->LocalForward[2];
+			LocalBack.X = -Trans->LocalForward.X;
+			LocalBack.Y = -Trans->LocalForward.Y;
+			LocalBack.Z = -Trans->LocalForward.Z;
 
-			Vector3_Set(LocalLeft, Trans->LocalLeft);
-			Vector3_Set(LocalDown, Trans->LocalDown);
-			Vector3_Set(LocalBack, Trans->LocalBack);
+			Vector3_Set(&LocalLeft, &Trans->LocalLeft);
+			Vector3_Set(&LocalDown, &Trans->LocalDown);
+			Vector3_Set(&LocalBack, &Trans->LocalBack);
 		}
 
 		Transform_ComputeWorldRotationInternal(Trans);
 		Transform_ComputeWorldPositionInternal(Trans);
 	}
-	void Transform_SetScale(Transform* Trans, Vector3 Scale)
+	void Transform_SetScale(Transform* Trans, Vector3 const* Scale)
 	{
-		Trans->LocalScale[0] = Scale[0];
-		Trans->LocalScale[1] = Scale[1];
-		Trans->LocalScale[2] = Scale[2];
+		Trans->LocalScale.X = Scale->X;
+		Trans->LocalScale.Y = Scale->Y;
+		Trans->LocalScale.Z = Scale->Z;
 
 		Transform_ComputeWorldScaleInternal(Trans);
 	}
 	void Transform_SetScaleSimple(Transform* Trans, float ScaleX, float ScaleY, float ScaleZ)
 	{
-		Trans->LocalScale[0] = ScaleX;
-		Trans->LocalScale[1] = ScaleY;
-		Trans->LocalScale[2] = ScaleZ;
+		Trans->LocalScale.X = ScaleX;
+		Trans->LocalScale.Y = ScaleY;
+		Trans->LocalScale.Z = ScaleZ;
 
 		Transform_ComputeWorldScaleInternal(Trans);
 	}
-	void Transform_SetRelativeScale(Transform* Trans, Vector3 Scale)
+	void Transform_SetRelativeScale(Transform* Trans, Vector3 const* Scale)
 	{
-		Trans->LocalScale[0] += Scale[0];
-		Trans->LocalScale[1] += Scale[1];
-		Trans->LocalScale[2] += Scale[2];
+		Trans->LocalScale.X += Scale->X;
+		Trans->LocalScale.Y += Scale->Y;
+		Trans->LocalScale.Z += Scale->Z;
 
 		Transform_ComputeWorldScaleInternal(Trans);
 	}
 	void Transform_SetRelativeScaleSimple(Transform* Trans, float ScaleX, float ScaleY, float ScaleZ)
 	{
-		Trans->LocalScale[0] += ScaleX;
-		Trans->LocalScale[1] += ScaleY;
-		Trans->LocalScale[2] += ScaleZ;
+		Trans->LocalScale.X += ScaleX;
+		Trans->LocalScale.Y += ScaleY;
+		Trans->LocalScale.Z += ScaleZ;
 
 		Transform_ComputeWorldScaleInternal(Trans);
 	}
-	void Transform_ComputeModelMatrix(Transform* Trans, Matrix4 Model)
+	void Transform_ComputeModelMatrix(Transform* Trans, Matrix4x4* Model)
 	{
-		float X2 = Trans->WorldRotation[0] + Trans->WorldRotation[0];
-		float Y2 = Trans->WorldRotation[1] + Trans->WorldRotation[1];
-		float Z2 = Trans->WorldRotation[2] + Trans->WorldRotation[2];
+		float X2 = Trans->WorldRotation.X + Trans->WorldRotation.X;
+		float Y2 = Trans->WorldRotation.Y + Trans->WorldRotation.Y;
+		float Z2 = Trans->WorldRotation.Z + Trans->WorldRotation.Z;
 
-		float XX = Trans->WorldRotation[0] * X2;
-		float YY = Trans->WorldRotation[1] * Y2;
-		float ZZ = Trans->WorldRotation[2] * Z2;
-		float XY = Trans->WorldRotation[0] * Y2;
-		float XZ = Trans->WorldRotation[0] * Z2;
-		float YZ = Trans->WorldRotation[1] * Z2;
-		float WX = Trans->WorldRotation[3] * X2;
-		float WY = Trans->WorldRotation[3] * Y2;
-		float WZ = Trans->WorldRotation[3] * Z2;
+		float XX = Trans->WorldRotation.X * X2;
+		float YY = Trans->WorldRotation.Y * Y2;
+		float ZZ = Trans->WorldRotation.Z * Z2;
+		float XY = Trans->WorldRotation.X * Y2;
+		float XZ = Trans->WorldRotation.X * Z2;
+		float YZ = Trans->WorldRotation.Y * Z2;
+		float WX = Trans->WorldRotation.W * X2;
+		float WY = Trans->WorldRotation.W * Y2;
+		float WZ = Trans->WorldRotation.W * Z2;
 
-		Model[0][0] = (1.0F - (YY + ZZ)) * Trans->WorldScale[0];
-		Model[0][1] = (XY - WZ) * Trans->WorldScale[0];
-		Model[0][2] = (XZ + WY) * Trans->WorldScale[0];
-		Model[0][3] = 0.0F;
-
-		Model[1][0] = (XY + WZ) * Trans->WorldScale[1];
-		Model[1][1] = (1.0F - (XX + ZZ)) * Trans->WorldScale[1];
-		Model[1][2] = (YZ - WX) * Trans->WorldScale[1];
-		Model[1][3] = 0.0F;
-
-		Model[2][0] = (XZ - WY) * Trans->WorldScale[2];
-		Model[2][1] = (YZ + WX) * Trans->WorldScale[2];
-		Model[2][2] = (1.0F - (XX + YY)) * Trans->WorldScale[2];
-		Model[2][3] = 0.0F;
-
-		Model[3][0] = Trans->WorldPosition[0];
-		Model[3][1] = Trans->WorldPosition[1];
-		Model[3][2] = Trans->WorldPosition[2];
-		Model[3][3] = 1.0F;
+		Model->M00 = (1.0F - (YY + ZZ)) * Trans->WorldScale.X;
+		Model->M01 = (XY - WZ) * Trans->WorldScale.X;
+		Model->M02 = (XZ + WY) * Trans->WorldScale.X;
+		Model->M03 = 0.0F;
+		Model->M10 = (XY + WZ) * Trans->WorldScale.Y;
+		Model->M11 = (1.0F - (XX + ZZ)) * Trans->WorldScale.Y;
+		Model->M12 = (YZ - WX) * Trans->WorldScale.Y;
+		Model->M13 = 0.0F;
+		Model->M20 = (XZ - WY) * Trans->WorldScale.Z;
+		Model->M21 = (YZ + WX) * Trans->WorldScale.Z;
+		Model->M22 = (1.0F - (XX + YY)) * Trans->WorldScale.Z;
+		Model->M23 = 0.0F;
+		Model->M30 = Trans->WorldPosition.X;
+		Model->M31 = Trans->WorldPosition.Y;
+		Model->M32 = Trans->WorldPosition.Z;
+		Model->M33 = 1.0F;
 	}
 	void Transform_ComputeWorldPositionInternal(Transform* Trans)
 	{
@@ -6456,13 +6734,13 @@ extern "C"
 			Vector3 RotatedLocalPosition = VECTOR3_ZERO;
 			Vector3 WorldPosition = VECTOR3_ZERO;
 
-			Vector3_Rotate(Trans->LocalPosition, ParentTrans->WorldRotation, RotatedLocalPosition);
-			Vector3_Add(ParentTrans->WorldPosition, RotatedLocalPosition, WorldPosition);
-			Vector3_Set(WorldPosition, Trans->WorldPosition);
+			Vector3_Rotate(&Trans->LocalPosition, &ParentTrans->WorldRotation, &RotatedLocalPosition);
+			Vector3_Add(&ParentTrans->WorldPosition, &RotatedLocalPosition, &WorldPosition);
+			Vector3_Set(&WorldPosition, &Trans->WorldPosition);
 		}
 		else
 		{
-			Vector3_Set(Trans->LocalPosition, Trans->WorldPosition);
+			Vector3_Set(&Trans->LocalPosition, &Trans->WorldPosition);
 		}
 	}
 	void Transform_ComputeWorldRotationInternal(Transform* Trans)
@@ -6473,12 +6751,12 @@ extern "C"
 		{
 			Quaternion WorldRotation = QUATERNION_ZERO;
 
-			Quaternion_Mul(Trans->LocalRotation, ParentTrans->WorldRotation, WorldRotation);
-			Quaternion_Set(WorldRotation, Trans->WorldRotation);
+			Quaternion_Mul(&Trans->LocalRotation, &ParentTrans->WorldRotation, &WorldRotation);
+			Quaternion_Set(&WorldRotation, &Trans->WorldRotation);
 		}
 		else
 		{
-			Quaternion_Set(Trans->LocalRotation, Trans->WorldRotation);
+			Quaternion_Set(&Trans->LocalRotation, &Trans->WorldRotation);
 		}
 	}
 	void Transform_ComputeWorldScaleInternal(Transform* Trans)
@@ -6489,12 +6767,12 @@ extern "C"
 		{
 			Vector3 WorldScale = VECTOR3_ZERO;
 
-			Vector3_Mul(Trans->LocalScale, ParentTrans->WorldScale, WorldScale);
-			Vector3_Set(WorldScale, Trans->WorldScale);
+			Vector3_Mul(&Trans->LocalScale, &ParentTrans->WorldScale, &WorldScale);
+			Vector3_Set(&WorldScale, &Trans->WorldScale);
 		}
 		else
 		{
-			Vector3_Set(Trans->LocalScale, Trans->WorldScale);
+			Vector3_Set(&Trans->LocalScale, &Trans->WorldScale);
 		}
 	}
 #endif // FAST_GL_IMPLEMENTATION
@@ -6515,8 +6793,8 @@ extern "C"
 		Controller->MouseRotationSpeed = 10.0F;
 		Controller->RollSpeed = 0.8F;
 		Controller->MouseDrag = 50.0F;
-		Vector2_Zero(Controller->MousePositionStart);
-		Vector2_Zero(Controller->MousePositionEnd);
+		Vector2_Zero(&Controller->MousePositionStart);
+		Vector2_Zero(&Controller->MousePositionEnd);
 	}
 	void Controller_OrbitAlloc(OrbitController* Controller)
 	{
@@ -6529,8 +6807,8 @@ extern "C"
 		Controller->MouseRotationSpeed = 10.0F;
 		Controller->MouseDrag = 50.0F;
 		Controller->Distance = 20.0F;
-		Vector2_Zero(Controller->MousePositionStart);
-		Vector2_Zero(Controller->MousePositionEnd);
+		Vector2_Zero(&Controller->MousePositionStart);
+		Vector2_Zero(&Controller->MousePositionEnd);
 	}
 	void Controller_UpdateFirstPerson(FirstPersonController* Controller, float DeltaTime)
 	{
@@ -6545,47 +6823,47 @@ extern "C"
 		Vector3 RollLeftStep = { 0.0F, 0.0F, -Controller->RollSpeed };
 		Vector3 RollRightStep = { 0.0F, 0.0F, Controller->RollSpeed };
 
-		Vector3_MulScalar(Trans->LocalRight, Speed, RightStep);
-		Vector3_MulScalar(Trans->LocalLeft, Speed, LeftStep);
-		Vector3_MulScalar(Trans->LocalForward, Speed, ForwardStep);
-		Vector3_MulScalar(Trans->LocalBack, Speed, BackStep);
+		Vector3_MulScalar(&Trans->LocalRight, Speed, &RightStep);
+		Vector3_MulScalar(&Trans->LocalLeft, Speed, &LeftStep);
+		Vector3_MulScalar(&Trans->LocalForward, Speed, &ForwardStep);
+		Vector3_MulScalar(&Trans->LocalBack, Speed, &BackStep);
 
-		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_D)) Transform_SetRelativePosition(Trans, RightStep);
-		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_A)) Transform_SetRelativePosition(Trans, LeftStep);
-		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_W)) Transform_SetRelativePosition(Trans, ForwardStep);
-		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_S)) Transform_SetRelativePosition(Trans, BackStep);
-		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_E)) Transform_SetRelativeEulerAngles(Trans, RollLeftStep);
-		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_Q)) Transform_SetRelativeEulerAngles(Trans, RollRightStep);
+		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_D)) Transform_SetRelativePosition(Trans, &RightStep);
+		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_A)) Transform_SetRelativePosition(Trans, &LeftStep);
+		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_W)) Transform_SetRelativePosition(Trans, &ForwardStep);
+		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_S)) Transform_SetRelativePosition(Trans, &BackStep);
+		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_E)) Transform_SetRelativeEulerAngles(Trans, &RollLeftStep);
+		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_Q)) Transform_SetRelativeEulerAngles(Trans, &RollRightStep);
 
 		if (Window_IsMouseKeyPressed(MOUSE_KEY_RIGHT))
 		{
-			Controller->MousePositionStart[0] = (float)Window_GetMousePositionX();
-			Controller->MousePositionStart[1] = (float)Window_GetMousePositionY();
+			Controller->MousePositionStart.X = (float)Window_GetMousePositionX();
+			Controller->MousePositionStart.Y = (float)Window_GetMousePositionY();
 		}
 
 		if (Window_IsMouseKeyHeld(MOUSE_KEY_RIGHT))
 		{
-			Controller->MousePositionEnd[0] = (float)Window_GetMousePositionX();
-			Controller->MousePositionEnd[1] = (float)Window_GetMousePositionY();
+			Controller->MousePositionEnd.X = (float)Window_GetMousePositionX();
+			Controller->MousePositionEnd.Y = (float)Window_GetMousePositionY();
 
 			Vector2 MousePositionDelta = VECTOR2_ZERO;
 
-			Vector2_Sub(Controller->MousePositionStart, Controller->MousePositionEnd, MousePositionDelta);
+			Vector2_Sub(&Controller->MousePositionStart, &Controller->MousePositionEnd, &MousePositionDelta);
 
-			if (Vector2_Length2(MousePositionDelta) > (EPSILON_2 * EPSILON_2))
+			if (Vector2_Length2(&MousePositionDelta) > (EPSILON_2 * EPSILON_2))
 			{
 				Vector2 MousePositionDeltaDrag = VECTOR2_ZERO;
 
-				Vector2_MulScalar(MousePositionDelta, Controller->MouseDrag * DeltaTime, MousePositionDeltaDrag);
-				Vector2_Sub(Controller->MousePositionStart, MousePositionDelta, Controller->MousePositionStart);
+				Vector2_MulScalar(&MousePositionDelta, Controller->MouseDrag * DeltaTime, &MousePositionDeltaDrag);
+				Vector2_Sub(&Controller->MousePositionStart, &MousePositionDelta, &Controller->MousePositionStart);
 			}
 			else
 			{
-				Vector2_Set(Controller->MousePositionEnd, Controller->MousePositionStart);
+				Vector2_Set(&Controller->MousePositionEnd, &Controller->MousePositionStart);
 			}
 
-			float Pitch = -MousePositionDelta[1] * Controller->MouseRotationSpeed * DeltaTime;
-			float Yaw = -MousePositionDelta[0] * Controller->MouseRotationSpeed * DeltaTime;
+			float Pitch = -MousePositionDelta.Y * Controller->MouseRotationSpeed * DeltaTime;
+			float Yaw = -MousePositionDelta.X * Controller->MouseRotationSpeed * DeltaTime;
 
 			Transform_SetRelativeEulerAnglesSimple(Trans, Pitch, Yaw, 0.0F);
 		}
@@ -6601,68 +6879,68 @@ extern "C"
 		Vector3 ForwardStep = VECTOR3_ZERO;
 		Vector3 BackStep = VECTOR3_ZERO;
 
-		Vector3_MulScalar(sWorldRight, Speed, RightStep);
-		Vector3_MulScalar(sWorldLeft, Speed, LeftStep);
-		Vector3_MulScalar(sWorldForward, Speed, ForwardStep);
-		Vector3_MulScalar(sWorldBack, Speed, BackStep);
+		Vector3_MulScalar(&sWorldRight, Speed, &RightStep);
+		Vector3_MulScalar(&sWorldLeft, Speed, &LeftStep);
+		Vector3_MulScalar(&sWorldForward, Speed, &ForwardStep);
+		Vector3_MulScalar(&sWorldBack, Speed, &BackStep);
 
-		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_D)) Transform_SetRelativePosition(Trans, RightStep);
-		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_A)) Transform_SetRelativePosition(Trans, LeftStep);
-		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_W)) Transform_SetRelativePosition(Trans, ForwardStep);
-		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_S)) Transform_SetRelativePosition(Trans, BackStep);
+		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_D)) Transform_SetRelativePosition(Trans, &RightStep);
+		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_A)) Transform_SetRelativePosition(Trans, &LeftStep);
+		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_W)) Transform_SetRelativePosition(Trans, &ForwardStep);
+		if (Window_IsKeyboardKeyHeld(KEYBOARD_KEY_S)) Transform_SetRelativePosition(Trans, &BackStep);
 
 		if (Window_IsMouseKeyPressed(MOUSE_KEY_RIGHT))
 		{
-			Controller->MousePositionStart[0] = (float)Window_GetMousePositionX();
-			Controller->MousePositionStart[1] = (float)Window_GetMousePositionY();
+			Controller->MousePositionStart.X = (float)Window_GetMousePositionX();
+			Controller->MousePositionStart.Y = (float)Window_GetMousePositionY();
 		}
 
 		if (Window_IsMouseKeyHeld(MOUSE_KEY_RIGHT))
 		{
-			Controller->MousePositionEnd[0] = (float)Window_GetMousePositionX();
-			Controller->MousePositionEnd[1] = (float)Window_GetMousePositionY();
+			Controller->MousePositionEnd.X = (float)Window_GetMousePositionX();
+			Controller->MousePositionEnd.Y = (float)Window_GetMousePositionY();
 
 			Vector2 MousePositionDelta = VECTOR2_ZERO;
 
-			Vector2_Sub(Controller->MousePositionStart, Controller->MousePositionEnd, MousePositionDelta);
+			Vector2_Sub(&Controller->MousePositionStart, &Controller->MousePositionEnd, &MousePositionDelta);
 
-			if (Vector2_Length2(MousePositionDelta) > (EPSILON_2 * EPSILON_2))
+			if (Vector2_Length2(&MousePositionDelta) > (EPSILON_2 * EPSILON_2))
 			{
 				Vector2 MousePositionDeltaDrag = VECTOR2_ZERO;
 
-				Vector2_MulScalar(MousePositionDelta, Controller->MouseDrag * DeltaTime, MousePositionDeltaDrag);
-				Vector2_Sub(Controller->MousePositionStart, MousePositionDelta, Controller->MousePositionStart);
+				Vector2_MulScalar(&MousePositionDelta, Controller->MouseDrag * DeltaTime, &MousePositionDeltaDrag);
+				Vector2_Sub(&Controller->MousePositionStart, &MousePositionDelta, &Controller->MousePositionStart);
 			}
 			else
 			{
-				Vector2_Set(Controller->MousePositionEnd, Controller->MousePositionStart);
+				Vector2_Set(&Controller->MousePositionEnd, &Controller->MousePositionStart);
 			}
 
-			float Pitch = -MousePositionDelta[1] * Controller->MouseRotationSpeed * DeltaTime;
-			float Yaw = -MousePositionDelta[0] * Controller->MouseRotationSpeed * DeltaTime;
+			float Pitch = -MousePositionDelta.Y * Controller->MouseRotationSpeed * DeltaTime;
+			float Yaw = -MousePositionDelta.X * Controller->MouseRotationSpeed * DeltaTime;
 
 			Transform_SetRelativeEulerAnglesSimple(Trans, Pitch, Yaw, 0.0F);
 		}
 	}
-	void Controller_ComputeFirstPersonViewMatrix(FirstPersonController* Controller, Matrix4 View)
+	void Controller_ComputeFirstPersonViewMatrix(FirstPersonController* Controller, Matrix4x4* View)
 	{
 		Transform* Trans = &Controller->Transform;
 
-		Vector3 Eye = { Trans->WorldPosition[0], Trans->WorldPosition[1], Trans->WorldPosition[2] };
-		Vector3 Center = { Trans->WorldPosition[0] + Trans->LocalForward[0], Trans->WorldPosition[1] + Trans->LocalForward[1], Trans->WorldPosition[2] + Trans->LocalForward[2] };
-		Vector3 Up = { Trans->LocalUp[0], Trans->LocalUp[1], Trans->LocalUp[2] };
+		Vector3 Eye = { Trans->WorldPosition.X, Trans->WorldPosition.Y, Trans->WorldPosition.Z };
+		Vector3 Center = { Trans->WorldPosition.X + Trans->LocalForward.X, Trans->WorldPosition.Y + Trans->LocalForward.Y, Trans->WorldPosition.Z + Trans->LocalForward.Z };
+		Vector3 Up = { Trans->LocalUp.X, Trans->LocalUp.Y, Trans->LocalUp.Z };
 
-		Matrix4_LookAt(Eye, Center, Up, View);
+		Matrix4x4_LookAt(&Eye, &Center, &Up, View);
 	}
-	void Controller_ComputeOrbitViewMatrix(OrbitController* Controller, Matrix4 View)
+	void Controller_ComputeOrbitViewMatrix(OrbitController* Controller, Matrix4x4* View)
 	{
 		Transform* Trans = &Controller->Transform;
 
-		Vector3 Eye = { Trans->WorldPosition[0] + Trans->LocalBack[0] * Controller->Distance, Trans->WorldPosition[1] + Trans->LocalBack[1] * Controller->Distance, Trans->WorldPosition[2] + Trans->LocalBack[2] * Controller->Distance };
-		Vector3 Center = { Trans->WorldPosition[0], Trans->WorldPosition[1], Trans->WorldPosition[2] };
-		Vector3 Up = { Trans->LocalUp[0], Trans->LocalUp[1], Trans->LocalUp[2] };
+		Vector3 Eye = { Trans->WorldPosition.X + Trans->LocalBack.X * Controller->Distance, Trans->WorldPosition.Y + Trans->LocalBack.Y * Controller->Distance, Trans->WorldPosition.Z + Trans->LocalBack.Z * Controller->Distance };
+		Vector3 Center = { Trans->WorldPosition.X, Trans->WorldPosition.Y, Trans->WorldPosition.Z };
+		Vector3 Up = { Trans->LocalUp.X, Trans->LocalUp.Y, Trans->LocalUp.Z };
 
-		Matrix4_LookAt(Eye, Center, Up, View);
+		Matrix4x4_LookAt(&Eye, &Center, &Up, View);
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -6798,7 +7076,7 @@ extern "C"
 #endif // FAST_GL_DEBUG
 		glUniform1f(Location, Value);
 	}
-	void Shader_SetUniformVector2(int unsigned Program, char const* UniformName, Vector2 Value)
+	void Shader_SetUniformVector2(int unsigned Program, char const* UniformName, Vector2 const* Value)
 	{
 		int Location = glGetUniformLocation(Program, UniformName);
 #ifdef FAST_GL_DEBUG
@@ -6807,9 +7085,9 @@ extern "C"
 			printf("Shader %u cannot assign to uniform %s\n", Program, UniformName);
 		}
 #endif // FAST_GL_DEBUG
-		glUniform2fv(Location, 1, &Value[0]);
+		glUniform2fv(Location, 1, &Value->Data[0]);
 	}
-	void Shader_SetUniformVector3(int unsigned Program, char const* UniformName, Vector3 Value)
+	void Shader_SetUniformVector3(int unsigned Program, char const* UniformName, Vector3 const* Value)
 	{
 		int Location = glGetUniformLocation(Program, UniformName);
 #ifdef FAST_GL_DEBUG
@@ -6818,9 +7096,9 @@ extern "C"
 			printf("Shader %u cannot assign to uniform %s\n", Program, UniformName);
 		}
 #endif // FAST_GL_DEBUG
-		glUniform3fv(Location, 1, &Value[0]);
+		glUniform3fv(Location, 1, &Value->Data[0]);
 	}
-	void Shader_SetUniformVector4(int unsigned Program, char const* UniformName, Vector4 Value)
+	void Shader_SetUniformVector4(int unsigned Program, char const* UniformName, Vector4 const* Value)
 	{
 		int Location = glGetUniformLocation(Program, UniformName);
 #ifdef FAST_GL_DEBUG
@@ -6829,9 +7107,9 @@ extern "C"
 			printf("Shader %u cannot assign to uniform %s\n", Program, UniformName);
 		}
 #endif // FAST_GL_DEBUG
-		glUniform4fv(Location, 1, &Value[0]);
+		glUniform4fv(Location, 1, &Value->Data[0]);
 	}
-	void Shader_SetUniformMatrix4(int unsigned Program, char const* UniformName, Matrix4 Value)
+	void Shader_SetUniformMatrix4(int unsigned Program, char const* UniformName, Matrix4x4 const* Value)
 	{
 		int Location = glGetUniformLocation(Program, UniformName);
 #ifdef FAST_GL_DEBUG
@@ -6840,7 +7118,7 @@ extern "C"
 			printf("Shader %u cannot assign to uniform %s\n", Program, UniformName);
 		}
 #endif // FAST_GL_DEBUG
-		glUniformMatrix4fv(Location, 1, 0, &Value[0][0]);
+		glUniformMatrix4fv(Location, 1, 0, &Value->Data[0]);
 	}
 	void Shader_ExecuteCompute(int unsigned NumGroupsX, int unsigned NumGroupsY, int unsigned NumGroupsZ)
 	{
@@ -7263,27 +7541,27 @@ extern "C"
 
 		Bat->NumWorldCircles = 1000;
 		Bat->NumWorldLines = 1000;
-		Bat->NumWorldRectangles = 1000;
+		Bat->NumWorldRects = 1000;
 
 		Bat->NumScreenCircles = 1000;
 		Bat->NumScreenLines = 1000;
-		Bat->NumScreenRectangles = 1000;
+		Bat->NumScreenRects = 1000;
 
 		static BatchWorldCircleVertex WorldCircleVertexBuffer[3] = { 0 };
 		static int unsigned WorldCircleIndexBuffer[3] = { 0 };
 
-		WorldCircleVertexBuffer[0].Position[0] = -SQRT_3;
-		WorldCircleVertexBuffer[0].Position[1] = -1.0F;
-		WorldCircleVertexBuffer[0].TextureCoords[0] = 0.0F;
-		WorldCircleVertexBuffer[0].TextureCoords[1] = 0.0F;
-		WorldCircleVertexBuffer[1].Position[0] = SQRT_3;
-		WorldCircleVertexBuffer[1].Position[1] = -1.0F;
-		WorldCircleVertexBuffer[1].TextureCoords[0] = 1.0F;
-		WorldCircleVertexBuffer[1].TextureCoords[1] = 0.0F;
-		WorldCircleVertexBuffer[2].Position[0] = 0.0F;
-		WorldCircleVertexBuffer[2].Position[1] = 2.0F;
-		WorldCircleVertexBuffer[2].TextureCoords[0] = 0.5F;
-		WorldCircleVertexBuffer[2].TextureCoords[1] = 1.0F;
+		WorldCircleVertexBuffer[0].Position.X = -SQRT_3;
+		WorldCircleVertexBuffer[0].Position.Y = -1.0F;
+		WorldCircleVertexBuffer[0].TextureCoords.X = 0.0F;
+		WorldCircleVertexBuffer[0].TextureCoords.Y = 0.0F;
+		WorldCircleVertexBuffer[1].Position.X = SQRT_3;
+		WorldCircleVertexBuffer[1].Position.Y = -1.0F;
+		WorldCircleVertexBuffer[1].TextureCoords.X = 1.0F;
+		WorldCircleVertexBuffer[1].TextureCoords.Y = 0.0F;
+		WorldCircleVertexBuffer[2].Position.X = 0.0F;
+		WorldCircleVertexBuffer[2].Position.Y = 2.0F;
+		WorldCircleVertexBuffer[2].TextureCoords.X = 0.5F;
+		WorldCircleVertexBuffer[2].TextureCoords.Y = 1.0F;
 
 		WorldCircleIndexBuffer[0] = 0;
 		WorldCircleIndexBuffer[1] = 1;
@@ -7292,76 +7570,76 @@ extern "C"
 		static BatchScreenCircleVertex ScreenCircleVertexBuffer[3] = { 0 };
 		static int unsigned ScreenCircleIndexBuffer[3] = { 0 };
 
-		ScreenCircleVertexBuffer[0].Position[0] = -SQRT_3;
-		ScreenCircleVertexBuffer[0].Position[1] = -1.0F;
-		ScreenCircleVertexBuffer[0].TextureCoords[0] = 0.0F;
-		ScreenCircleVertexBuffer[0].TextureCoords[1] = 0.0F;
-		ScreenCircleVertexBuffer[1].Position[0] = SQRT_3;
-		ScreenCircleVertexBuffer[1].Position[1] = -1.0F;
-		ScreenCircleVertexBuffer[1].TextureCoords[0] = 1.0F;
-		ScreenCircleVertexBuffer[1].TextureCoords[1] = 0.0F;
-		ScreenCircleVertexBuffer[2].Position[0] = 0.0F;
-		ScreenCircleVertexBuffer[2].Position[1] = 2.0F;
-		ScreenCircleVertexBuffer[2].TextureCoords[0] = 0.5F;
-		ScreenCircleVertexBuffer[2].TextureCoords[1] = 1.0F;
+		ScreenCircleVertexBuffer[0].Position.X = -SQRT_3;
+		ScreenCircleVertexBuffer[0].Position.Y = -1.0F;
+		ScreenCircleVertexBuffer[0].TextureCoords.X = 0.0F;
+		ScreenCircleVertexBuffer[0].TextureCoords.Y = 0.0F;
+		ScreenCircleVertexBuffer[1].Position.X = SQRT_3;
+		ScreenCircleVertexBuffer[1].Position.Y = -1.0F;
+		ScreenCircleVertexBuffer[1].TextureCoords.X = 1.0F;
+		ScreenCircleVertexBuffer[1].TextureCoords.Y = 0.0F;
+		ScreenCircleVertexBuffer[2].Position.X = 0.0F;
+		ScreenCircleVertexBuffer[2].Position.Y = 2.0F;
+		ScreenCircleVertexBuffer[2].TextureCoords.X = 0.5F;
+		ScreenCircleVertexBuffer[2].TextureCoords.Y = 1.0F;
 
 		ScreenCircleIndexBuffer[0] = 0;
 		ScreenCircleIndexBuffer[1] = 1;
 		ScreenCircleIndexBuffer[2] = 2;
 
-		static BatchWorldRectangleVertex WorldRectangleVertexBuffer[4] = { 0 };
-		static int unsigned WorldRectangleIndexBuffer[6] = { 0 };
+		static BatchWorldRectVertex WorldRectVertexBuffer[4] = { 0 };
+		static int unsigned WorldRectIndexBuffer[6] = { 0 };
 
-		WorldRectangleVertexBuffer[0].Position[0] = 0.0F;
-		WorldRectangleVertexBuffer[0].Position[1] = 0.0F;
-		WorldRectangleVertexBuffer[0].TextureCoords[0] = 0.0F;
-		WorldRectangleVertexBuffer[0].TextureCoords[1] = 0.0F;
-		WorldRectangleVertexBuffer[1].Position[0] = 1.0F;
-		WorldRectangleVertexBuffer[1].Position[1] = 0.0F;
-		WorldRectangleVertexBuffer[1].TextureCoords[0] = 1.0F;
-		WorldRectangleVertexBuffer[1].TextureCoords[1] = 0.0F;
-		WorldRectangleVertexBuffer[2].Position[0] = 0.0F;
-		WorldRectangleVertexBuffer[2].Position[1] = 1.0F;
-		WorldRectangleVertexBuffer[2].TextureCoords[0] = 0.0F;
-		WorldRectangleVertexBuffer[2].TextureCoords[1] = 1.0F;
-		WorldRectangleVertexBuffer[3].Position[0] = 1.0F;
-		WorldRectangleVertexBuffer[3].Position[1] = 1.0F;
-		WorldRectangleVertexBuffer[3].TextureCoords[0] = 1.0F;
-		WorldRectangleVertexBuffer[3].TextureCoords[1] = 1.0F;
+		WorldRectVertexBuffer[0].Position.X = 0.0F;
+		WorldRectVertexBuffer[0].Position.Y = 0.0F;
+		WorldRectVertexBuffer[0].TextureCoords.X = 0.0F;
+		WorldRectVertexBuffer[0].TextureCoords.Y = 0.0F;
+		WorldRectVertexBuffer[1].Position.X = 1.0F;
+		WorldRectVertexBuffer[1].Position.Y = 0.0F;
+		WorldRectVertexBuffer[1].TextureCoords.X = 1.0F;
+		WorldRectVertexBuffer[1].TextureCoords.Y = 0.0F;
+		WorldRectVertexBuffer[2].Position.X = 0.0F;
+		WorldRectVertexBuffer[2].Position.Y = 1.0F;
+		WorldRectVertexBuffer[2].TextureCoords.X = 0.0F;
+		WorldRectVertexBuffer[2].TextureCoords.Y = 1.0F;
+		WorldRectVertexBuffer[3].Position.X = 1.0F;
+		WorldRectVertexBuffer[3].Position.Y = 1.0F;
+		WorldRectVertexBuffer[3].TextureCoords.X = 1.0F;
+		WorldRectVertexBuffer[3].TextureCoords.Y = 1.0F;
 
-		WorldRectangleIndexBuffer[0] = 0;
-		WorldRectangleIndexBuffer[1] = 1;
-		WorldRectangleIndexBuffer[2] = 2;
-		WorldRectangleIndexBuffer[3] = 2;
-		WorldRectangleIndexBuffer[4] = 3;
-		WorldRectangleIndexBuffer[5] = 1;
+		WorldRectIndexBuffer[0] = 0;
+		WorldRectIndexBuffer[1] = 1;
+		WorldRectIndexBuffer[2] = 2;
+		WorldRectIndexBuffer[3] = 2;
+		WorldRectIndexBuffer[4] = 3;
+		WorldRectIndexBuffer[5] = 1;
 
-		static BatchScreenRectangleVertex ScreenRectangleVertexBuffer[4] = { 0 };
-		static int unsigned ScreenRectangleIndexBuffer[6] = { 0 };
+		static BatchScreenRectVertex ScreenRectVertexBuffer[4] = { 0 };
+		static int unsigned ScreenRectIndexBuffer[6] = { 0 };
 
-		ScreenRectangleVertexBuffer[0].Position[0] = 0.0F;
-		ScreenRectangleVertexBuffer[0].Position[1] = 0.0F;
-		ScreenRectangleVertexBuffer[0].TextureCoords[0] = 0.0F;
-		ScreenRectangleVertexBuffer[0].TextureCoords[1] = 0.0F;
-		ScreenRectangleVertexBuffer[1].Position[0] = 1.0F;
-		ScreenRectangleVertexBuffer[1].Position[1] = 0.0F;
-		ScreenRectangleVertexBuffer[1].TextureCoords[0] = 1.0F;
-		ScreenRectangleVertexBuffer[1].TextureCoords[1] = 0.0F;
-		ScreenRectangleVertexBuffer[2].Position[0] = 0.0F;
-		ScreenRectangleVertexBuffer[2].Position[1] = 1.0F;
-		ScreenRectangleVertexBuffer[2].TextureCoords[0] = 0.0F;
-		ScreenRectangleVertexBuffer[2].TextureCoords[1] = 1.0F;
-		ScreenRectangleVertexBuffer[3].Position[0] = 1.0F;
-		ScreenRectangleVertexBuffer[3].Position[1] = 1.0F;
-		ScreenRectangleVertexBuffer[3].TextureCoords[0] = 1.0F;
-		ScreenRectangleVertexBuffer[3].TextureCoords[1] = 1.0F;
+		ScreenRectVertexBuffer[0].Position.X = 0.0F;
+		ScreenRectVertexBuffer[0].Position.Y = 0.0F;
+		ScreenRectVertexBuffer[0].TextureCoords.X = 0.0F;
+		ScreenRectVertexBuffer[0].TextureCoords.Y = 0.0F;
+		ScreenRectVertexBuffer[1].Position.X = 1.0F;
+		ScreenRectVertexBuffer[1].Position.Y = 0.0F;
+		ScreenRectVertexBuffer[1].TextureCoords.X = 1.0F;
+		ScreenRectVertexBuffer[1].TextureCoords.Y = 0.0F;
+		ScreenRectVertexBuffer[2].Position.X = 0.0F;
+		ScreenRectVertexBuffer[2].Position.Y = 1.0F;
+		ScreenRectVertexBuffer[2].TextureCoords.X = 0.0F;
+		ScreenRectVertexBuffer[2].TextureCoords.Y = 1.0F;
+		ScreenRectVertexBuffer[3].Position.X = 1.0F;
+		ScreenRectVertexBuffer[3].Position.Y = 1.0F;
+		ScreenRectVertexBuffer[3].TextureCoords.X = 1.0F;
+		ScreenRectVertexBuffer[3].TextureCoords.Y = 1.0F;
 
-		ScreenRectangleIndexBuffer[0] = 0;
-		ScreenRectangleIndexBuffer[1] = 1;
-		ScreenRectangleIndexBuffer[2] = 2;
-		ScreenRectangleIndexBuffer[3] = 2;
-		ScreenRectangleIndexBuffer[4] = 3;
-		ScreenRectangleIndexBuffer[5] = 1;
+		ScreenRectIndexBuffer[0] = 0;
+		ScreenRectIndexBuffer[1] = 1;
+		ScreenRectIndexBuffer[2] = 2;
+		ScreenRectIndexBuffer[3] = 2;
+		ScreenRectIndexBuffer[4] = 3;
+		ScreenRectIndexBuffer[5] = 1;
 
 		VertexArray_Alloc(&Bat->WorldCircleVertexArray);
 		Buffer_VertexAlloc(&Bat->WorldCircleVertexBuffer);
@@ -7381,15 +7659,15 @@ extern "C"
 		Buffer_VertexAlloc(&Bat->ScreenLineVertexBuffer);
 		Buffer_IndexAlloc(&Bat->ScreenLineIndexBuffer);
 
-		VertexArray_Alloc(&Bat->WorldRectangleVertexArray);
-		Buffer_VertexAlloc(&Bat->WorldRectangleVertexBuffer);
-		Buffer_VertexAlloc(&Bat->WorldRectangleInstanceBuffer);
-		Buffer_IndexAlloc(&Bat->WorldRectangleIndexBuffer);
+		VertexArray_Alloc(&Bat->WorldRectVertexArray);
+		Buffer_VertexAlloc(&Bat->WorldRectVertexBuffer);
+		Buffer_VertexAlloc(&Bat->WorldRectInstanceBuffer);
+		Buffer_IndexAlloc(&Bat->WorldRectIndexBuffer);
 
-		VertexArray_Alloc(&Bat->ScreenRectangleVertexArray);
-		Buffer_VertexAlloc(&Bat->ScreenRectangleVertexBuffer);
-		Buffer_VertexAlloc(&Bat->ScreenRectangleInstanceBuffer);
-		Buffer_IndexAlloc(&Bat->ScreenRectangleIndexBuffer);
+		VertexArray_Alloc(&Bat->ScreenRectVertexArray);
+		Buffer_VertexAlloc(&Bat->ScreenRectVertexBuffer);
+		Buffer_VertexAlloc(&Bat->ScreenRectInstanceBuffer);
+		Buffer_IndexAlloc(&Bat->ScreenRectIndexBuffer);
 
 		VertexArray_Bind(Bat->WorldCircleVertexArray);
 		Buffer_VertexBind(Bat->WorldCircleVertexBuffer);
@@ -7471,55 +7749,59 @@ extern "C"
 		Buffer_IndexResize(Bat->NumScreenLines * 2 * sizeof(int unsigned), 0, GL_DYNAMIC_DRAW);
 		VertexArray_UnBind();
 
-		VertexArray_Bind(Bat->WorldRectangleVertexArray);
-		Buffer_VertexBind(Bat->WorldRectangleVertexBuffer);
+		VertexArray_Bind(Bat->WorldRectVertexArray);
+		Buffer_VertexBind(Bat->WorldRectVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchWorldRectangleVertex), OFFSET_OF(BatchWorldRectangleVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchWorldRectangleVertex), OFFSET_OF(BatchWorldRectangleVertex, TextureCoords));
-		Buffer_VertexResize(4 * sizeof(BatchWorldRectangleVertex), WorldRectangleVertexBuffer, GL_STATIC_DRAW);
-		Buffer_VertexBind(Bat->WorldRectangleInstanceBuffer);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchWorldRectVertex), OFFSET_OF(BatchWorldRectVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchWorldRectVertex), OFFSET_OF(BatchWorldRectVertex, TextureCoords));
+		Buffer_VertexResize(4 * sizeof(BatchWorldRectVertex), WorldRectVertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexBind(Bat->WorldRectInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
 		Buffer_VertexEnableAttrib(4);
 		Buffer_VertexEnableAttrib(5);
-		Buffer_VertexAttribPointerReal32(2, 3, sizeof(BatchWorldRectangleInstanceEntry), OFFSET_OF(BatchWorldRectangleInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(3, 3, sizeof(BatchWorldRectangleInstanceEntry), OFFSET_OF(BatchWorldRectangleInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(4, 2, sizeof(BatchWorldRectangleInstanceEntry), OFFSET_OF(BatchWorldRectangleInstanceEntry, Size));
-		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchWorldRectangleInstanceEntry), OFFSET_OF(BatchWorldRectangleInstanceEntry, Color));
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(BatchWorldRectInstanceEntry), OFFSET_OF(BatchWorldRectInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(3, 3, sizeof(BatchWorldRectInstanceEntry), OFFSET_OF(BatchWorldRectInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(4, 2, sizeof(BatchWorldRectInstanceEntry), OFFSET_OF(BatchWorldRectInstanceEntry, Size));
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchWorldRectInstanceEntry), OFFSET_OF(BatchWorldRectInstanceEntry, Color));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
 		Buffer_VertexAttribDivisor(5, 1);
-		Buffer_VertexResize(Bat->NumWorldRectangles * sizeof(BatchWorldRectangleInstanceEntry), 0, GL_DYNAMIC_DRAW);
-		Buffer_IndexBind(Bat->WorldRectangleIndexBuffer);
-		Buffer_IndexResize(6 * sizeof(int unsigned), WorldRectangleIndexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexResize(Bat->NumWorldRects * sizeof(BatchWorldRectInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexBind(Bat->WorldRectIndexBuffer);
+		Buffer_IndexResize(6 * sizeof(int unsigned), WorldRectIndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
-		VertexArray_Bind(Bat->ScreenRectangleVertexArray);
-		Buffer_VertexBind(Bat->ScreenRectangleVertexBuffer);
+		VertexArray_Bind(Bat->ScreenRectVertexArray);
+		Buffer_VertexBind(Bat->ScreenRectVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchScreenRectangleVertex), OFFSET_OF(BatchScreenRectangleVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchScreenRectangleVertex), OFFSET_OF(BatchScreenRectangleVertex, TextureCoords));
-		Buffer_VertexResize(4 * sizeof(BatchScreenRectangleVertex), ScreenRectangleVertexBuffer, GL_STATIC_DRAW);
-		Buffer_VertexBind(Bat->ScreenRectangleInstanceBuffer);
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchScreenRectVertex), OFFSET_OF(BatchScreenRectVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchScreenRectVertex), OFFSET_OF(BatchScreenRectVertex, TextureCoords));
+		Buffer_VertexResize(4 * sizeof(BatchScreenRectVertex), ScreenRectVertexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexBind(Bat->ScreenRectInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
 		Buffer_VertexEnableAttrib(4);
 		Buffer_VertexEnableAttrib(5);
-		Buffer_VertexAttribPointerReal32(2, 2, sizeof(BatchScreenRectangleInstanceEntry), OFFSET_OF(BatchScreenRectangleInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(3, 1, sizeof(BatchScreenRectangleInstanceEntry), OFFSET_OF(BatchScreenRectangleInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(4, 2, sizeof(BatchScreenRectangleInstanceEntry), OFFSET_OF(BatchScreenRectangleInstanceEntry, Size));
-		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchScreenRectangleInstanceEntry), OFFSET_OF(BatchScreenRectangleInstanceEntry, Color));
+		Buffer_VertexAttribPointerReal32(2, 2, sizeof(BatchScreenRectInstanceEntry), OFFSET_OF(BatchScreenRectInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(3, 1, sizeof(BatchScreenRectInstanceEntry), OFFSET_OF(BatchScreenRectInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(4, 2, sizeof(BatchScreenRectInstanceEntry), OFFSET_OF(BatchScreenRectInstanceEntry, Size));
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchScreenRectInstanceEntry), OFFSET_OF(BatchScreenRectInstanceEntry, Color));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
 		Buffer_VertexAttribDivisor(5, 1);
-		Buffer_VertexResize(Bat->NumScreenRectangles * sizeof(BatchScreenRectangleInstanceEntry), 0, GL_DYNAMIC_DRAW);
-		Buffer_IndexBind(Bat->ScreenRectangleIndexBuffer);
-		Buffer_IndexResize(6 * sizeof(int unsigned), ScreenRectangleIndexBuffer, GL_STATIC_DRAW);
+		Buffer_VertexResize(Bat->NumScreenRects * sizeof(BatchScreenRectInstanceEntry), 0, GL_DYNAMIC_DRAW);
+		Buffer_IndexBind(Bat->ScreenRectIndexBuffer);
+		Buffer_IndexResize(6 * sizeof(int unsigned), ScreenRectIndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBatches += 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Batch_Free(Batch* Bat)
 	{
@@ -7541,17 +7823,21 @@ extern "C"
 		Buffer_Free(Bat->ScreenLineVertexBuffer);
 		Buffer_Free(Bat->ScreenLineIndexBuffer);
 
-		VertexArray_Free(Bat->WorldRectangleVertexArray);
-		Buffer_Free(Bat->WorldRectangleVertexBuffer);
-		Buffer_Free(Bat->WorldRectangleInstanceBuffer);
-		Buffer_Free(Bat->WorldRectangleIndexBuffer);
+		VertexArray_Free(Bat->WorldRectVertexArray);
+		Buffer_Free(Bat->WorldRectVertexBuffer);
+		Buffer_Free(Bat->WorldRectInstanceBuffer);
+		Buffer_Free(Bat->WorldRectIndexBuffer);
 
-		VertexArray_Free(Bat->ScreenRectangleVertexArray);
-		Buffer_Free(Bat->ScreenRectangleVertexBuffer);
-		Buffer_Free(Bat->ScreenRectangleInstanceBuffer);
-		Buffer_Free(Bat->ScreenRectangleIndexBuffer);
+		VertexArray_Free(Bat->ScreenRectVertexArray);
+		Buffer_Free(Bat->ScreenRectVertexBuffer);
+		Buffer_Free(Bat->ScreenRectInstanceBuffer);
+		Buffer_Free(Bat->ScreenRectIndexBuffer);
 
 		memset(Bat, 0, sizeof(Batch));
+
+#ifdef FAST_GL_REFERENCE_COUNT
+		sAllocatedBatches -= 1;
+#endif // FAST_GL_REFERENCE_COUNT
 	}
 	void Batch_BeginWorldCircles(Batch* Bat)
 	{
@@ -7562,39 +7848,39 @@ extern "C"
 
 		sMappedWorldCircleInstanceBuffer = (BatchWorldCircleInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void Batch_DrawWorldCircle(Vector3 Position, Vector3 Rotation, float Radius, Vector4 Color)
+	void Batch_DrawWorldCircle(Vector3 const* Position, Vector3 const* Rotation, float Radius, Color4 const* Color)
 	{
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[0] = Position[0];
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[1] = Position[1];
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[2] = Position[2];
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[0] = Rotation[0];
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[1] = Rotation[1];
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[2] = Rotation[2];
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.X = Position->X;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.Y = Position->Y;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.Z = Position->Z;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.X = Rotation->X;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.Y = Rotation->Y;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.Z = Rotation->Z;
 		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Radius = Radius;
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[0] = Color[0];
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[1] = Color[1];
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[2] = Color[2];
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[3] = Color[3];
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.R = Color->R;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.G = Color->G;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.B = Color->B;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.A = Color->A;
 
 		sCurrBatch->WorldCircleInstanceOffset += 1;
 	}
 	void Batch_DrawWorldCircleSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[0] = PositionX;
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[1] = PositionY;
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[2] = PositionZ;
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[0] = Pitch;
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[1] = Yaw;
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[2] = Roll;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.X = PositionX;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.Y = PositionY;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.Z = PositionZ;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.X = Pitch;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.Y = Yaw;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.Z = Roll;
 		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Radius = Radius;
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[0] = ColorR;
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[1] = ColorG;
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[2] = ColorB;
-		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[3] = ColorA;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.R = ColorR;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.G = ColorG;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.B = ColorB;
+		sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.A = ColorA;
 
 		sCurrBatch->WorldCircleInstanceOffset += 1;
 	}
-	void Batch_DrawWorldCircleGrid(Vector3 Position, Vector3 Rotation, int unsigned Num, float Scale, float Radius, Vector4 Color)
+	void Batch_DrawWorldCircleGrid(Vector3 const* Position, Vector3 const* Rotation, int unsigned Num, float Scale, float Radius, Color4 const* Color)
 	{
 		float SizeStep = ((float)Num * Scale) / (float)Num;
 
@@ -7605,17 +7891,17 @@ extern "C"
 				float StepX = (float)X * SizeStep;
 				float StepY = (float)Y * SizeStep;
 
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[0] = Position[0] + StepX;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[1] = Position[1] + StepY;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[2] = Position[2];
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[0] = Rotation[0];
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[1] = Rotation[1];
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[2] = Rotation[2];
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.X = Position->X + StepX;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.Y = Position->Y + StepY;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.Z = Position->Z;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.X = Rotation->X;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.Y = Rotation->Y;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.Z = Rotation->Z;
 				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Radius = Radius;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[0] = Color[0];
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[1] = Color[1];
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[2] = Color[2];
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[3] = Color[3];
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.R = Color->R;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.G = Color->G;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.B = Color->B;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.A = Color->A;
 
 				sCurrBatch->WorldCircleInstanceOffset += 1;
 			}
@@ -7632,23 +7918,23 @@ extern "C"
 				float StepX = (float)X * SizeStep;
 				float StepY = (float)Y * SizeStep;
 
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[0] = PositionX + StepX;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[1] = PositionY + StepY;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position[2] = PositionZ;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[0] = Pitch;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[1] = Yaw;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation[2] = Roll;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.X = PositionX + StepX;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.Y = PositionY + StepY;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Position.Z = PositionZ;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.X = Pitch;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.Y = Yaw;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Rotation.Z = Roll;
 				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Radius = Radius;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[0] = ColorR;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[1] = ColorG;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[2] = ColorB;
-				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color[3] = ColorA;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.R = ColorR;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.G = ColorG;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.B = ColorB;
+				sMappedWorldCircleInstanceBuffer[sCurrBatch->WorldCircleInstanceOffset].Color.A = ColorA;
 
 				sCurrBatch->WorldCircleInstanceOffset += 1;
 			}
 		}
 	}
-	void Batch_EndWorldCircles(Matrix4 Projection, Matrix4 View)
+	void Batch_EndWorldCircles(Matrix4x4 const* Projection, Matrix4x4 const* View)
 	{
 		Buffer_VertexUnMap();
 		Buffer_VertexUnBind();
@@ -7671,33 +7957,33 @@ extern "C"
 
 		sMappedScreenCircleInstanceBuffer = (BatchScreenCircleInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void Batch_DrawScreenCircle(Vector2 Position, float Rotation, float Radius, Vector4 Color)
+	void Batch_DrawScreenCircle(Vector2 const* Position, float Rotation, float Radius, Color4 const* Color)
 	{
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[0] = Position[0];
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[1] = Position[1];
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.X = Position->X;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Y = Position->Y;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[0] = Color[0];
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[1] = Color[1];
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[2] = Color[2];
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[3] = Color[3];
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.R = Color->R;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.G = Color->G;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.B = Color->B;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.A = Color->A;
 
 		sCurrBatch->ScreenCircleInstanceOffset += 1;
 	}
 	void Batch_DrawScreenCircleSimple(float PositionX, float PositionY, float Rotation, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[0] = PositionX;
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[1] = PositionY;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.X = PositionX;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Y = PositionY;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[0] = ColorR;
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[1] = ColorG;
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[2] = ColorB;
-		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[3] = ColorA;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.R = ColorR;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.G = ColorG;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.B = ColorB;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.A = ColorA;
 
 		sCurrBatch->ScreenCircleInstanceOffset += 1;
 	}
-	void Batch_DrawScreenCircleGrid(Vector2 Position, float Rotation, int unsigned Num, float Scale, float Radius, Vector4 Color)
+	void Batch_DrawScreenCircleGrid(Vector2 const* Position, float Rotation, int unsigned Num, float Scale, float Radius, Color4 const* Color)
 	{
 		float SizeStep = ((float)Num * Scale) / (float)Num;
 
@@ -7708,14 +7994,14 @@ extern "C"
 				float StepX = (float)X * SizeStep;
 				float StepY = (float)Y * SizeStep;
 
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[0] = Position[0] + StepX;
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[1] = Position[1] + StepY;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.X = Position->X + StepX;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Y = Position->Y + StepY;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[0] = Color[0];
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[1] = Color[1];
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[2] = Color[2];
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[3] = Color[3];
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.R = Color->R;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.G = Color->G;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.B = Color->B;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.A = Color->A;
 
 				sCurrBatch->ScreenCircleInstanceOffset += 1;
 			}
@@ -7732,14 +8018,14 @@ extern "C"
 				float StepX = (float)X * SizeStep;
 				float StepY = (float)Y * SizeStep;
 
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[0] = PositionX + StepX;
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position[1] = PositionY + StepY;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.X = PositionX + StepX;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Y = PositionY + StepY;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[0] = ColorR;
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[1] = ColorG;
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[2] = ColorB;
-				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color[3] = ColorA;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.R = ColorR;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.G = ColorG;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.B = ColorB;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.A = ColorA;
 
 				sCurrBatch->ScreenCircleInstanceOffset += 1;
 			}
@@ -7752,7 +8038,7 @@ extern "C"
 		Buffer_VertexUnMap();
 		Buffer_VertexUnBind();
 		Shader_Bind(sScreenCircleProgram);
-		Shader_SetUniformVector2(sScreenCircleProgram, "ScreenSize", ScreenSize);
+		Shader_SetUniformVector2(sScreenCircleProgram, "ScreenSize", &ScreenSize);
 		VertexArray_Bind(sCurrBatch->ScreenCircleVertexArray);
 		VertexArray_DrawTriangleStripInstanced(3, sCurrBatch->ScreenCircleInstanceOffset);
 		VertexArray_UnBind();
@@ -7772,31 +8058,31 @@ extern "C"
 		sMappedWorldLineVertexBuffer = (BatchWorldLineVertex*)Buffer_VertexMap(GL_WRITE_ONLY);
 		sMappedWorldLineIndexBuffer = (int unsigned*)Buffer_IndexMap(GL_WRITE_ONLY);
 	}
-	void Batch_DrawWorldLine(Vector3 From, Vector3 To, Vector3 Rotation, float Thickness, Vector4 Color)
+	void Batch_DrawWorldLine(Vector3 const* From, Vector3 const* To, Vector3 const* Rotation, float Thickness, Color4 const* Color)
 	{
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[0] = From[0];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[1] = From[1];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[2] = From[2];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[0] = Rotation[0];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[1] = Rotation[1];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[2] = Rotation[2];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position.X = From->X;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position.Y = From->Y;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position.Z = From->Z;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation.X = Rotation->X;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation.Y = Rotation->Y;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation.Z = Rotation->Z;
 		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Thickness = Thickness;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[0] = Color[0];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[1] = Color[1];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[2] = Color[2];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[3] = Color[3];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color.R = Color->R;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color.G = Color->G;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color.B = Color->B;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color.A = Color->A;
 
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[0] = To[0];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[1] = To[1];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[2] = To[2];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[0] = Rotation[0];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[1] = Rotation[1];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[2] = Rotation[2];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position.X = To->X;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position.Y = To->Y;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position.Z = To->Z;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation.X = Rotation->X;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation.Y = Rotation->Y;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation.Z = Rotation->Z;
 		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Thickness = Thickness;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[0] = Color[0];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[1] = Color[1];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[2] = Color[2];
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[3] = Color[3];
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color.R = Color->R;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color.G = Color->G;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color.B = Color->B;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color.A = Color->A;
 
 		sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset] = sCurrBatch->WorldLineVertexOffset;
 		sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + 1] = sCurrBatch->WorldLineVertexOffset + 1;
@@ -7806,29 +8092,29 @@ extern "C"
 	}
 	void Batch_DrawWorldLineSimple(float FromX, float FromY, float FromZ, float ToX, float ToY, float ToZ, float Pitch, float Yaw, float Roll, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[0] = FromX;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[1] = FromY;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position[2] = FromZ;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[0] = Pitch;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[1] = Yaw;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation[2] = Roll;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position.X = FromX;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position.Y = FromY;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Position.Z = FromZ;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation.X = Pitch;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation.Y = Yaw;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Rotation.Z = Roll;
 		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Thickness = Thickness;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[0] = ColorR;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[1] = ColorG;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[2] = ColorB;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color[3] = ColorA;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color.R = ColorR;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color.G = ColorG;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color.B = ColorB;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset].Color.A = ColorA;
 
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[0] = ToX;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[1] = ToY;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position[2] = ToZ;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[0] = Pitch;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[1] = Yaw;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation[2] = Roll;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position.X = ToX;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position.Y = ToY;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Position.Z = ToZ;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation.X = Pitch;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation.Y = Yaw;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Rotation.Z = Roll;
 		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Thickness = Thickness;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[0] = ColorR;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[1] = ColorG;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[2] = ColorB;
-		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color[3] = ColorA;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color.R = ColorR;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color.G = ColorG;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color.B = ColorB;
+		sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + 1].Color.A = ColorA;
 
 		sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset] = sCurrBatch->WorldLineVertexOffset;
 		sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + 1] = sCurrBatch->WorldLineVertexOffset + 1;
@@ -7836,7 +8122,7 @@ extern "C"
 		sCurrBatch->WorldLineVertexOffset += 2;
 		sCurrBatch->WorldLineIndexOffset += 2;
 	}
-	void Batch_DrawWorldLineGrid(Vector3 Position, Vector3 Rotation, int unsigned Num, float Scale, float Thickness, Vector4 Color)
+	void Batch_DrawWorldLineGrid(Vector3 const* Position, Vector3 const* Rotation, int unsigned Num, float Scale, float Thickness, Color4 const* Color)
 	{
 		int unsigned Num4 = Num * 4;
 		int unsigned SegmentIndex = 0;
@@ -7847,53 +8133,53 @@ extern "C"
 		{
 			float Step = (float)I * SizeStep;
 
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[0] = Position[0] + Step;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[1] = Position[1];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[2] = Position[2];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[0] = Rotation[0];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[1] = Rotation[1];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[2] = Rotation[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position.X = Position->X + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position.Y = Position->Y;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position.Z = Position->Z;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation.X = Rotation->X;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation.Y = Rotation->Y;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation.Z = Rotation->Z;
 			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Thickness = Thickness;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[0] = Color[0];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[1] = Color[1];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[2] = Color[2];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[3] = Color[3];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color.R = Color->R;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color.G = Color->G;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color.B = Color->B;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color.A = Color->A;
 
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[0] = Position[0] + Step;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[1] = Position[1] + Size;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[2] = Position[2];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[0] = Rotation[0];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[1] = Rotation[1];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[2] = Rotation[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position.X = Position->X + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position.Y = Position->Y + Size;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position.Z = Position->Z;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation.X = Rotation->X;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation.Y = Rotation->Y;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation.Z = Rotation->Z;
 			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[0] = Color[0];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[1] = Color[1];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[2] = Color[2];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[3] = Color[3];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color.R = Color->R;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color.G = Color->G;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color.B = Color->B;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color.A = Color->A;
 
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[0] = Position[0];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[1] = Position[1] + Step;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[2] = Position[2];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[0] = Rotation[0];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[1] = Rotation[1];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[2] = Rotation[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position.X = Position->X;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position.Y = Position->Y + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position.Z = Position->Z;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation.X = Rotation->X;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation.Y = Rotation->Y;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation.Z = Rotation->Z;
 			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[0] = Color[0];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[1] = Color[1];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[2] = Color[2];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[3] = Color[3];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color.R = Color->R;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color.G = Color->G;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color.B = Color->B;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color.A = Color->A;
 
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[0] = Position[0] + Size;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[1] = Position[1] + Step;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[2] = Position[2];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[0] = Rotation[0];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[1] = Rotation[1];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[2] = Rotation[2];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position.X = Position->X + Size;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position.Y = Position->Y + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position.Z = Position->Z;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation.X = Rotation->X;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation.Y = Rotation->Y;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation.Z = Rotation->Z;
 			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[0] = Color[0];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[1] = Color[1];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[2] = Color[2];
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[3] = Color[3];
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color.R = Color->R;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color.G = Color->G;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color.B = Color->B;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color.A = Color->A;
 
 			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex] = sCurrBatch->WorldLineVertexOffset + SegmentIndex;
 			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex + 1] = sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1;
@@ -7917,53 +8203,53 @@ extern "C"
 		{
 			float Step = (float)I * SizeStep;
 
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[0] = PositionX + Step;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[1] = PositionY;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position[2] = PositionZ;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[0] = Pitch;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[1] = Yaw;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation[2] = Roll;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position.X = PositionX + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position.Y = PositionY;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Position.Z = PositionZ;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation.X = Pitch;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation.Y = Yaw;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Rotation.Z = Roll;
 			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Thickness = Thickness;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[0] = ColorR;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[1] = ColorG;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[2] = ColorB;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color[3] = ColorA;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color.R = ColorR;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color.G = ColorG;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color.B = ColorB;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex].Color.A = ColorA;
 
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[0] = PositionX + Step;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[1] = PositionY + Size;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position[2] = PositionZ;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[0] = Pitch;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[1] = Yaw;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation[2] = Roll;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position.X = PositionX + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position.Y = PositionY + Size;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Position.Z = PositionZ;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation.X = Pitch;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation.Y = Yaw;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Rotation.Z = Roll;
 			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[0] = ColorR;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[1] = ColorG;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[2] = ColorB;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color[3] = ColorA;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color.R = ColorR;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color.G = ColorG;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color.B = ColorB;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1].Color.A = ColorA;
 
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[0] = PositionX;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[1] = PositionY + Step;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position[2] = PositionZ;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[0] = Pitch;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[1] = Yaw;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation[2] = Roll;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position.X = PositionX;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position.Y = PositionY + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Position.Z = PositionZ;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation.X = Pitch;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation.Y = Yaw;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Rotation.Z = Roll;
 			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[0] = ColorR;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[1] = ColorG;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[2] = ColorB;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color[3] = ColorA;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color.R = ColorR;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color.G = ColorG;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color.B = ColorB;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 2].Color.A = ColorA;
 
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[0] = PositionX + Size;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[1] = PositionY + Step;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position[2] = PositionZ;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[0] = Pitch;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[1] = Yaw;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation[2] = Roll;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position.X = PositionX + Size;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position.Y = PositionY + Step;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Position.Z = PositionZ;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation.X = Pitch;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation.Y = Yaw;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Rotation.Z = Roll;
 			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[0] = ColorR;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[1] = ColorG;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[2] = ColorB;
-			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color[3] = ColorA;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color.R = ColorR;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color.G = ColorG;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color.B = ColorB;
+			sMappedWorldLineVertexBuffer[sCurrBatch->WorldLineVertexOffset + SegmentIndex + 3].Color.A = ColorA;
 
 			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex] = sCurrBatch->WorldLineVertexOffset + SegmentIndex;
 			sMappedWorldLineIndexBuffer[sCurrBatch->WorldLineIndexOffset + SegmentIndex + 1] = sCurrBatch->WorldLineVertexOffset + SegmentIndex + 1;
@@ -7976,7 +8262,7 @@ extern "C"
 		sCurrBatch->WorldLineVertexOffset += Num4 + 4;
 		sCurrBatch->WorldLineIndexOffset += Num4 + 4;
 	}
-	void Batch_EndWorldLines(Matrix4 Projection, Matrix4 View)
+	void Batch_EndWorldLines(Matrix4x4 const* Projection, Matrix4x4 const* View)
 	{
 		Buffer_VertexUnMap();
 		Buffer_IndexUnMap();
@@ -8005,25 +8291,25 @@ extern "C"
 		sMappedScreenLineVertexBuffer = (BatchScreenLineVertex*)Buffer_VertexMap(GL_WRITE_ONLY);
 		sMappedScreenLineIndexBuffer = (int unsigned*)Buffer_IndexMap(GL_WRITE_ONLY);
 	}
-	void Batch_DrawScreenLine(Vector2 From, Vector2 To, float Rotation, float Thickness, Vector4 Color)
+	void Batch_DrawScreenLine(Vector2 const* From, Vector2 const* To, float Rotation, float Thickness, Color4 const* Color)
 	{
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position[0] = From[0];
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position[1] = From[1];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position.X = From->X;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position.Y = From->Y;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Rotation = Rotation;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Thickness = Thickness;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[0] = Color[0];
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[1] = Color[1];
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[2] = Color[2];
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[3] = Color[3];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color.R = Color->R;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color.G = Color->G;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color.B = Color->B;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color.A = Color->A;
 
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position[0] = To[0];
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position[1] = To[1];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position.X = To->X;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position.Y = To->Y;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Rotation = Rotation;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Thickness = Thickness;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[0] = Color[0];
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[1] = Color[1];
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[2] = Color[2];
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[3] = Color[3];
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color.R = Color->R;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color.G = Color->G;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color.B = Color->B;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color.A = Color->A;
 
 		sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset] = sCurrBatch->ScreenLineVertexOffset;
 		sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + 1] = sCurrBatch->ScreenLineVertexOffset + 1;
@@ -8033,23 +8319,23 @@ extern "C"
 	}
 	void Batch_DrawScreenLineSimple(float FromX, float FromY, float ToX, float ToY, float Rotation, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position[0] = FromX;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position[1] = FromY;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position.X = FromX;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position.Y = FromY;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Rotation = Rotation;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Thickness = Thickness;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[0] = ColorR;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[1] = ColorG;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[2] = ColorB;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color[3] = ColorA;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color.R = ColorR;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color.G = ColorG;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color.B = ColorB;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color.A = ColorA;
 
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position[0] = ToX;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position[1] = ToY;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position.X = ToX;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position.Y = ToY;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Rotation = Rotation;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Thickness = Thickness;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[0] = ColorR;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[1] = ColorG;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[2] = ColorB;
-		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color[3] = ColorA;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color.R = ColorR;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color.G = ColorG;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color.B = ColorB;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color.A = ColorA;
 
 		sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset] = sCurrBatch->ScreenLineVertexOffset;
 		sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + 1] = sCurrBatch->ScreenLineVertexOffset + 1;
@@ -8057,7 +8343,7 @@ extern "C"
 		sCurrBatch->ScreenLineVertexOffset += 2;
 		sCurrBatch->ScreenLineIndexOffset += 2;
 	}
-	void Batch_DrawScreenLineGrid(Vector2 Position, float Rotation, int unsigned Num, float Scale, float Thickness, Vector4 Color)
+	void Batch_DrawScreenLineGrid(Vector2 const* Position, float Rotation, int unsigned Num, float Scale, float Thickness, Color4 const* Color)
 	{
 		int unsigned Num4 = Num * 4;
 		int unsigned SegmentIndex = 0;
@@ -8068,41 +8354,41 @@ extern "C"
 		{
 			float Step = (float)I * SizeStep;
 
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position[0] = Position[0] + Step;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position[1] = Position[1];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position.X = Position->X + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position.Y = Position->Y;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Thickness = Thickness;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[0] = Color[0];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[1] = Color[1];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[2] = Color[2];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[3] = Color[3];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color.R = Color->R;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color.G = Color->G;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color.B = Color->B;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color.A = Color->A;
 
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position[0] = Position[0] + Step;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position[1] = Position[1] + Size;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position.X = Position->X + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position.Y = Position->Y + Size;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[0] = Color[0];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[1] = Color[1];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[2] = Color[2];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[3] = Color[3];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color.R = Color->R;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color.G = Color->G;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color.B = Color->B;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color.A = Color->A;
 
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position[0] = Position[0];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position[1] = Position[1] + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position.X = Position->X;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position.Y = Position->Y + Step;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[0] = Color[0];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[1] = Color[1];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[2] = Color[2];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[3] = Color[3];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color.R = Color->R;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color.G = Color->G;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color.B = Color->B;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color.A = Color->A;
 
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position[0] = Position[0] + Size;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position[1] = Position[1] + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position.X = Position->X + Size;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position.Y = Position->Y + Step;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[0] = Color[0];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[1] = Color[1];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[2] = Color[2];
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[3] = Color[3];
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color.R = Color->R;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color.G = Color->G;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color.B = Color->B;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color.A = Color->A;
 
 			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex;
 			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex + 1] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1;
@@ -8126,41 +8412,41 @@ extern "C"
 		{
 			float Step = (float)I * SizeStep;
 
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position[0] = PositionX + Step;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position[1] = PositionY;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position.X = PositionX + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position.Y = PositionY;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Thickness = Thickness;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[0] = ColorR;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[1] = ColorG;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[2] = ColorB;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color[3] = ColorA;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color.R = ColorR;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color.G = ColorG;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color.B = ColorB;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color.A = ColorA;
 
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position[0] = PositionX + Step;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position[1] = PositionY + Size;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position.X = PositionX + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position.Y = PositionY + Size;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[0] = ColorR;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[1] = ColorG;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[2] = ColorB;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color[3] = ColorA;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color.R = ColorR;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color.G = ColorG;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color.B = ColorB;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color.A = ColorA;
 
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position[0] = PositionX;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position[1] = PositionY + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position.X = PositionX;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position.Y = PositionY + Step;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[0] = ColorR;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[1] = ColorG;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[2] = ColorB;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color[3] = ColorA;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color.R = ColorR;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color.G = ColorG;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color.B = ColorB;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color.A = ColorA;
 
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position[0] = PositionX + Size;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position[1] = PositionY + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position.X = PositionX + Size;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position.Y = PositionY + Step;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[0] = ColorR;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[1] = ColorG;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[2] = ColorB;
-			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color[3] = ColorA;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color.R = ColorR;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color.G = ColorG;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color.B = ColorB;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color.A = ColorA;
 
 			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex;
 			sMappedScreenLineIndexBuffer[sCurrBatch->ScreenLineIndexOffset + SegmentIndex + 1] = sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1;
@@ -8182,7 +8468,7 @@ extern "C"
 		Buffer_VertexUnBind();
 		Buffer_IndexUnBind();
 		Shader_Bind(sScreenLineProgram);
-		Shader_SetUniformVector2(sScreenLineProgram, "ScreenSize", ScreenSize);
+		Shader_SetUniformVector2(sScreenLineProgram, "ScreenSize", &ScreenSize);
 		VertexArray_Bind(sCurrBatch->ScreenLineVertexArray);
 		VertexArray_DrawLines(sCurrBatch->ScreenLineIndexOffset);
 		VertexArray_UnBind();
@@ -8191,114 +8477,114 @@ extern "C"
 		sMappedScreenLineVertexBuffer = 0;
 		sMappedScreenLineIndexBuffer = 0;
 	}
-	void Batch_BeginWorldRectangles(Batch* Bat)
+	void Batch_BeginWorldRects(Batch* Bat)
 	{
 		sCurrBatch = Bat;
 
-		Buffer_VertexBind(sCurrBatch->WorldRectangleInstanceBuffer);
-		sCurrBatch->WorldRectangleInstanceOffset = 0;
+		Buffer_VertexBind(sCurrBatch->WorldRectInstanceBuffer);
+		sCurrBatch->WorldRectInstanceOffset = 0;
 
-		sMappedWorldRectangleInstanceBuffer = (BatchWorldRectangleInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
+		sMappedWorldRectInstanceBuffer = (BatchWorldRectInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void Batch_DrawWorldRectangle(Vector3 Position, Vector3 Rotation, Vector2 Size, Vector4 Color)
+	void Batch_DrawWorldRect(Vector3 const* Position, Vector3 const* Rotation, Vector2 const* Size, Color4 const* Color)
 	{
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[0] = Position[0];
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[1] = Position[1];
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[2] = Position[2];
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[0] = Rotation[0];
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[1] = Rotation[1];
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[2] = Rotation[2];
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Size[0] = Size[0];
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Size[1] = Size[1];
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[0] = Color[0];
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[1] = Color[1];
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[2] = Color[2];
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[3] = Color[3];
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Position.X = Position->X;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Position.Y = Position->Y;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Position.Z = Position->Z;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Rotation.X = Rotation->X;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Rotation.Y = Rotation->Y;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Rotation.Z = Rotation->Z;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Size.X = Size->X;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Size.Y = Size->Y;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Color.R = Color->R;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Color.G = Color->G;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Color.B = Color->B;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Color.A = Color->A;
 
-		sCurrBatch->WorldRectangleInstanceOffset += 1;
+		sCurrBatch->WorldRectInstanceOffset += 1;
 	}
-	void Batch_DrawWorldRectangleSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_DrawWorldRectSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[0] = PositionX;
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[1] = PositionY;
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Position[2] = PositionZ;
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[0] = Pitch;
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[1] = Yaw;
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Rotation[2] = Roll;
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Size[0] = SizeX;
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Size[1] = SizeY;
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[0] = ColorR;
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[1] = ColorG;
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[2] = ColorB;
-		sMappedWorldRectangleInstanceBuffer[sCurrBatch->WorldRectangleInstanceOffset].Color[3] = ColorA;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Position.X = PositionX;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Position.Y = PositionY;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Position.Z = PositionZ;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Rotation.X = Pitch;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Rotation.Y = Yaw;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Rotation.Z = Roll;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Size.X = SizeX;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Size.Y = SizeY;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Color.R = ColorR;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Color.G = ColorG;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Color.B = ColorB;
+		sMappedWorldRectInstanceBuffer[sCurrBatch->WorldRectInstanceOffset].Color.A = ColorA;
 
-		sCurrBatch->WorldRectangleInstanceOffset += 1;
+		sCurrBatch->WorldRectInstanceOffset += 1;
 	}
-	void Batch_EndWorldRectangles(Matrix4 Projection, Matrix4 View)
+	void Batch_EndWorldRects(Matrix4x4 const* Projection, Matrix4x4 const* View)
 	{
 		Buffer_VertexUnMap();
 		Buffer_VertexUnBind();
-		Shader_Bind(sWorldRectangleProgram);
-		Shader_SetUniformMatrix4(sWorldRectangleProgram, "ProjectionMatrix", Projection);
-		Shader_SetUniformMatrix4(sWorldRectangleProgram, "ViewMatrix", View);
-		VertexArray_Bind(sCurrBatch->WorldRectangleVertexArray);
-		VertexArray_DrawTriangleStripInstanced(4, sCurrBatch->WorldRectangleInstanceOffset);
+		Shader_Bind(sWorldRectProgram);
+		Shader_SetUniformMatrix4(sWorldRectProgram, "ProjectionMatrix", Projection);
+		Shader_SetUniformMatrix4(sWorldRectProgram, "ViewMatrix", View);
+		VertexArray_Bind(sCurrBatch->WorldRectVertexArray);
+		VertexArray_DrawTriangleStripInstanced(4, sCurrBatch->WorldRectInstanceOffset);
 		VertexArray_UnBind();
 
 		sCurrBatch = 0;
-		sMappedWorldRectangleInstanceBuffer = 0;
+		sMappedWorldRectInstanceBuffer = 0;
 	}
-	void Batch_BeginScreenRectangles(Batch* Bat)
+	void Batch_BeginScreenRects(Batch* Bat)
 	{
 		sCurrBatch = Bat;
 
-		Buffer_VertexBind(sCurrBatch->ScreenRectangleInstanceBuffer);
-		sCurrBatch->ScreenRectangleInstanceOffset = 0;
+		Buffer_VertexBind(sCurrBatch->ScreenRectInstanceBuffer);
+		sCurrBatch->ScreenRectInstanceOffset = 0;
 
-		sMappedScreenRectangleInstanceBuffer = (BatchScreenRectangleInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
+		sMappedScreenRectInstanceBuffer = (BatchScreenRectInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void Batch_DrawScreenRectangle(Vector2 Position, float Rotation, Vector2 Size, Vector4 Color)
+	void Batch_DrawScreenRect(Vector2 const* Position, float Rotation, Vector2 const* Size, Color4 const* Color)
 	{
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Position[0] = Position[0];
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Position[1] = Position[1];
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Rotation = Rotation;
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Size[0] = Size[0];
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Size[1] = Size[1];
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[0] = Color[0];
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[1] = Color[1];
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[2] = Color[2];
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[3] = Color[3];
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Position.X = Position->X;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Position.Y = Position->Y;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Rotation = Rotation;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Size.X = Size->X;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Size.Y = Size->Y;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Color.R = Color->R;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Color.G = Color->G;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Color.B = Color->B;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Color.A = Color->A;
 
-		sCurrBatch->ScreenRectangleInstanceOffset += 1;
+		sCurrBatch->ScreenRectInstanceOffset += 1;
 	}
-	void Batch_DrawScreenRectangleSimple(float PositionX, float PositionY, float Rotation, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_DrawScreenRectSimple(float PositionX, float PositionY, float Rotation, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Position[0] = PositionX;
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Position[1] = PositionY;
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Rotation = Rotation;
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Size[0] = SizeX;
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Size[1] = SizeY;
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[0] = ColorR;
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[1] = ColorG;
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[2] = ColorB;
-		sMappedScreenRectangleInstanceBuffer[sCurrBatch->ScreenRectangleInstanceOffset].Color[3] = ColorA;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Position.X = PositionX;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Position.Y = PositionY;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Rotation = Rotation;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Size.X = SizeX;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Size.Y = SizeY;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Color.R = ColorR;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Color.G = ColorG;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Color.B = ColorB;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Color.A = ColorA;
 
-		sCurrBatch->ScreenRectangleInstanceOffset += 1;
+		sCurrBatch->ScreenRectInstanceOffset += 1;
 	}
-	void Batch_EndScreenRectangles()
+	void Batch_EndScreenRects()
 	{
 		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
 
 		Buffer_VertexUnMap();
 		Buffer_VertexUnBind();
-		Shader_Bind(sScreenRectangleProgram);
-		Shader_SetUniformVector2(sScreenRectangleProgram, "ScreenSize", ScreenSize);
-		VertexArray_Bind(sCurrBatch->ScreenRectangleVertexArray);
-		VertexArray_DrawTriangleStripInstanced(4, sCurrBatch->ScreenRectangleInstanceOffset);
+		Shader_Bind(sScreenRectProgram);
+		Shader_SetUniformVector2(sScreenRectProgram, "ScreenSize", &ScreenSize);
+		VertexArray_Bind(sCurrBatch->ScreenRectVertexArray);
+		VertexArray_DrawTriangleStripInstanced(4, sCurrBatch->ScreenRectInstanceOffset);
 		VertexArray_UnBind();
 
 		sCurrBatch = 0;
-		sMappedScreenRectangleInstanceBuffer = 0;
+		sMappedScreenRectInstanceBuffer = 0;
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -8603,17 +8889,17 @@ extern "C"
 		static FontWorldGlyphVertex WorldVertexBuffer[4] = { 0 };
 		static int unsigned WorldIndexBuffer[6] = { 0 };
 
-		WorldVertexBuffer[0].Position[0] = 0.0F;
-		WorldVertexBuffer[0].Position[1] = 0.0F;
+		WorldVertexBuffer[0].Position.X = 0.0F;
+		WorldVertexBuffer[0].Position.Y = 0.0F;
 		WorldVertexBuffer[0].Index = 0;
-		WorldVertexBuffer[1].Position[0] = 1.0F;
-		WorldVertexBuffer[1].Position[1] = 0.0F;
+		WorldVertexBuffer[1].Position.X = 1.0F;
+		WorldVertexBuffer[1].Position.Y = 0.0F;
 		WorldVertexBuffer[1].Index = 1;
-		WorldVertexBuffer[2].Position[0] = 0.0F;
-		WorldVertexBuffer[2].Position[1] = 1.0F;
+		WorldVertexBuffer[2].Position.X = 0.0F;
+		WorldVertexBuffer[2].Position.Y = 1.0F;
 		WorldVertexBuffer[2].Index = 2;
-		WorldVertexBuffer[3].Position[0] = 1.0F;
-		WorldVertexBuffer[3].Position[1] = 1.0F;
+		WorldVertexBuffer[3].Position.X = 1.0F;
+		WorldVertexBuffer[3].Position.Y = 1.0F;
 		WorldVertexBuffer[3].Index = 3;
 
 		WorldIndexBuffer[0] = 0;
@@ -8626,17 +8912,17 @@ extern "C"
 		static FontScreenGlyphVertex ScreenVertexBuffer[4] = { 0 };
 		static int unsigned ScreenIndexBuffer[6] = { 0 };
 
-		ScreenVertexBuffer[0].Position[0] = 0.0F;
-		ScreenVertexBuffer[0].Position[1] = 0.0F;
+		ScreenVertexBuffer[0].Position.X = 0.0F;
+		ScreenVertexBuffer[0].Position.Y = 0.0F;
 		ScreenVertexBuffer[0].Index = 0;
-		ScreenVertexBuffer[1].Position[0] = 1.0F;
-		ScreenVertexBuffer[1].Position[1] = 0.0F;
+		ScreenVertexBuffer[1].Position.X = 1.0F;
+		ScreenVertexBuffer[1].Position.Y = 0.0F;
 		ScreenVertexBuffer[1].Index = 1;
-		ScreenVertexBuffer[2].Position[0] = 0.0F;
-		ScreenVertexBuffer[2].Position[1] = 1.0F;
+		ScreenVertexBuffer[2].Position.X = 0.0F;
+		ScreenVertexBuffer[2].Position.Y = 1.0F;
 		ScreenVertexBuffer[2].Index = 2;
-		ScreenVertexBuffer[3].Position[0] = 1.0F;
-		ScreenVertexBuffer[3].Position[1] = 1.0F;
+		ScreenVertexBuffer[3].Position.X = 1.0F;
+		ScreenVertexBuffer[3].Position.Y = 1.0F;
 		ScreenVertexBuffer[3].Index = 3;
 
 		ScreenIndexBuffer[0] = 0;
@@ -8720,18 +9006,16 @@ extern "C"
 		Buffer_VertexEnableAttrib(9);
 		Buffer_VertexEnableAttrib(10);
 		Buffer_VertexEnableAttrib(11);
-		Buffer_VertexEnableAttrib(12);
 		Buffer_VertexAttribPointerReal32(2, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
 		Buffer_VertexAttribPointerReal32(3, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Position));
 		Buffer_VertexAttribPointerReal32(4, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Scale));
-		Buffer_VertexAttribPointerReal32(6, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
-		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, UnitsPerEm));
-		Buffer_VertexAttribPointerReal32(8, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, FontSize));
-		Buffer_VertexAttribPointerReal32(9, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphSize));
-		Buffer_VertexAttribPointerReal32(10, 4, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Color));
-		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphIndex));
-		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(6, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(8, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(9, 4, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(10, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, LineHeight));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -8742,7 +9026,6 @@ extern "C"
 		Buffer_VertexAttribDivisor(9, 1);
 		Buffer_VertexAttribDivisor(10, 1);
 		Buffer_VertexAttribDivisor(11, 1);
-		Buffer_VertexAttribDivisor(12, 1);
 		Buffer_VertexResize(NumChars * sizeof(FontScreenGlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
 		Buffer_IndexBind(Fnt->ScreenGlyphIndexBuffer);
 		Buffer_IndexResize(6 * sizeof(int unsigned), ScreenIndexBuffer, GL_STATIC_DRAW);
@@ -9299,9 +9582,9 @@ extern "C"
 
 			FontBezierCurveEntry BezierCurve = { 0 };
 
-			Vector2_Set(*P0, BezierCurve.P0);
-			Vector2_Set(*P1, BezierCurve.P1);
-			Vector2_Set(*P2, BezierCurve.P2);
+			Vector2_Set(P0, &BezierCurve.P0);
+			Vector2_Set(P1, &BezierCurve.P1);
+			Vector2_Set(P2, &BezierCurve.P2);
 
 			Vector_Push(&Glyph->BezierCurves, &BezierCurve);
 
@@ -9335,7 +9618,7 @@ extern "C"
 
 		sMappedWorldGlyphInstanceBuffer = (FontWorldGlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void Text_DrawWorld(Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...)
+	void Text_DrawWorld(Vector3 const* Position, Vector3 const* Rotation, Vector2 const* Size, Color4 const* Color, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -9346,11 +9629,11 @@ extern "C"
 
 		short unsigned UnitsPerEm = sCurrFont->HeadTable.UnitsPerEm;
 
-		float X = Position[0];
-		float Y = Position[1];
-		float Z = Position[2];
+		float X = Position->X;
+		float Y = Position->Y;
+		float Z = Position->Z;
 
-		Y -= ((float)sCurrFont->Height / UnitsPerEm) * Scale[1];
+		Y -= ((float)sCurrFont->Height / UnitsPerEm) * Size->Y;
 
 		char* Char = FormatBuffer;
 
@@ -9364,8 +9647,8 @@ extern "C"
 			}
 			case '\n':
 			{
-				X = Position[0];
-				Y -= ((float)sCurrFont->Height / UnitsPerEm) * Scale[1];
+				X = Position->X;
+				Y -= ((float)sCurrFont->Height / UnitsPerEm) * Size->Y;
 
 				break;
 			}
@@ -9380,34 +9663,34 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[0] = Position[0];
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[1] = Position[1];
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[2] = Position[2];
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[0] = X;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[1] = Y;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[2] = Z;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[0] = Rotation[0];
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[1] = Rotation[1];
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[2] = Rotation[2];
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale[0] = Scale[0];
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale[1] = Scale[1];
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot.X = Position->X;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot.Y = Position->Y;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot.Z = Position->Z;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position.X = X;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position.Y = Y;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position.Z = Z;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation.X = Rotation->X;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation.Y = Rotation->Y;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation.Z = Rotation->Z;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale.X = Size->X;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale.Y = Size->Y;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing.X = (float)CurrGlyph->BearingX;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing.Y = (float)CurrGlyph->BearingY;
 					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
 					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].FontSize = 0.0F;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize.X = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize.Y = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
 					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[0] = Color[0];
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[1] = Color[1];
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[2] = Color[2];
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[3] = Color[3];
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color.R = Color->R;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color.G = Color->G;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color.B = Color->B;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color.A = Color->A;
 					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
 					sCurrFont->WorldGlyphInstanceOffset += 1;
 				}
 
-				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * Scale[0];
+				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * Size->X;
 
 				break;
 			}
@@ -9416,7 +9699,7 @@ extern "C"
 			Char++;
 		}
 	}
-	void Text_DrawWorldSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float ScaleX, float ScaleY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
+	void Text_DrawWorldSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -9431,7 +9714,7 @@ extern "C"
 		float Y = PositionY;
 		float Z = PositionZ;
 
-		Y -= ((float)sCurrFont->Height / UnitsPerEm) * ScaleY;
+		Y -= ((float)sCurrFont->Height / UnitsPerEm) * SizeY;
 
 		char* Char = FormatBuffer;
 
@@ -9446,7 +9729,7 @@ extern "C"
 			case '\n':
 			{
 				X = PositionX;
-				Y -= ((float)sCurrFont->Height / UnitsPerEm) * ScaleY;
+				Y -= ((float)sCurrFont->Height / UnitsPerEm) * SizeY;
 
 				break;
 			}
@@ -9461,34 +9744,34 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[0] = PositionX;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[1] = PositionY;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot[2] = PositionZ;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[0] = X;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[1] = Y;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position[2] = Z;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[0] = Pitch;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[1] = Yaw;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation[2] = Roll;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale[0] = ScaleX;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale[1] = ScaleY;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot.X = PositionX;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot.Y = PositionY;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Pivot.Z = PositionZ;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position.X = X;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position.Y = Y;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Position.Z = Z;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation.X = Pitch;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation.Y = Yaw;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Rotation.Z = Roll;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale.X = SizeX;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Scale.Y = SizeY;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing.X = (float)CurrGlyph->BearingX;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Bearing.Y = (float)CurrGlyph->BearingY;
 					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
 					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].FontSize = 0.0F;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize.X = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphSize.Y = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
 					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[0] = ColorR;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[1] = ColorG;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[2] = ColorB;
-					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color[3] = ColorA;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color.R = ColorR;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color.G = ColorG;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color.B = ColorB;
+					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].Color.A = ColorA;
 					sMappedWorldGlyphInstanceBuffer[sCurrFont->WorldGlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
 					sCurrFont->WorldGlyphInstanceOffset += 1;
 				}
 
-				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * ScaleX;
+				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * SizeX;
 
 				break;
 			}
@@ -9497,7 +9780,7 @@ extern "C"
 			Char++;
 		}
 	}
-	void Text_EndWorld(Matrix4 Projection, Matrix4 View)
+	void Text_EndWorld(Matrix4x4 const* Projection, Matrix4x4 const* View)
 	{
 		Buffer_VertexUnMap();
 		Buffer_VertexUnBind();
@@ -9522,7 +9805,7 @@ extern "C"
 
 		sMappedScreenGlyphInstanceBuffer = (FontScreenGlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void Text_DrawScreen(Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...)
+	void Text_DrawScreen(Vector2 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -9533,10 +9816,10 @@ extern "C"
 
 		short unsigned UnitsPerEm = sCurrFont->HeadTable.UnitsPerEm;
 
-		float X = Position[0];
-		float Y = Position[1];
+		float X = Position->X;
+		float Y = Position->Y;
 
-		Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+		Y += ((float)sCurrFont->Height / UnitsPerEm) * Size;
 
 		char* Char = FormatBuffer;
 
@@ -9550,8 +9833,8 @@ extern "C"
 			}
 			case '\n':
 			{
-				X = Position[0];
-				Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+				X = Position->X;
+				Y += ((float)sCurrFont->Height / UnitsPerEm) * Size;
 
 				break;
 			}
@@ -9566,30 +9849,28 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot[0] = Position[0];
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot[1] = Position[1];
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position[0] = X;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position[1] = Y;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot.X = Position->X;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot.Y = Position->Y;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position.X = X;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position.Y = Y;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Rotation = Rotation;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Scale[0] = 0.0F;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Scale[1] = 0.0F;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing.X = (float)CurrGlyph->BearingX;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing.Y = (float)CurrGlyph->BearingY;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].FontSize = FontSize;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].FontSize = Size;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize.X = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize.Y = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[0] = Color[0];
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[1] = Color[1];
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[2] = Color[2];
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[3] = Color[3];
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color.R = Color->R;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color.G = Color->G;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color.B = Color->B;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color.A = Color->A;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
 					sCurrFont->ScreenGlyphInstanceOffset += 1;
 				}
 
-				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * FontSize;
+				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * Size;
 
 				break;
 			}
@@ -9598,7 +9879,7 @@ extern "C"
 			Char++;
 		}
 	}
-	void Text_DrawScreenSimple(float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
+	void Text_DrawScreenSimple(float PositionX, float PositionY, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -9612,7 +9893,7 @@ extern "C"
 		float X = PositionX;
 		float Y = PositionY;
 
-		Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+		Y += ((float)sCurrFont->Height / UnitsPerEm) * Size;
 
 		char* Char = FormatBuffer;
 
@@ -9627,7 +9908,7 @@ extern "C"
 			case '\n':
 			{
 				X = PositionX;
-				Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+				Y += ((float)sCurrFont->Height / UnitsPerEm) * Size;
 
 				break;
 			}
@@ -9642,30 +9923,28 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot[0] = PositionX;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot[1] = PositionY;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position[0] = X;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position[1] = Y;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot.X = PositionX;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot.Y = PositionY;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position.X = X;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position.Y = Y;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Rotation = Rotation;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Scale[0] = 0.0F;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Scale[1] = 0.0F;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing.X = (float)CurrGlyph->BearingX;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Bearing.Y = (float)CurrGlyph->BearingY;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].FontSize = FontSize;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].FontSize = Size;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize.X = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphSize.Y = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[0] = ColorR;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[1] = ColorG;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[2] = ColorB;
-					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color[3] = ColorA;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color.R = ColorR;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color.G = ColorG;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color.B = ColorB;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Color.A = ColorA;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
 					sCurrFont->ScreenGlyphInstanceOffset += 1;
 				}
 
-				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * FontSize;
+				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * Size;
 
 				break;
 			}
@@ -9681,7 +9960,7 @@ extern "C"
 		Buffer_VertexUnMap();
 		Buffer_VertexUnBind();
 		Shader_Bind(sScreenFontProgram);
-		Shader_SetUniformVector2(sScreenFontProgram, "ScreenSize", ScreenSize);
+		Shader_SetUniformVector2(sScreenFontProgram, "ScreenSize", &ScreenSize);
 		Buffer_StorageMount(sCurrFont->BezierOffsetBuffer, 0);
 		Buffer_StorageMount(sCurrFont->BezierCurveBuffer, 1);
 		VertexArray_Bind(sCurrFont->ScreenGlyphVertexArray);
@@ -9698,17 +9977,17 @@ extern "C"
 		static FontWorldGlyphVertex WorldVertexBuffer[4] = { 0 };
 		static int unsigned WorldIndexBuffer[6] = { 0 };
 
-		WorldVertexBuffer[0].Position[0] = 0.0F;
-		WorldVertexBuffer[0].Position[1] = 0.0F;
+		WorldVertexBuffer[0].Position.X = 0.0F;
+		WorldVertexBuffer[0].Position.Y = 0.0F;
 		WorldVertexBuffer[0].Index = 0;
-		WorldVertexBuffer[1].Position[0] = 1.0F;
-		WorldVertexBuffer[1].Position[1] = 0.0F;
+		WorldVertexBuffer[1].Position.X = 1.0F;
+		WorldVertexBuffer[1].Position.Y = 0.0F;
 		WorldVertexBuffer[1].Index = 1;
-		WorldVertexBuffer[2].Position[0] = 0.0F;
-		WorldVertexBuffer[2].Position[1] = 1.0F;
+		WorldVertexBuffer[2].Position.X = 0.0F;
+		WorldVertexBuffer[2].Position.Y = 1.0F;
 		WorldVertexBuffer[2].Index = 2;
-		WorldVertexBuffer[3].Position[0] = 1.0F;
-		WorldVertexBuffer[3].Position[1] = 1.0F;
+		WorldVertexBuffer[3].Position.X = 1.0F;
+		WorldVertexBuffer[3].Position.Y = 1.0F;
 		WorldVertexBuffer[3].Index = 3;
 
 		WorldIndexBuffer[0] = 0;
@@ -9772,7 +10051,7 @@ extern "C"
 		sAllocatedTextCaches += 1;
 #endif // FAST_GL_REFERENCE_COUNT
 	}
-	void TextCache_DrawWorldCache(TextWorldCache* Cache, Matrix4 Projection, Matrix4 View)
+	void TextCache_DrawWorldCache(TextWorldCache* Cache, Matrix4x4 const* Projection, Matrix4x4 const* View)
 	{
 		Shader_Bind(sWorldFontProgram);
 		Shader_SetUniformMatrix4(sWorldFontProgram, "ProjectionMatrix", Projection);
@@ -9804,17 +10083,17 @@ extern "C"
 		static FontScreenGlyphVertex ScreenVertexBuffer[4] = { 0 };
 		static int unsigned ScreenIndexBuffer[6] = { 0 };
 
-		ScreenVertexBuffer[0].Position[0] = 0.0F;
-		ScreenVertexBuffer[0].Position[1] = 0.0F;
+		ScreenVertexBuffer[0].Position.X = 0.0F;
+		ScreenVertexBuffer[0].Position.Y = 0.0F;
 		ScreenVertexBuffer[0].Index = 0;
-		ScreenVertexBuffer[1].Position[0] = 1.0F;
-		ScreenVertexBuffer[1].Position[1] = 0.0F;
+		ScreenVertexBuffer[1].Position.X = 1.0F;
+		ScreenVertexBuffer[1].Position.Y = 0.0F;
 		ScreenVertexBuffer[1].Index = 1;
-		ScreenVertexBuffer[2].Position[0] = 0.0F;
-		ScreenVertexBuffer[2].Position[1] = 1.0F;
+		ScreenVertexBuffer[2].Position.X = 0.0F;
+		ScreenVertexBuffer[2].Position.Y = 1.0F;
 		ScreenVertexBuffer[2].Index = 2;
-		ScreenVertexBuffer[3].Position[0] = 1.0F;
-		ScreenVertexBuffer[3].Position[1] = 1.0F;
+		ScreenVertexBuffer[3].Position.X = 1.0F;
+		ScreenVertexBuffer[3].Position.Y = 1.0F;
 		ScreenVertexBuffer[3].Index = 3;
 
 		ScreenIndexBuffer[0] = 0;
@@ -9846,18 +10125,16 @@ extern "C"
 		Buffer_VertexEnableAttrib(9);
 		Buffer_VertexEnableAttrib(10);
 		Buffer_VertexEnableAttrib(11);
-		Buffer_VertexEnableAttrib(12);
 		Buffer_VertexAttribPointerReal32(2, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
 		Buffer_VertexAttribPointerReal32(3, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Position));
 		Buffer_VertexAttribPointerReal32(4, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Scale));
-		Buffer_VertexAttribPointerReal32(6, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
-		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, UnitsPerEm));
-		Buffer_VertexAttribPointerReal32(8, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, FontSize));
-		Buffer_VertexAttribPointerReal32(9, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphSize));
-		Buffer_VertexAttribPointerReal32(10, 4, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Color));
-		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphIndex));
-		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(6, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(8, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(9, 4, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(10, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, LineHeight));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -9868,7 +10145,6 @@ extern "C"
 		Buffer_VertexAttribDivisor(9, 1);
 		Buffer_VertexAttribDivisor(10, 1);
 		Buffer_VertexAttribDivisor(11, 1);
-		Buffer_VertexAttribDivisor(12, 1);
 		Buffer_VertexResize(NumChars * sizeof(FontScreenGlyphInstanceEntry), 0, GL_DYNAMIC_DRAW);
 		Buffer_IndexBind(Cache->GlyphIndexBuffer);
 		Buffer_IndexResize(6 * sizeof(int unsigned), ScreenIndexBuffer, GL_STATIC_DRAW);
@@ -9883,7 +10159,7 @@ extern "C"
 		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
 
 		Shader_Bind(sScreenFontProgram);
-		Shader_SetUniformVector2(sScreenFontProgram, "ScreenSize", ScreenSize);
+		Shader_SetUniformVector2(sScreenFontProgram, "ScreenSize", &ScreenSize);
 		Buffer_StorageMount(sCurrFont->BezierOffsetBuffer, 0);
 		Buffer_StorageMount(sCurrFont->BezierCurveBuffer, 1);
 		VertexArray_Bind(Cache->GlyphVertexArray);
@@ -9913,7 +10189,7 @@ extern "C"
 
 		sMappedWorldGlyphInstanceBuffer = (FontWorldGlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void TextCache_DrawWorld(TextWorldCache* Cache, Vector3 Position, Vector3 Rotation, Vector2 Scale, Vector4 Color, char const* Format, ...)
+	void TextCache_DrawWorld(TextWorldCache* Cache, Vector3 const* Position, Vector3 const* Rotation, Vector2 const* Size, Color4 const* Color, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -9924,11 +10200,11 @@ extern "C"
 
 		short unsigned UnitsPerEm = sCurrFont->HeadTable.UnitsPerEm;
 
-		float X = Position[0];
-		float Y = Position[1];
-		float Z = Position[2];
+		float X = Position->X;
+		float Y = Position->Y;
+		float Z = Position->Z;
 
-		Y -= ((float)sCurrFont->Height / UnitsPerEm) * Scale[1];
+		Y -= ((float)sCurrFont->Height / UnitsPerEm) * Size->Y;
 
 		char* Char = FormatBuffer;
 
@@ -9942,8 +10218,8 @@ extern "C"
 			}
 			case '\n':
 			{
-				X = Position[0];
-				Y -= ((float)sCurrFont->Height / UnitsPerEm) * Scale[1];
+				X = Position->X;
+				Y -= ((float)sCurrFont->Height / UnitsPerEm) * Size->Y;
 
 				break;
 			}
@@ -9958,34 +10234,34 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = Position[0];
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = Position[1];
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = Position[2];
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = Z;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[0] = Rotation[0];
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[1] = Rotation[1];
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[2] = Rotation[2];
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = Scale[0];
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = Scale[1];
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.X = Position->X;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.Y = Position->Y;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.Z = Position->Z;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.X = X;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.Y = Y;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.Z = Z;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation.X = Rotation->X;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation.Y = Rotation->Y;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation.Z = Rotation->Z;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale.X = Size->X;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale.Y = Size->Y;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing.X = (float)CurrGlyph->BearingX;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing.Y = (float)CurrGlyph->BearingY;
 					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
 					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = 0.0F;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize.X = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize.Y = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
 					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = Color[0];
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = Color[1];
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = Color[2];
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = Color[3];
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.R = Color->R;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.G = Color->G;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.B = Color->B;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.A = Color->A;
 					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
 					Cache->GlyphInstanceOffset += 1;
 				}
 
-				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * Scale[0];
+				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * Size->X;
 
 				break;
 			}
@@ -9994,7 +10270,7 @@ extern "C"
 			Char++;
 		}
 	}
-	void TextCache_DrawWorldSimple(TextWorldCache* Cache, float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float ScaleX, float ScaleY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
+	void TextCache_DrawWorldSimple(TextWorldCache* Cache, float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -10009,7 +10285,7 @@ extern "C"
 		float Y = PositionY;
 		float Z = PositionZ;
 
-		Y -= ((float)sCurrFont->Height / UnitsPerEm) * ScaleY;
+		Y -= ((float)sCurrFont->Height / UnitsPerEm) * SizeY;
 
 		char* Char = FormatBuffer;
 
@@ -10024,7 +10300,7 @@ extern "C"
 			case '\n':
 			{
 				X = PositionX;
-				Y -= ((float)sCurrFont->Height / UnitsPerEm) * ScaleY;
+				Y -= ((float)sCurrFont->Height / UnitsPerEm) * SizeY;
 
 				break;
 			}
@@ -10039,34 +10315,34 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = PositionX;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = PositionY;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[2] = PositionZ;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[2] = Z;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[0] = Pitch;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[1] = Yaw;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation[2] = Roll;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = ScaleX;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = ScaleY;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.X = PositionX;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.Y = PositionY;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.Z = PositionZ;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.X = X;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.Y = Y;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.Z = Z;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation.X = Pitch;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation.Y = Yaw;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation.Z = Roll;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale.X = SizeX;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale.Y = SizeY;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing.X = (float)CurrGlyph->BearingX;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing.Y = (float)CurrGlyph->BearingY;
 					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
 					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = 0.0F;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize.X = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize.Y = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Height;
 					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = ColorR;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = ColorG;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = ColorB;
-					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = ColorA;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.R = ColorR;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.G = ColorG;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.B = ColorB;
+					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.A = ColorA;
 					sMappedWorldGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
 					Cache->GlyphInstanceOffset += 1;
 				}
 
-				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * ScaleX;
+				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * SizeX;
 
 				break;
 			}
@@ -10094,7 +10370,7 @@ extern "C"
 
 		sMappedScreenGlyphInstanceBuffer = (FontScreenGlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void TextCache_DrawScreen(TextScreenCache* Cache, Vector2 Position, float Rotation, float FontSize, Vector4 Color, char const* Format, ...)
+	void TextCache_DrawScreen(TextScreenCache* Cache, Vector2 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -10105,10 +10381,10 @@ extern "C"
 
 		short unsigned UnitsPerEm = sCurrFont->HeadTable.UnitsPerEm;
 
-		float X = Position[0];
-		float Y = Position[1];
+		float X = Position->X;
+		float Y = Position->Y;
 
-		Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+		Y += ((float)sCurrFont->Height / UnitsPerEm) * Size;
 
 		char* Char = FormatBuffer;
 
@@ -10122,8 +10398,8 @@ extern "C"
 			}
 			case '\n':
 			{
-				X = Position[0];
-				Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+				X = Position->X;
+				Y += ((float)sCurrFont->Height / UnitsPerEm) * Size;
 
 				break;
 			}
@@ -10138,30 +10414,28 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = Position[0];
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = Position[1];
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.X = Position->X;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.Y = Position->Y;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.X = X;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.Y = Y;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation = Rotation;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = 0.0F;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = 0.0F;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing.X = (float)CurrGlyph->BearingX;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing.Y = (float)CurrGlyph->BearingY;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = FontSize;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = Size;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize.X = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize.Y = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = Color[0];
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = Color[1];
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = Color[2];
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = Color[3];
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.R = Color->R;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.G = Color->G;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.B = Color->B;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.A = Color->A;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
 					Cache->GlyphInstanceOffset += 1;
 				}
 
-				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * FontSize;
+				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * Size;
 
 				break;
 			}
@@ -10170,7 +10444,7 @@ extern "C"
 			Char++;
 		}
 	}
-	void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float Rotation, float FontSize, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
+	void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -10184,7 +10458,7 @@ extern "C"
 		float X = PositionX;
 		float Y = PositionY;
 
-		Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+		Y += ((float)sCurrFont->Height / UnitsPerEm) * Size;
 
 		char* Char = FormatBuffer;
 
@@ -10199,7 +10473,7 @@ extern "C"
 			case '\n':
 			{
 				X = PositionX;
-				Y += ((float)sCurrFont->Height / UnitsPerEm) * FontSize;
+				Y += ((float)sCurrFont->Height / UnitsPerEm) * Size;
 
 				break;
 			}
@@ -10214,30 +10488,28 @@ extern "C"
 
 				if (CurrGlyph->NumPoints)
 				{
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[0] = PositionX;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot[1] = PositionY;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[0] = X;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position[1] = Y;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.X = PositionX;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.Y = PositionY;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.X = X;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.Y = Y;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation = Rotation;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[0] = 0.0F;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Scale[1] = 0.0F;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[0] = (float)CurrGlyph->BearingX;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing[1] = (float)CurrGlyph->BearingY;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing.X = (float)CurrGlyph->BearingX;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Bearing.Y = (float)CurrGlyph->BearingY;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].UnitsPerEm = (float)UnitsPerEm;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = FontSize;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[0] = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize[1] = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].FontSize = Size;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize.X = (*Char == ' ') ? 0.0F : (float)CurrGlyph->Width;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphSize.Y = (*Char == ' ') ? 0.0F : -(float)CurrGlyph->Height;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].GlyphIndex = CurrGlyph->GlyphIndex;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[0] = ColorR;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[1] = ColorG;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[2] = ColorB;
-					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color[3] = ColorA;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.R = ColorR;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.G = ColorG;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.B = ColorB;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Color.A = ColorA;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].LineHeight = sCurrFont->LineHeight;
 
 					Cache->GlyphInstanceOffset += 1;
 				}
 
-				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * FontSize;
+				X += ((float)CurrGlyph->AdvanceWidth / UnitsPerEm) * Size;
 
 				break;
 			}
@@ -10656,22 +10928,22 @@ extern "C"
 		static SpriteVertex VertexBuffer[4] = { 0 };
 		static int unsigned IndexBuffer[6] = { 0 };
 
-		VertexBuffer[0].Position[0] = 0.0F;
-		VertexBuffer[0].Position[1] = 0.0F;
-		VertexBuffer[0].TextureCoords[0] = 0.0F;
-		VertexBuffer[0].TextureCoords[1] = 0.0F;
-		VertexBuffer[1].Position[0] = 1.0F;
-		VertexBuffer[1].Position[1] = 0.0F;
-		VertexBuffer[1].TextureCoords[0] = 1.0F;
-		VertexBuffer[1].TextureCoords[1] = 0.0F;
-		VertexBuffer[2].Position[0] = 0.0F;
-		VertexBuffer[2].Position[1] = 1.0F;
-		VertexBuffer[2].TextureCoords[0] = 0.0F;
-		VertexBuffer[2].TextureCoords[1] = 1.0F;
-		VertexBuffer[3].Position[0] = 1.0F;
-		VertexBuffer[3].Position[1] = 1.0F;
-		VertexBuffer[3].TextureCoords[0] = 1.0F;
-		VertexBuffer[3].TextureCoords[1] = 1.0F;
+		VertexBuffer[0].Position.X = 0.0F;
+		VertexBuffer[0].Position.Y = 0.0F;
+		VertexBuffer[0].TextureCoords.X = 0.0F;
+		VertexBuffer[0].TextureCoords.Y = 0.0F;
+		VertexBuffer[1].Position.X = 1.0F;
+		VertexBuffer[1].Position.Y = 0.0F;
+		VertexBuffer[1].TextureCoords.X = 1.0F;
+		VertexBuffer[1].TextureCoords.Y = 0.0F;
+		VertexBuffer[2].Position.X = 0.0F;
+		VertexBuffer[2].Position.Y = 1.0F;
+		VertexBuffer[2].TextureCoords.X = 0.0F;
+		VertexBuffer[2].TextureCoords.Y = 1.0F;
+		VertexBuffer[3].Position.X = 1.0F;
+		VertexBuffer[3].Position.Y = 1.0F;
+		VertexBuffer[3].TextureCoords.X = 1.0F;
+		VertexBuffer[3].TextureCoords.Y = 1.0F;
 
 		IndexBuffer[0] = 0;
 		IndexBuffer[1] = 1;
@@ -10721,22 +10993,22 @@ extern "C"
 		static PostProcessVertex VertexBuffer[4] = { 0 };
 		static int unsigned IndexBuffer[6] = { 0 };
 
-		VertexBuffer[0].Position[0] = -1.0F;
-		VertexBuffer[0].Position[1] = -1.0F;
-		VertexBuffer[0].TextureCoords[0] = 0.0F;
-		VertexBuffer[0].TextureCoords[1] = 0.0F;
-		VertexBuffer[1].Position[0] = 1.0F;
-		VertexBuffer[1].Position[1] = -1.0F;
-		VertexBuffer[1].TextureCoords[0] = 1.0F;
-		VertexBuffer[1].TextureCoords[1] = 0.0F;
-		VertexBuffer[2].Position[0] = -1.0F;
-		VertexBuffer[2].Position[1] = 1.0F;
-		VertexBuffer[2].TextureCoords[0] = 0.0F;
-		VertexBuffer[2].TextureCoords[1] = 1.0F;
-		VertexBuffer[3].Position[0] = 1.0F;
-		VertexBuffer[3].Position[1] = 1.0F;
-		VertexBuffer[3].TextureCoords[0] = 1.0F;
-		VertexBuffer[3].TextureCoords[1] = 1.0F;
+		VertexBuffer[0].Position.X = -1.0F;
+		VertexBuffer[0].Position.Y = -1.0F;
+		VertexBuffer[0].TextureCoords.X = 0.0F;
+		VertexBuffer[0].TextureCoords.Y = 0.0F;
+		VertexBuffer[1].Position.X = 1.0F;
+		VertexBuffer[1].Position.Y = -1.0F;
+		VertexBuffer[1].TextureCoords.X = 1.0F;
+		VertexBuffer[1].TextureCoords.Y = 0.0F;
+		VertexBuffer[2].Position.X = -1.0F;
+		VertexBuffer[2].Position.Y = 1.0F;
+		VertexBuffer[2].TextureCoords.X = 0.0F;
+		VertexBuffer[2].TextureCoords.Y = 1.0F;
+		VertexBuffer[3].Position.X = 1.0F;
+		VertexBuffer[3].Position.Y = 1.0F;
+		VertexBuffer[3].TextureCoords.X = 1.0F;
+		VertexBuffer[3].TextureCoords.Y = 1.0F;
 
 		IndexBuffer[0] = 0;
 		IndexBuffer[1] = 1;
@@ -10788,22 +11060,22 @@ extern "C"
 		static SpriteVertex VertexBuffer[4] = { 0 };
 		static int unsigned IndexBuffer[6] = { 0 };
 
-		VertexBuffer[0].Position[0] = 0.0F;
-		VertexBuffer[0].Position[1] = 0.0F;
-		VertexBuffer[0].TextureCoords[0] = 0.0F;
-		VertexBuffer[0].TextureCoords[1] = 0.0F;
-		VertexBuffer[1].Position[0] = 1.0F;
-		VertexBuffer[1].Position[1] = 0.0F;
-		VertexBuffer[1].TextureCoords[0] = 1.0F;
-		VertexBuffer[1].TextureCoords[1] = 0.0F;
-		VertexBuffer[2].Position[0] = 0.0F;
-		VertexBuffer[2].Position[1] = 1.0F;
-		VertexBuffer[2].TextureCoords[0] = 0.0F;
-		VertexBuffer[2].TextureCoords[1] = 1.0F;
-		VertexBuffer[3].Position[0] = 1.0F;
-		VertexBuffer[3].Position[1] = 1.0F;
-		VertexBuffer[3].TextureCoords[0] = 1.0F;
-		VertexBuffer[3].TextureCoords[1] = 1.0F;
+		VertexBuffer[0].Position.X = 0.0F;
+		VertexBuffer[0].Position.Y = 0.0F;
+		VertexBuffer[0].TextureCoords.X = 0.0F;
+		VertexBuffer[0].TextureCoords.Y = 0.0F;
+		VertexBuffer[1].Position.X = 1.0F;
+		VertexBuffer[1].Position.Y = 0.0F;
+		VertexBuffer[1].TextureCoords.X = 1.0F;
+		VertexBuffer[1].TextureCoords.Y = 0.0F;
+		VertexBuffer[2].Position.X = 0.0F;
+		VertexBuffer[2].Position.Y = 1.0F;
+		VertexBuffer[2].TextureCoords.X = 0.0F;
+		VertexBuffer[2].TextureCoords.Y = 1.0F;
+		VertexBuffer[3].Position.X = 1.0F;
+		VertexBuffer[3].Position.Y = 1.0F;
+		VertexBuffer[3].TextureCoords.X = 1.0F;
+		VertexBuffer[3].TextureCoords.Y = 1.0F;
 
 		IndexBuffer[0] = 0;
 		IndexBuffer[1] = 1;
@@ -10940,56 +11212,130 @@ extern "C"
 #ifdef FAST_GL_IMPLEMENTATION
 	void Kek_Alloc(void)
 	{
+		Batch_Alloc(&sKekBatch);
 
+		sKekStyle.DockTabWidth = 150.0F;
+		sKekStyle.DockTabHeight = 30.0F;
 	}
 	void Kek_SetRootNode(void* Node)
 	{
 		sKekRootNode = Node;
 	}
-	void Kek_Draw(void* Node)
+	void Kek_Resize(void)
 	{
-		if (!Node)
+		if (sKekRootNode)
 		{
-			Node = sKekRootNode;
+			KekNode_Resize(sKekRootNode);
 		}
+	}
+	void Kek_Update(void)
+	{
+		if (sKekRootNode)
+		{
+			KekNode_Update(sKekRootNode);
+		}
+	}
+	void Kek_Draw(void)
+	{
+		if (sKekRootNode)
+		{
+			Batch_BeginScreenRects(&sKekBatch);
+			KekNode_Draw(sKekRootNode, KEK_BATCH_MODE_RECT);
+			Batch_EndScreenRects();
 
-		KekNode_Draw(Node);
-	}
-	void KekRect_Init(KekRect* Rect)
-	{
-		Rect->Left = Rect->Right = Rect->Top = Rect->Bottom = 0;
-	}
-	void KekRect_Copy(KekRect* Destination, KekRect* Source)
-	{
-		Destination->Left = Source->Left;
-		Destination->Right = Source->Right;
-		Destination->Top = Source->Top;
-		Destination->Bottom = Source->Bottom;
+			Text_BeginScreen(&sDefaultFont);
+			KekNode_Draw(sKekRootNode, KEK_BATCH_MODE_TEXT);
+			Text_EndScreen();
+		}
 	}
 	void Kek_Free(void)
 	{
-		// TODO
+		Batch_Free(&sKekBatch);
 	}
-	void KekNode_Draw(KekNode* Node)
+	void Kek_PrintTree(void)
 	{
+		if (sKekRootNode)
+		{
+			KekNode_PrintTree(sKekRootNode, 0);
+		}
+	}
+	void KekNode_Resize(KekNode* Node)
+	{
+		KekNodeClass* Class = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
+
+		switch (*Class)
+		{
+		case KEK_NODE_CLASS_DOCK_ROOT: KekDockRoot_Resize((KekDockRoot*)Node); break;
+		case KEK_NODE_CLASS_LIST_LAYOUT: KekListLayout_Resize((KekListLayout*)Node); break;
+		case KEK_NODE_CLASS_GRID_LAYOUT: KekGridLayout_Resize((KekGridLayout*)Node); break;
+		case KEK_NODE_CLASS_TOOL_BAR: break;
+		case KEK_NODE_CLASS_IMAGE: break;
+		case KEK_NODE_CLASS_BUTTON: break;
+		case KEK_NODE_CLASS_SLIDER: break;
+		case KEK_NODE_CLASS_VIEW_PORT: break;
+		case KEK_NODE_CLASS_TEST: break;
+		}
+	}
+	void KekNode_Update(KekNode* Node)
+	{
+		KekNodeClass* Class = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
+
+		switch (*Class)
+		{
+		case KEK_NODE_CLASS_DOCK_ROOT: KekDockRoot_Update((KekDockRoot*)Node); break;
+		case KEK_NODE_CLASS_LIST_LAYOUT: KekListLayout_Update((KekListLayout*)Node); break;
+		case KEK_NODE_CLASS_GRID_LAYOUT: KekGridLayout_Update((KekGridLayout*)Node); break;
+		case KEK_NODE_CLASS_TOOL_BAR: KekToolBar_Update((KekToolBar*)Node); break;
+		case KEK_NODE_CLASS_IMAGE: KekImage_Update((KekImage*)Node); break;
+		case KEK_NODE_CLASS_BUTTON: KekButton_Update((KekButton*)Node); break;
+		case KEK_NODE_CLASS_SLIDER: KekSlider_Update((KekSlider*)Node); break;
+		case KEK_NODE_CLASS_VIEW_PORT: KekViewPort_Update((KekViewPort*)Node); break;
+		case KEK_NODE_CLASS_TEST: KekTest_Update((KekTest*)Node); break;
+		}
+	}
+	void KekNode_Draw(KekNode* Node, KekBatchMode BatchMode)
+	{
+		KekNodeClass* Class = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
+
+		switch (*Class)
+		{
+		case KEK_NODE_CLASS_DOCK_ROOT: KekDockRoot_Draw((KekDockRoot*)Node, BatchMode); break;
+		case KEK_NODE_CLASS_LIST_LAYOUT: KekListLayout_Draw((KekListLayout*)Node, BatchMode); break;
+		case KEK_NODE_CLASS_GRID_LAYOUT: KekGridLayout_Draw((KekGridLayout*)Node, BatchMode); break;
+		case KEK_NODE_CLASS_TOOL_BAR: KekToolBar_Draw((KekToolBar*)Node, BatchMode); break;
+		case KEK_NODE_CLASS_IMAGE: KekImage_Draw((KekImage*)Node, BatchMode); break;
+		case KEK_NODE_CLASS_BUTTON: KekButton_Draw((KekButton*)Node, BatchMode); break;
+		case KEK_NODE_CLASS_SLIDER: KekSlider_Draw((KekSlider*)Node, BatchMode); break;
+		case KEK_NODE_CLASS_VIEW_PORT: KekViewPort_Draw((KekViewPort*)Node, BatchMode); break;
+		case KEK_NODE_CLASS_TEST: KekTest_Draw((KekTest*)Node, BatchMode); break;
+		}
+	}
+	void KekNode_PrintTree(KekNode* Node, int unsigned NumIdentSteps)
+	{
+		for (int unsigned IdentStep = 0; IdentStep < NumIdentSteps; IdentStep++)
+		{
+			printf("\t");
+		}
+
 		if (Node)
 		{
-			KekNodeClass* NodeClass = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
+			KekNodeClass* Class = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
 
-			switch (*NodeClass)
+			switch (*Class)
 			{
-			case KEK_NODE_CLASS_DOCK_ROOT: KekDockRoot_Draw((KekDockRoot*)Node); break;
-			case KEK_NODE_CLASS_LIST_LAYOUT: KekListLayout_Draw((KekListLayout*)Node); break;
-			case KEK_NODE_CLASS_GRID_LAYOUT: KekGridLayout_Draw((KekGridLayout*)Node); break;
-			case KEK_NODE_CLASS_TOOL_BAR: KekToolBar_Draw((KekToolBar*)Node); break;
-			case KEK_NODE_CLASS_IMAGE: KekImage_Draw((KekImage*)Node); break;
-			case KEK_NODE_CLASS_BUTTON: KekButton_Draw((KekButton*)Node); break;
-			case KEK_NODE_CLASS_SLIDER: KekSlider_Draw((KekSlider*)Node); break;
-			case KEK_NODE_CLASS_VIEW_PORT: KekViewPort_Draw((KekViewPort*)Node); break;
+			case KEK_NODE_CLASS_DOCK_ROOT: KekDockRoot_PrintTree((KekDockRoot*)Node, NumIdentSteps); break;
+			case KEK_NODE_CLASS_LIST_LAYOUT: KekListLayout_PrintTree((KekListLayout*)Node, NumIdentSteps); break;
+			case KEK_NODE_CLASS_GRID_LAYOUT: KekGridLayout_PrintTree((KekGridLayout*)Node, NumIdentSteps); break;
+			case KEK_NODE_CLASS_TOOL_BAR: KekToolBar_PrintTree((KekToolBar*)Node, NumIdentSteps); break;
+			case KEK_NODE_CLASS_IMAGE: KekImage_PrintTree((KekImage*)Node, NumIdentSteps); break;
+			case KEK_NODE_CLASS_BUTTON: KekButton_PrintTree((KekButton*)Node, NumIdentSteps); break;
+			case KEK_NODE_CLASS_SLIDER: KekSlider_PrintTree((KekSlider*)Node, NumIdentSteps); break;
+			case KEK_NODE_CLASS_VIEW_PORT: KekViewPort_PrintTree((KekViewPort*)Node, NumIdentSteps); break;
+			case KEK_NODE_CLASS_TEST: KekTest_PrintTree((KekTest*)Node, NumIdentSteps); break;
 			}
 		}
 	}
-	KekDockLayout* KekDockLayout_Alloc(KekDockLayout* DockLayout)
+	KekDockLayout* KekDockLayout_Alloc(KekDockLayout* DockLayout, KekNode* Node)
 	{
 		KekDockLayout* Layout = (KekDockLayout*)Memory_Alloc(sizeof(KekDockLayout), 0);
 
@@ -10997,90 +11343,417 @@ extern "C"
 
 		Layout->Type = KEK_DOCK_LAYOUT_TYPE_WINDOW;
 		Layout->ParentLayout = DockLayout;
-		Layout->FirstLayout = 0;
-		Layout->SecondLayout = 0;
-		Layout->Node = 0;
+		Layout->Node = Node;
+		Layout->BackgroundColor.R = Random_Real32Between(0.0F, 1.0F);
+		Layout->BackgroundColor.G = Random_Real32Between(0.0F, 1.0F);
+		Layout->BackgroundColor.B = Random_Real32Between(0.0F, 1.0F);
+		Layout->BackgroundColor.A = 1.0F;
+		Layout->TextColor.R = 1.0F;
+		Layout->TextColor.G = 1.0F;
+		Layout->TextColor.B = 1.0F;
+		Layout->TextColor.A = 1.0F;
+
+		List_InitHead(&Layout->ChildLayouts);
 
 		if (DockLayout)
 		{
-			KekRect_Copy(&Layout->Rect, &DockLayout->Rect);
+			Rect_Set(&DockLayout->Rect, &Layout->Rect);
+			Rect_Set(&DockLayout->Rect, &Node->Rect);
 		}
 
 		return Layout;
 	}
-	void KekDockLayout_InsertLeft(KekDockLayout* DockLayout, void* Node)
+	void KekDockLayout_SetRect(KekDockLayout* DockLayout, Rect const* Rect)
 	{
-		UNREFERENCED_PARAMETER(DockLayout);
-		UNREFERENCED_PARAMETER(Node);
-	}
-	void KekDockLayout_InsertRight(KekDockLayout* DockLayout, void* Node)
-	{
-		UNREFERENCED_PARAMETER(DockLayout);
-		UNREFERENCED_PARAMETER(Node);
-	}
-	void KekDockLayout_InsertTop(KekDockLayout* DockLayout, void* Node)
-	{
-		UNREFERENCED_PARAMETER(DockLayout);
-		UNREFERENCED_PARAMETER(Node);
-	}
-	void KekDockLayout_InsertBottom(KekDockLayout* DockLayout, void* Node)
-	{
-		UNREFERENCED_PARAMETER(DockLayout);
-		UNREFERENCED_PARAMETER(Node);
-	}
-	void KekDockLayout_Draw(KekDockLayout* DockLayout)
-	{
-		if (DockLayout)
-		{
-			KekDockLayout_Draw(DockLayout->FirstLayout);
-			KekDockLayout_Draw(DockLayout->SecondLayout);
+		Rect_Set(Rect, &DockLayout->Rect);
 
-			KekNode_Draw(DockLayout->Node);
+		if (DockLayout->Node)
+		{
+			Rect_Set(Rect, &DockLayout->Node->Rect);
 		}
 	}
-	void KekDockRoot_Alloc(KekDockRoot* DockRoot)
+	void KekDockLayout_SetPosition(KekDockLayout* DockLayout, float PositionX, float PositionY)
+	{
+		Rect_SetPosition(PositionX, PositionY, &DockLayout->Rect);
+
+		if (DockLayout->Node)
+		{
+			Rect_Set(&DockLayout->Rect, &DockLayout->Node->Rect);
+		}
+	}
+	void KekDockLayout_InsertLeft(KekDockLayout* DockLayout, KekNode* Node)
+	{
+		KekDockLayout* ChildLayout = KekDockLayout_Alloc(DockLayout, Node);
+
+		List_InsertTail(&DockLayout->ChildLayouts, &ChildLayout->LayoutEntry);
+
+		KekDockLayout_Resize(DockLayout);
+
+		long long unsigned NumChildLayouts = List_Num(&DockLayout->ChildLayouts);
+
+		if (NumChildLayouts >= 2)
+		{
+			DockLayout->Type = KEK_DOCK_LAYOUT_TYPE_HORIZONTAL;
+		}
+		else
+		{
+			DockLayout->Type = KEK_DOCK_LAYOUT_TYPE_WINDOW;
+		}
+	}
+	void KekDockLayout_InsertRight(KekDockLayout* DockLayout, KekNode* Node)
+	{
+		UNREFERENCED_PARAMETER(DockLayout);
+		UNREFERENCED_PARAMETER(Node);
+	}
+	void KekDockLayout_InsertTop(KekDockLayout* DockLayout, KekNode* Node)
+	{
+		UNREFERENCED_PARAMETER(DockLayout);
+		UNREFERENCED_PARAMETER(Node);
+	}
+	void KekDockLayout_InsertBottom(KekDockLayout* DockLayout, KekNode* Node)
+	{
+		UNREFERENCED_PARAMETER(DockLayout);
+		UNREFERENCED_PARAMETER(Node);
+	}
+	KekDockLayout* KekDockLayout_FindChildInsideBounds(KekDockLayout* DockLayout)
+	{
+		ListEntry* Entry = DockLayout->ChildLayouts.Next;
+		while (Entry != &DockLayout->ChildLayouts)
+		{
+			KekDockLayout* ChildLayout = (KekDockLayout*)Entry;
+
+			if (Rect_Overlap(&ChildLayout->Rect, (float)sMousePositionX, (float)sMousePositionY))
+			{
+				return KekDockLayout_FindChildInsideBounds(ChildLayout);
+			}
+
+			Entry = Entry->Next;
+		}
+
+		return DockLayout;
+	}
+	void KekDockLayout_Resize(KekDockLayout* DockLayout)
+	{
+		switch (DockLayout->Type)
+		{
+		case KEK_DOCK_LAYOUT_TYPE_WINDOW:
+		{
+			break;
+		}
+		case KEK_DOCK_LAYOUT_TYPE_HORIZONTAL:
+		{
+			long long unsigned NumChildLayouts = List_Num(&DockLayout->ChildLayouts);
+			float ChildWidth = Rect_Width(&DockLayout->Rect) / (float)NumChildLayouts;
+			float ChildOffsetX = DockLayout->Rect.Left;
+
+			ListEntry* Entry = DockLayout->ChildLayouts.Next;
+			while (Entry != &DockLayout->ChildLayouts)
+			{
+				KekDockLayout* ChildLayout = (KekDockLayout*)Entry;
+
+				Rect ChildRect = { 0 };
+				ChildRect.Left = ChildOffsetX;
+				ChildRect.Right = ChildOffsetX + ChildWidth;
+				ChildRect.Top = DockLayout->Rect.Top + sKekStyle.DockTabHeight;
+				ChildRect.Bottom = DockLayout->Rect.Bottom;
+
+				KekDockLayout_SetRect(ChildLayout, &ChildRect);
+
+				ChildOffsetX += ChildWidth;
+
+				Entry = Entry->Next;
+			}
+
+			break;
+		}
+		case KEK_DOCK_LAYOUT_TYPE_VERTICAL:
+		{
+			long long unsigned NumChildLayouts = List_Num(&DockLayout->ChildLayouts);
+			float ChildHeight = Rect_Width(&DockLayout->Rect) / (float)NumChildLayouts;
+			float ChildOffsetY = DockLayout->Rect.Top;
+
+			ListEntry* Entry = DockLayout->ChildLayouts.Next;
+			while (Entry != &DockLayout->ChildLayouts)
+			{
+				KekDockLayout* ChildLayout = (KekDockLayout*)Entry;
+
+				Rect ChildRect = { 0 };
+				ChildRect.Left = DockLayout->Rect.Left;
+				ChildRect.Right = DockLayout->Rect.Right;
+				ChildRect.Top = ChildOffsetY;
+				ChildRect.Bottom = ChildOffsetY + ChildHeight;
+
+				KekDockLayout_SetRect(ChildLayout, &ChildRect);
+
+				ChildOffsetY += ChildHeight;
+
+				Entry = Entry->Next;
+			}
+
+			break;
+		}
+		}
+	}
+	void KekDockLayout_Update(KekDockLayout* DockLayout)
+	{
+		if (!sCurrDragDockLayout)
+		{
+			ListEntry* Entry = DockLayout->ChildLayouts.Next;
+			while (Entry != &DockLayout->ChildLayouts)
+			{
+				KekDockLayout* ChildLayout = BASE_OF(Entry, KekDockLayout, LayoutEntry);
+
+				if (Window_IsMouseKeyPressed(MOUSE_KEY_LEFT))
+				{
+					if (Rect_Overlap(&ChildLayout->Rect, (float)sMousePositionX, (float)sMousePositionY))
+					{
+						sCurrDragDockLayout = ChildLayout;
+						sCurrDragOffsetX = (float)sMousePositionX - ChildLayout->Rect.Left;
+						sCurrDragOffsetY = (float)sMousePositionY - ChildLayout->Rect.Top;
+
+						List_Remove(Entry);
+
+						KekDockLayout_Resize(DockLayout);
+
+						break;
+					}
+				}
+
+				Entry = Entry->Next;
+			}
+		}
+	}
+	void KekDockLayout_Draw(KekDockLayout* DockLayout, KekBatchMode BatchMode)
+	{
+		if (BatchMode == KEK_BATCH_MODE_RECT)
+		{
+			Vector2 Position = { DockLayout->Rect.Left, DockLayout->Rect.Top };
+			Vector2 Size = { Rect_Width(&DockLayout->Rect), Rect_Height(&DockLayout->Rect) };
+
+			Batch_DrawScreenRect(&Position, 0.0F, &Size, &DockLayout->BackgroundColor);
+		}
+
+		ListEntry* Entry = DockLayout->ChildLayouts.Next;
+		while (Entry != &DockLayout->ChildLayouts)
+		{
+			KekDockLayout_Draw((KekDockLayout*)Entry, BatchMode);
+
+			Entry = Entry->Next;
+		}
+
+		KekDockLayout_DrawTabBar(DockLayout, BatchMode);
+
+		if (DockLayout->Node)
+		{
+			KekNode_Draw(DockLayout->Node, BatchMode);
+		}
+	}
+	void KekDockLayout_DrawTabBar(KekDockLayout* DockLayout, KekBatchMode BatchMode)
+	{
+		float TabOffsetX = DockLayout->Rect.Left;
+
+		ListEntry* Entry = DockLayout->ChildLayouts.Next;
+		while (Entry != &DockLayout->ChildLayouts)
+		{
+			KekDockLayout* ChildLayout = (KekDockLayout*)Entry;
+
+			if (BatchMode == KEK_BATCH_MODE_RECT)
+			{
+				Vector2 Position = { TabOffsetX, DockLayout->Rect.Top };
+				Vector2 Size = { sKekStyle.DockTabWidth, sKekStyle.DockTabHeight };
+
+				Batch_DrawScreenRect(&Position, 0.0F, &Size, &ChildLayout->BackgroundColor);
+			}
+
+			if (BatchMode == KEK_BATCH_MODE_TEXT)
+			{
+				Vector2 Position = { TabOffsetX, DockLayout->Rect.Top };
+
+				Text_DrawScreen(&Position, 0.0F, 20.0F, &ChildLayout->TextColor, "Name");
+			}
+
+			TabOffsetX += sKekStyle.DockTabWidth;
+
+			Entry = Entry->Next;
+		}
+	}
+	void KekDockLayout_PrintTree(KekDockLayout* DockLayout, int unsigned NumIdentSteps)
+	{
+		for (int unsigned IdentStep = 0; IdentStep < NumIdentSteps; IdentStep++)
+		{
+			printf("\t");
+		}
+
+		printf("DockLayout ");
+
+		switch (DockLayout->Type)
+		{
+		case KEK_DOCK_LAYOUT_TYPE_WINDOW: printf("WINDOW"); break;
+		case KEK_DOCK_LAYOUT_TYPE_HORIZONTAL: printf("HORIZONTAL"); break;
+		case KEK_DOCK_LAYOUT_TYPE_VERTICAL: printf("VERTICAL"); break;
+		}
+
+		printf("\n");
+
+		if (DockLayout->Node)
+		{
+			KekNode_PrintTree(DockLayout->Node, NumIdentSteps + 1);
+		}
+
+		ListEntry* Entry = DockLayout->ChildLayouts.Next;
+		while (Entry != &DockLayout->ChildLayouts)
+		{
+			KekDockLayout_PrintTree((KekDockLayout*)Entry, NumIdentSteps + 1);
+
+			Entry = Entry->Next;
+		}
+	}
+	void KekDockRoot_Alloc(KekDockRoot* DockRoot, Rect const* Rect)
 	{
 		memset(DockRoot, 0, sizeof(KekDockRoot));
 
-		DockRoot->RootLayout = KekDockLayout_Alloc(0);
-		DockRoot->CurrLayout = DockRoot->RootLayout;
-		DockRoot->Base.Class = KEK_NODE_CLASS_DOCK_ROOT;
+		KekDockLayout* BaseLayout = KekDockLayout_Alloc(0, 0);
+
+		Rect_Set(Rect, &BaseLayout->Rect);
+		Rect_Set(Rect, &DockRoot->Node.Rect);
+
+		List_InitHead(&DockRoot->ChildLayouts);
+		List_InsertTail(&DockRoot->ChildLayouts, &BaseLayout->LayoutEntry);
+
+		DockRoot->Node.Class = KEK_NODE_CLASS_DOCK_ROOT;
 	}
-	void KekDockRoot_InsertLeft(KekDockRoot* DockRoot, void* Node)
+	void KekDockRoot_InsertLeft(KekDockRoot* DockRoot, KekNode* Node)
 	{
-		KekDockLayout_InsertLeft(DockRoot->CurrLayout, Node);
+		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
+
+		KekDockLayout_InsertLeft(BaseLayout, Node);
 	}
-	void KekDockRoot_InsertRight(KekDockRoot* DockRoot, void* Node)
+	void KekDockRoot_InsertRight(KekDockRoot* DockRoot, KekNode* Node)
 	{
-		KekDockLayout_InsertRight(DockRoot->CurrLayout, Node);
+		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
+
+		KekDockLayout_InsertRight(BaseLayout, Node);
 	}
-	void KekDockRoot_InsertTop(KekDockRoot* DockRoot, void* Node)
+	void KekDockRoot_InsertTop(KekDockRoot* DockRoot, KekNode* Node)
 	{
-		KekDockLayout_InsertTop(DockRoot->CurrLayout, Node);
+		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
+
+		KekDockLayout_InsertTop(BaseLayout, Node);
 	}
-	void KekDockRoot_InsertBottom(KekDockRoot* DockRoot, void* Node)
+	void KekDockRoot_InsertBottom(KekDockRoot* DockRoot, KekNode* Node)
 	{
-		KekDockLayout_InsertBottom(DockRoot->CurrLayout, Node);
+		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
+
+		KekDockLayout_InsertBottom(BaseLayout, Node);
 	}
-	void KekDockRoot_Draw(KekDockRoot* DockRoot)
+	void KekDockRoot_Resize(KekDockRoot* DockRoot)
 	{
-		KekDockLayout_Draw(DockRoot->RootLayout);
+		UNREFERENCED_PARAMETER(DockRoot);
+	}
+	void KekDockRoot_Update(KekDockRoot* DockRoot)
+	{
+		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
+
+		KekDockLayout_Update(BaseLayout);
+
+		KekDockLayout* OverlappedLayout = KekDockLayout_FindChildInsideBounds(BaseLayout);
+		//long long unsigned NumChildLayouts = List_Num(&OverlappedLayout->ChildLayouts);
+
+		if (sCurrDragDockLayout)
+		{
+			if (Window_IsMouseKeyHeld(MOUSE_KEY_LEFT))
+			{
+				KekDockLayout_SetPosition(sCurrDragDockLayout, (float)sMousePositionX - sCurrDragOffsetX, (float)sMousePositionY - sCurrDragOffsetY);
+
+				if (OverlappedLayout)
+				{
+					ListEntry* Entry = OverlappedLayout->ChildLayouts.Next;
+					while (Entry != &OverlappedLayout->ChildLayouts)
+					{
+						KekDockLayout* CurrLayout = (KekDockLayout*)Entry;
+						KekDockLayout* NextLayout = (KekDockLayout*)Entry->Next;
+
+						float HalfWidth = Rect_Width(&CurrLayout->Rect) / 2.0F;
+						float LeftEdge = CurrLayout->Rect.Right + HalfWidth;
+						float RightEdge = NextLayout->Rect.Right + HalfWidth;
+
+						if (((float)sMousePositionX >= LeftEdge) && ((float)sMousePositionX < RightEdge))
+						{
+							//if (!OverlappedLayout->HasGhostLayout)
+							//{
+							//	OverlappedLayout->HasGhostLayout = true;
+							//
+							//	List_InsertAfter(&CurrLayout->LayoutEntry, &sCurrDragDockLayout->LayoutEntry);
+							//}
+						}
+
+						Entry = Entry->Next;
+					}
+				}
+			}
+			else if (Window_IsMouseKeyReleased(MOUSE_KEY_LEFT))
+			{
+				List_InsertTail(&sCurrDragDockLayout->ParentLayout->ChildLayouts, &sCurrDragDockLayout->LayoutEntry);
+
+				//KekDockLayout_Resize(sCurrDragDockLayout->ParentLayout);
+
+				sCurrDragDockLayout = 0;
+			}
+		}
+	}
+	void KekDockRoot_Draw(KekDockRoot* DockRoot, KekBatchMode BatchMode)
+	{
+		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
+
+		KekDockLayout_Draw(BaseLayout, BatchMode);
+
+		if (sCurrDragDockLayout)
+		{
+			KekDockLayout_Draw(sCurrDragDockLayout, BatchMode);
+		}
 	}
 	void KekDockRoot_Free(KekDockRoot* DockRoot)
 	{
 		UNREFERENCED_PARAMETER(DockRoot);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+		//KekDockLayout* CurrLayout = DockRoot->RootLayout;
+		//
+		//if (CurrLayout)
+		//{
+		//	CurrLayout = CurrLayout->FirstChild;
+		//	CurrLayout = CurrLayout->SecondChild;
+		//}
 	}
-	void KekListLayout_Alloc(KekListLayout* ListLayout)
+	void KekDockRoot_PrintTree(KekDockRoot* DockRoot, int unsigned NumIdentSteps)
+	{
+		printf("DockRoot\n");
+
+		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
+
+		KekDockLayout_PrintTree(BaseLayout, NumIdentSteps + 1);
+	}
+	void KekListLayout_Alloc(KekListLayout* ListLayout, Rect const* Rect)
 	{
 		memset(ListLayout, 0, sizeof(KekListLayout));
 
-		ListLayout->Base.Class = KEK_NODE_CLASS_LIST_LAYOUT;
+		ListLayout->Node.Class = KEK_NODE_CLASS_LIST_LAYOUT;
+
+		Rect_Set(Rect, &ListLayout->Node.Rect);
 	}
-	void KekListLayout_Draw(KekListLayout* ListLayout)
+	void KekListLayout_Update(KekListLayout* ListLayout)
 	{
 		UNREFERENCED_PARAMETER(ListLayout);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekListLayout_Resize(KekListLayout* ListLayout)
+	{
+		UNREFERENCED_PARAMETER(ListLayout);
+	}
+	void KekListLayout_Draw(KekListLayout* ListLayout, KekBatchMode BatchMode)
+	{
+		UNREFERENCED_PARAMETER(ListLayout);
+		UNREFERENCED_PARAMETER(BatchMode);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11090,15 +11763,35 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekGridLayout_Alloc(KekGridLayout* GridLayout)
+	void KekListLayout_PrintTree(KekListLayout* ListLayout, int unsigned NumIdentSteps)
+	{
+		UNREFERENCED_PARAMETER(ListLayout);
+		UNREFERENCED_PARAMETER(NumIdentSteps);
+
+		printf("ListLayout\n");
+	}
+	void KekGridLayout_Alloc(KekGridLayout* GridLayout, Rect const* Rect)
 	{
 		memset(GridLayout, 0, sizeof(KekGridLayout));
 
-		GridLayout->Base.Class = KEK_NODE_CLASS_GRID_LAYOUT;
+		GridLayout->Node.Class = KEK_NODE_CLASS_GRID_LAYOUT;
+
+		Rect_Set(Rect, &GridLayout->Node.Rect);
 	}
-	void KekGridLayout_Draw(KekGridLayout* GridLayout)
+	void KekGridLayout_Resize(KekGridLayout* GridLayout)
 	{
 		UNREFERENCED_PARAMETER(GridLayout);
+	}
+	void KekGridLayout_Update(KekGridLayout* GridLayout)
+	{
+		UNREFERENCED_PARAMETER(GridLayout);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekGridLayout_Draw(KekGridLayout* GridLayout, KekBatchMode BatchMode)
+	{
+		UNREFERENCED_PARAMETER(GridLayout);
+		UNREFERENCED_PARAMETER(BatchMode);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11108,15 +11801,31 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekToolBar_Alloc(KekToolBar* ToolBar)
+	void KekGridLayout_PrintTree(KekGridLayout* GridLayout, int unsigned NumIdentSteps)
+	{
+		UNREFERENCED_PARAMETER(GridLayout);
+		UNREFERENCED_PARAMETER(NumIdentSteps);
+
+		printf("GridLayout\n");
+	}
+	void KekToolBar_Alloc(KekToolBar* ToolBar, Rect const* Rect)
 	{
 		memset(ToolBar, 0, sizeof(KekToolBar));
 
-		ToolBar->Base.Class = KEK_NODE_CLASS_TOOL_BAR;
+		ToolBar->Node.Class = KEK_NODE_CLASS_TOOL_BAR;
+
+		Rect_Set(Rect, &ToolBar->Node.Rect);
 	}
-	void KekToolBar_Draw(KekToolBar* ToolBar)
+	void KekToolBar_Update(KekToolBar* ToolBar)
 	{
 		UNREFERENCED_PARAMETER(ToolBar);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekToolBar_Draw(KekToolBar* ToolBar, KekBatchMode BatchMode)
+	{
+		UNREFERENCED_PARAMETER(ToolBar);
+		UNREFERENCED_PARAMETER(BatchMode);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11126,15 +11835,31 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekImage_Alloc(KekImage* Image)
+	void KekToolBar_PrintTree(KekToolBar* ToolBar, int unsigned NumIdentSteps)
+	{
+		UNREFERENCED_PARAMETER(ToolBar);
+		UNREFERENCED_PARAMETER(NumIdentSteps);
+
+		printf("ToolBar\n");
+	}
+	void KekImage_Alloc(KekImage* Image, Rect const* Rect)
 	{
 		memset(Image, 0, sizeof(KekImage));
 
-		Image->Base.Class = KEK_NODE_CLASS_IMAGE;
+		Image->Node.Class = KEK_NODE_CLASS_IMAGE;
+
+		Rect_Set(Rect, &Image->Node.Rect);
 	}
-	void KekImage_Draw(KekImage* Image)
+	void KekImage_Update(KekImage* Image)
 	{
 		UNREFERENCED_PARAMETER(Image);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekImage_Draw(KekImage* Image, KekBatchMode BatchMode)
+	{
+		UNREFERENCED_PARAMETER(Image);
+		UNREFERENCED_PARAMETER(BatchMode);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11144,18 +11869,33 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekButton_Alloc(KekButton* Button)
+	void KekImage_PrintTree(KekImage* Image, int unsigned NumIdentSteps)
+	{
+		UNREFERENCED_PARAMETER(Image);
+		UNREFERENCED_PARAMETER(NumIdentSteps);
+
+		printf("Image\n");
+	}
+	void KekButton_Alloc(KekButton* Button, Rect const* Rect)
 	{
 		memset(Button, 0, sizeof(KekButton));
 
-		Button->Base.Class = KEK_NODE_CLASS_BUTTON;
+		Button->Node.Class = KEK_NODE_CLASS_BUTTON;
+
+		Rect_Set(Rect, &Button->Node.Rect);
 	}
-	void KekButton_Draw(KekButton* Button)
+	void KekButton_Update(KekButton* Button)
 	{
 		UNREFERENCED_PARAMETER(Button);
 
-		//Gizmo_BeginQuads();
-		//Gizmo_EndQuads();
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekButton_Draw(KekButton* Button, KekBatchMode BatchMode)
+	{
+		UNREFERENCED_PARAMETER(Button);
+		UNREFERENCED_PARAMETER(BatchMode);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
 	void KekButton_Free(KekButton* Button)
 	{
@@ -11163,15 +11903,31 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekSlider_Alloc(KekSlider* Slider)
+	void KekButton_PrintTree(KekButton* Button, int unsigned NumIdentSteps)
+	{
+		UNREFERENCED_PARAMETER(Button);
+		UNREFERENCED_PARAMETER(NumIdentSteps);
+
+		printf("Button\n");
+	}
+	void KekSlider_Alloc(KekSlider* Slider, Rect const* Rect)
 	{
 		memset(Slider, 0, sizeof(KekSlider));
 
-		Slider->Base.Class = KEK_NODE_CLASS_SLIDER;
+		Slider->Node.Class = KEK_NODE_CLASS_SLIDER;
+
+		Rect_Set(Rect, &Slider->Node.Rect);
 	}
-	void KekSlider_Draw(KekSlider* Slider)
+	void KekSlider_Update(KekSlider* Slider)
 	{
 		UNREFERENCED_PARAMETER(Slider);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekSlider_Draw(KekSlider* Slider, KekBatchMode BatchMode)
+	{
+		UNREFERENCED_PARAMETER(Slider);
+		UNREFERENCED_PARAMETER(BatchMode);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11181,15 +11937,31 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekViewPort_Alloc(KekViewPort* ViewPort)
+	void KekSlider_PrintTree(KekSlider* Slider, int unsigned NumIdentSteps)
+	{
+		UNREFERENCED_PARAMETER(Slider);
+		UNREFERENCED_PARAMETER(NumIdentSteps);
+
+		printf("Slider\n");
+	}
+	void KekViewPort_Alloc(KekViewPort* ViewPort, Rect const* Rect)
 	{
 		memset(ViewPort, 0, sizeof(KekViewPort));
 
-		ViewPort->Base.Class = KEK_NODE_CLASS_VIEW_PORT;
+		ViewPort->Node.Class = KEK_NODE_CLASS_VIEW_PORT;
+
+		Rect_Set(Rect, &ViewPort->Node.Rect);
 	}
-	void KekViewPort_Draw(KekViewPort* ViewPort)
+	void KekViewPort_Update(KekViewPort* ViewPort)
 	{
 		UNREFERENCED_PARAMETER(ViewPort);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekViewPort_Draw(KekViewPort* ViewPort, KekBatchMode BatchMode)
+	{
+		UNREFERENCED_PARAMETER(ViewPort);
+		UNREFERENCED_PARAMETER(BatchMode);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11198,6 +11970,47 @@ extern "C"
 		UNREFERENCED_PARAMETER(ViewPort);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekViewPort_PrintTree(KekViewPort* ViewPort, int unsigned NumIdentSteps)
+	{
+		UNREFERENCED_PARAMETER(ViewPort);
+		UNREFERENCED_PARAMETER(NumIdentSteps);
+
+		printf("ViewPort\n");
+	}
+	void KekTest_Alloc(KekTest* Test, Rect const* Rect)
+	{
+		memset(Test, 0, sizeof(KekTest));
+
+		Test->Node.Class = KEK_NODE_CLASS_TEST;
+
+		Rect_Set(Rect, &Test->Node.Rect);
+	}
+	void KekTest_Update(KekTest* Test)
+	{
+		UNREFERENCED_PARAMETER(Test);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekTest_Draw(KekTest* Test, KekBatchMode BatchMode)
+	{
+		UNREFERENCED_PARAMETER(Test);
+		UNREFERENCED_PARAMETER(BatchMode);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekTest_Free(KekTest* Test)
+	{
+		UNREFERENCED_PARAMETER(Test);
+
+#pragma message("FAST_GL_NO_IMPLEMENTATION")
+	}
+	void KekTest_PrintTree(KekTest* Test, int unsigned NumIdentSteps)
+	{
+		UNREFERENCED_PARAMETER(Test);
+		UNREFERENCED_PARAMETER(NumIdentSteps);
+
+		printf("Test\n");
 	}
 #endif // FAST_GL_IMPLEMENTATION
 
@@ -11258,10 +12071,10 @@ extern "C"
 		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
 
 		Shader_Bind(sHistogramProgram);
-		Shader_SetUniformVector2(sHistogramProgram, "ScreenSize", ScreenSize);
-		Shader_SetUniformVector2(sHistogramProgram, "Position", Position);
+		Shader_SetUniformVector2(sHistogramProgram, "ScreenSize", &ScreenSize);
+		Shader_SetUniformVector2(sHistogramProgram, "Position", &Position);
 		Shader_SetUniformReal32(sHistogramProgram, "Rotation", Rotation);
-		Shader_SetUniformVector2(sHistogramProgram, "Size", Size);
+		Shader_SetUniformVector2(sHistogramProgram, "Size", &Size);
 		Shader_SetUniformUInt32(sHistogramProgram, "NumSamples", Histgrm->NumSamples);
 		Shader_SetUniformUInt32(sHistogramProgram, "CurrIndex", Histgrm->SampleIndex);
 		Shader_SetUniformUInt32(sHistogramProgram, "Scale", Histgrm->Scale);
@@ -11276,9 +12089,9 @@ extern "C"
 		float LineHeight = Font_LineHeight(&sDefaultFont) * 10.0F;
 
 		Text_BeginScreen(&sDefaultFont);
-		Text_DrawScreenSimple(Position[0] + Size[0] + 10.0F, Position[1], 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, Histgrm->Name);
-		Text_DrawScreenSimple(Position[0] + Size[0] + 10.0F, Position[1] + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Max %u", Histgrm->Scale);
-		Text_DrawScreenSimple(Position[0] + Size[0] + 10.0F, Position[1] + LineHeight + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Avg %u", Histgrm->AvgDelta);
+		Text_DrawScreenSimple(Position.X + Size.X + 10.0F, Position.Y, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, Histgrm->Name);
+		Text_DrawScreenSimple(Position.X + Size.X + 10.0F, Position.Y + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Max %u", Histgrm->Scale);
+		Text_DrawScreenSimple(Position.X + Size.X + 10.0F, Position.Y + LineHeight + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Avg %u", Histgrm->AvgDelta);
 		Text_EndScreen();
 
 		if (Histgrm->DisplayIntervalAcc > 1.0F)
@@ -11296,10 +12109,10 @@ extern "C"
 		Vector2 Size = { Width, Height };
 
 		Shader_Bind(sHistogramProgram);
-		Shader_SetUniformVector2(sHistogramProgram, "ScreenSize", ScreenSize);
-		Shader_SetUniformVector2(sHistogramProgram, "Position", Position);
+		Shader_SetUniformVector2(sHistogramProgram, "ScreenSize", &ScreenSize);
+		Shader_SetUniformVector2(sHistogramProgram, "Position", &Position);
 		Shader_SetUniformReal32(sHistogramProgram, "Rotation", Rotation);
-		Shader_SetUniformVector2(sHistogramProgram, "Size", Size);
+		Shader_SetUniformVector2(sHistogramProgram, "Size", &Size);
 		Shader_SetUniformUInt32(sHistogramProgram, "NumSamples", Histgrm->NumSamples);
 		Shader_SetUniformUInt32(sHistogramProgram, "CurrIndex", Histgrm->SampleIndex);
 		Shader_SetUniformUInt32(sHistogramProgram, "Scale", Histgrm->Scale);
@@ -11359,7 +12172,7 @@ extern "C"
 			0,
 			sWindowClassName,
 			WindowTitle,
-			WS_POPUP,
+			WS_OVERLAPPEDWINDOW,
 			CW_USEDEFAULT,
 			CW_USEDEFAULT,
 			(int)Width,
@@ -11467,11 +12280,11 @@ extern "C"
 
 		Shader_VertexFragmentAlloc(&sWorldCircleProgram, sWorldCircleVertexShader, sWorldCircleFragmentShader);
 		Shader_VertexGeometryFragmentAlloc(&sWorldLineProgram, sWorldLineVertexShader, sWorldLineGeometryShader, sWorldLineFragmentShader);
-		Shader_VertexFragmentAlloc(&sWorldRectangleProgram, sWorldRectangleVertexShader, sWorldRectangleFragmentShader);
+		Shader_VertexFragmentAlloc(&sWorldRectProgram, sWorldRectVertexShader, sWorldRectFragmentShader);
 
 		Shader_VertexFragmentAlloc(&sScreenCircleProgram, sScreenCircleVertexShader, sScreenCircleFragmentShader);
 		Shader_VertexGeometryFragmentAlloc(&sScreenLineProgram, sScreenLineVertexShader, sScreenLineGeometryShader, sScreenLineFragmentShader);
-		Shader_VertexFragmentAlloc(&sScreenRectangleProgram, sScreenRectangleVertexShader, sScreenRectangleFragmentShader);
+		Shader_VertexFragmentAlloc(&sScreenRectProgram, sScreenRectVertexShader, sScreenRectFragmentShader);
 
 		Shader_VertexFragmentAlloc(&sWorldFontProgram, sWorldFontVertexShader, sWorldFontFragmentShader);
 		Shader_VertexFragmentAlloc(&sScreenFontProgram, sScreenFontVertexShader, sScreenFontFragmentShader);
@@ -11575,11 +12388,11 @@ extern "C"
 
 		Shader_Free(sWorldCircleProgram);
 		Shader_Free(sWorldLineProgram);
-		Shader_Free(sWorldRectangleProgram);
+		Shader_Free(sWorldRectProgram);
 
 		Shader_Free(sScreenCircleProgram);
 		Shader_Free(sScreenLineProgram);
-		Shader_Free(sScreenRectangleProgram);
+		Shader_Free(sScreenRectProgram);
 
 		Shader_Free(sWorldFontProgram);
 		Shader_Free(sScreenFontProgram);
@@ -11601,6 +12414,7 @@ extern "C"
 		assert(sAllocatedPrograms == 0);
 		assert(sAllocatedVertexArrays == 0);
 		assert(sAllocatedBuffers == 0);
+		assert(sAllocatedBatches == 0);
 		assert(sAllocatedFonts == 0);
 		assert(sAllocatedTextCaches == 0);
 		assert(sAllocatedTexture2Ds == 0);
