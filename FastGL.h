@@ -75,14 +75,6 @@ extern "C"
 #define FAST_GL_REFERENCE_COUNT
 #endif // _DEBUG
 
-#define FAST_GL_VECTOR_INITIAL_CAPACITY (16ULL)
-
-#define FAST_GL_HASH_MAP_INITIAL_CAPACITY (128ULL)
-#define FAST_GL_HASH_MAP_INITIAL_HASH (5381ULL)
-#define FAST_GL_HASH_MAP_LOAD_FACTOR (0.75F)
-
-#define FAST_GL_TEXT_FMT_BUFFER_SIZE (0x1000ULL)
-
 	///////////////////////////////////////////////////////////////
 	// Global Utility Macros
 	///////////////////////////////////////////////////////////////
@@ -251,10 +243,11 @@ extern "C"
 
 #define GLSL_SCREEN_SPACE_IMPLEMENTATION \
 	GLSL_BEGIN_INCLUDE_GUARD(GLSL_SCREEN_SPACE_IMPLEMENTATION) \
-	"vec4 ScreenToClipSpace(vec2 ScreenPosition, vec2 ScreenSize) {" \
+	"vec4 ScreenToClipSpace(vec3 ScreenPosition, vec2 ScreenSize) {" \
 	"	float NdcX = (2.0F * ScreenPosition.x) / ScreenSize.x - 1.0F;" \
 	"	float NdcY = (2.0F * (ScreenSize.y - ScreenPosition.y)) / ScreenSize.y - 1.0F;" \
-	"	return vec4(NdcX, NdcY, 0.0F, 1.0F);" \
+	"	float NdcZ = ScreenPosition.z;" \
+	"	return vec4(NdcX, NdcY, NdcZ, 1.0F);" \
 	"}" \
 	GLSL_END_INCLUDE_GUARD(GLSL_SCREEN_SPACE_IMPLEMENTATION)
 
@@ -1618,6 +1611,8 @@ extern "C"
 	extern void Rect_SetSimple(float Left, float Right, float Top, float Bottom, Rect* Result);
 	extern void Rect_SetPosition(float PositionX, float PositionY, Rect* Result);
 	extern void Rect_SetSize(float SizeX, float SizeY, Rect* Result);
+	extern float Rect_PositionX(Rect const* Value);
+	extern float Rect_PositionZ(Rect const* Value);
 	extern float Rect_Width(Rect const* Value);
 	extern float Rect_Height(Rect const* Value);
 	extern bool Rect_Overlap(Rect const* Value, float PositionX, float PositionY);
@@ -1652,6 +1647,9 @@ extern "C"
 	// List Definition
 	///////////////////////////////////////////////////////////////
 
+#define LIST_FIRST_ENTRY(LIST) ((LIST).Next)
+#define LIST_LAST_ENTRY(LIST) ((LIST).Prev)
+
 	typedef struct _ListEntry
 	{
 		struct _ListEntry* Next;
@@ -1670,6 +1668,10 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 	// Vector Definition
 	///////////////////////////////////////////////////////////////
+
+#ifndef FAST_GL_VECTOR_INITIAL_CAPACITY
+#define FAST_GL_VECTOR_INITIAL_CAPACITY (16ULL)
+#endif // FAST_GL_VECTOR_INITIAL_CAPACITY
 
 	typedef struct _Vector
 	{
@@ -1704,6 +1706,18 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 	// HashMap Definition
 	///////////////////////////////////////////////////////////////
+
+#ifndef FAST_GL_HASH_MAP_INITIAL_CAPACITY
+#define FAST_GL_HASH_MAP_INITIAL_CAPACITY (128ULL)
+#endif // FAST_GL_HASH_MAP_INITIAL_CAPACITY
+
+#ifndef FAST_GL_HASH_MAP_INITIAL_HASH
+#define FAST_GL_HASH_MAP_INITIAL_HASH (5381ULL)
+#endif // FAST_GL_HASH_MAP_INITIAL_HASH
+
+#ifndef FAST_GL_HASH_MAP_LOAD_FACTOR
+#define FAST_GL_HASH_MAP_LOAD_FACTOR (0.75F)
+#endif // FAST_GL_HASH_MAP_LOAD_FACTOR
 
 	typedef struct _HashMapPair
 	{
@@ -2079,7 +2093,7 @@ extern "C"
 	} BatchScreenCircleVertex;
 	typedef struct _BatchScreenLineVertex
 	{
-		Vector2 Position;
+		Vector3 Position;
 		float Rotation;
 		float Thickness;
 		Color4 Color;
@@ -2105,14 +2119,14 @@ extern "C"
 	} BatchWorldRectInstanceEntry;
 	typedef struct _BatchScreenCircleInstanceEntry
 	{
-		Vector2 Position;
+		Vector3 Position;
 		float Rotation;
 		float Radius;
 		Color4 Color;
 	} BatchScreenCircleInstanceEntry;
 	typedef struct _BatchScreenRectInstanceEntry
 	{
-		Vector2 Position;
+		Vector3 Position;
 		float Rotation;
 		Vector2 Size;
 		Color4 Color;
@@ -2168,10 +2182,10 @@ extern "C"
 	extern void Batch_EndWorldCircles(Matrix4x4 const* Projection, Matrix4x4 const* View);
 
 	extern void Batch_BeginScreenCircles(Batch* Bat);
-	extern void Batch_DrawScreenCircle(Vector2 const* Position, float Rotation, float Radius, Color4 const* Color);
-	extern void Batch_DrawScreenCircleSimple(float PositionX, float PositionY, float Rotation, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Batch_DrawScreenCircleGrid(Vector2 const* Position, float Rotation, int unsigned Num, float Scale, float Radius, Color4 const* Color);
-	extern void Batch_DrawScreenCircleGridSimple(float PositionX, float PositionY, float Rotation, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_DrawScreenCircle(Vector3 const* Position, float Rotation, float Radius, Color4 const* Color);
+	extern void Batch_DrawScreenCircleSimple(float PositionX, float PositionY, float PositionZ, float Rotation, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_DrawScreenCircleGrid(Vector3 const* Position, float Rotation, int unsigned Num, float Scale, float Radius, Color4 const* Color);
+	extern void Batch_DrawScreenCircleGridSimple(float PositionX, float PositionY, float PositionZ, float Rotation, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA);
 	extern void Batch_EndScreenCircles(void);
 
 	extern void Batch_BeginWorldLines(Batch* Bat);
@@ -2182,10 +2196,10 @@ extern "C"
 	extern void Batch_EndWorldLines(Matrix4x4 const* Projection, Matrix4x4 const* View);
 
 	extern void Batch_BeginScreenLines(Batch* Bat);
-	extern void Batch_DrawScreenLine(Vector2 const* From, Vector2 const* To, float Rotation, float Thickness, Color4 const* Color);
-	extern void Batch_DrawScreenLineSimple(float FromX, float FromY, float ToX, float ToY, float Rotation, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
-	extern void Batch_DrawScreenLineGrid(Vector2 const* Position, float Rotation, int unsigned Num, float Scale, float Thickness, Color4 const* Color);
-	extern void Batch_DrawScreenLineGridSimple(float PositionX, float PositionY, float Rotation, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_DrawScreenLine(Vector3 const* From, Vector3 const* To, float Rotation, float Thickness, Color4 const* Color);
+	extern void Batch_DrawScreenLineSimple(float FromX, float FromY, float FromZ, float ToX, float ToY, float ToZ, float Rotation, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_DrawScreenLineGrid(Vector3 const* Position, float Rotation, int unsigned Num, float Scale, float Thickness, Color4 const* Color);
+	extern void Batch_DrawScreenLineGridSimple(float PositionX, float PositionY, float PositionZ, float Rotation, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA);
 	extern void Batch_EndScreenLines(void);
 
 	extern void Batch_BeginWorldRects(Batch* Bat);
@@ -2194,8 +2208,8 @@ extern "C"
 	extern void Batch_EndWorldRects(Matrix4x4 const* Projection, Matrix4x4 const* View);
 
 	extern void Batch_BeginScreenRects(Batch* Bat);
-	extern void Batch_DrawScreenRect(Vector2 const* Position, float Rotation, Vector2 const* Size, Color4 const* Color);
-	extern void Batch_DrawScreenRectSimple(float PositionX, float PositionY, float Rotation, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA);
+	extern void Batch_DrawScreenRect(Vector3 const* Position, float Rotation, Vector2 const* Size, Color4 const* Color);
+	extern void Batch_DrawScreenRectSimple(float PositionX, float PositionY, float PositionZ, float Rotation, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA);
 	extern void Batch_EndScreenRects(void);
 
 #ifdef FAST_GL_IMPLEMENTATION
@@ -2361,7 +2375,7 @@ extern "C"
 		GLSL_GL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
-		"layout (location = 2) in vec2 InstancePosition;"
+		"layout (location = 2) in vec3 InstancePosition;"
 		"layout (location = 3) in float InstanceRotation;"
 		"layout (location = 4) in float InstanceRadius;"
 		"layout (location = 5) in vec4 InstanceColor;"
@@ -2377,7 +2391,7 @@ extern "C"
 		"void main() {"
 		"	float Roll = radians(InstanceRotation);"
 		"	vec2 RotatedScreenPosition = RotateVector2D(VertexPosition * InstanceRadius, Roll);"
-		"	vec2 ScreenPosition = InstancePosition + RotatedScreenPosition;"
+		"	vec3 ScreenPosition = InstancePosition + vec3(RotatedScreenPosition, 0.0);"
 		"	gl_Position = ScreenToClipSpace(ScreenPosition, ScreenSize);"
 		"	VertexOutput.Position = RotatedScreenPosition;"
 		"	VertexOutput.TextureCoords = VertexTextureCoords;"
@@ -2399,7 +2413,7 @@ extern "C"
 		"}";
 	static char const sScreenLineVertexShader[] =
 		GLSL_GL_VERSION
-		"layout (location = 0) in vec2 VertexPosition;"
+		"layout (location = 0) in vec3 VertexPosition;"
 		"layout (location = 1) in float VertexRotation;"
 		"layout (location = 2) in float VertexThickness;"
 		"layout (location = 3) in vec4 VertexColor;"
@@ -2409,7 +2423,7 @@ extern "C"
 		"	vec4 Color;"
 		"} VertexOutput;"
 		"void main() {"
-		"	gl_Position = vec4(VertexPosition, 0.0, 1.0);"
+		"	gl_Position = vec4(VertexPosition, 1.0);"
 		"	VertexOutput.Rotation = VertexRotation;"
 		"	VertexOutput.Thickness = VertexThickness;"
 		"	VertexOutput.Color = VertexColor;"
@@ -2431,23 +2445,27 @@ extern "C"
 		GLSL_SCREEN_SPACE_IMPLEMENTATION
 		GLSL_ROTATION_IMPLEMENTATION
 		"void main() {"
-		"	vec2 PositionStart = gl_in[0].gl_Position.xy;"
-		"	vec2 PositionEnd = gl_in[1].gl_Position.xy;"
-		"	vec2 CurrDir = normalize(PositionEnd - PositionStart);"
-		"	vec2 DirectionOffset = vec2(normalize(cross(vec3(CurrDir, 0.0), vec3(0.0, 0.0, 1.0))) * GeometryInput[0].Thickness);"
+		"	vec3 PositionStart = gl_in[0].gl_Position.xyz;"
+		"	vec3 PositionEnd = gl_in[1].gl_Position.xyz;"
+		"	vec3 CurrDir = normalize(PositionEnd - PositionStart);"
+		"	vec2 DirectionOffset = vec2(normalize(cross(CurrDir, vec3(0.0, 0.0, 1.0))) * GeometryInput[0].Thickness);"
 		"	float Roll = radians(GeometryInput[0].Rotation);"
-		"	vec2 P0 = RotateVector2D((PositionStart - CurrDir * GeometryInput[0].Thickness) + DirectionOffset, Roll);"
-		"	vec2 P1 = RotateVector2D((PositionStart - CurrDir * GeometryInput[0].Thickness) - DirectionOffset, Roll);"
-		"	vec2 P2 = RotateVector2D((PositionEnd + CurrDir * GeometryInput[0].Thickness) + DirectionOffset, Roll);"
-		"	vec2 P3 = RotateVector2D((PositionEnd + CurrDir * GeometryInput[0].Thickness) - DirectionOffset, Roll);"
+		"	vec2 O0 = (PositionStart.xy - CurrDir.xy * GeometryInput[0].Thickness) + DirectionOffset;"
+		"	vec2 O1 = (PositionStart.xy - CurrDir.xy * GeometryInput[0].Thickness) - DirectionOffset;"
+		"	vec2 O2 = (PositionEnd.xy + CurrDir.xy * GeometryInput[0].Thickness) + DirectionOffset;"
+		"	vec2 O3 = (PositionEnd.xy + CurrDir.xy * GeometryInput[0].Thickness) - DirectionOffset;"
+		"	vec2 V0 = RotateVector2D(O0, Roll);"
+		"	vec2 V1 = RotateVector2D(O1, Roll);"
+		"	vec2 V2 = RotateVector2D(O2, Roll);"
+		"	vec2 V3 = RotateVector2D(O3, Roll);"
 		"	GeometryOutput.Color = GeometryInput[0].Color;"
-		"	gl_Position = ScreenToClipSpace(P0, ScreenSize);"
+		"	gl_Position = ScreenToClipSpace(vec3(V0 + O0, PositionStart.z), ScreenSize);"
 		"	EmitVertex();"
-		"	gl_Position = ScreenToClipSpace(P1, ScreenSize);"
+		"	gl_Position = ScreenToClipSpace(vec3(V1 + O1, PositionStart.z), ScreenSize);"
 		"	EmitVertex();"
-		"	gl_Position = ScreenToClipSpace(P2, ScreenSize);"
+		"	gl_Position = ScreenToClipSpace(vec3(V2 + O2, PositionEnd.z), ScreenSize);"
 		"	EmitVertex();"
-		"	gl_Position = ScreenToClipSpace(P3, ScreenSize);"
+		"	gl_Position = ScreenToClipSpace(vec3(V3 + O3, PositionEnd.z), ScreenSize);"
 		"	EmitVertex();"
 		"	EndPrimitive();"
 		"}";
@@ -2464,7 +2482,7 @@ extern "C"
 		GLSL_GL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
-		"layout (location = 2) in vec2 InstancePosition;"
+		"layout (location = 2) in vec3 InstancePosition;"
 		"layout (location = 3) in float InstanceRotation;"
 		"layout (location = 4) in vec2 InstanceSize;"
 		"layout (location = 5) in vec4 InstanceColor;"
@@ -2478,7 +2496,7 @@ extern "C"
 		"void main() {"
 		"	float Roll = radians(InstanceRotation);"
 		"	vec2 RotatedScreenPosition = RotateVector2D(VertexPosition * InstanceSize, Roll);"
-		"	vec2 ScreenPosition = InstancePosition + RotatedScreenPosition;"
+		"	vec3 ScreenPosition = InstancePosition + vec3(RotatedScreenPosition, 0.0);"
 		"	gl_Position = ScreenToClipSpace(ScreenPosition, ScreenSize);"
 		"	VertexOutput.TextureCoords = VertexTextureCoords;"
 		"	VertexOutput.Color = InstanceColor;"
@@ -2535,7 +2553,7 @@ extern "C"
 	} FontWorldGlyphInstanceEntry;
 	typedef struct _FontScreenGlyphInstanceEntry
 	{
-		Vector2 Pivot;
+		Vector3 Pivot;
 		Vector2 Position;
 		float Rotation;
 		Vector2 Bearing;
@@ -3375,7 +3393,7 @@ extern "C"
 		GLSL_GL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in uint VertexIndex;"
-		"layout (location = 2) in vec2 InstancePivot;"
+		"layout (location = 2) in vec3 InstancePivot;"
 		"layout (location = 3) in vec2 InstancePosition;"
 		"layout (location = 4) in float InstanceRotation;"
 		"layout (location = 5) in vec2 InstanceBearing;"
@@ -3404,8 +3422,8 @@ extern "C"
 		"	float V0 = (BearingSize.y + GlyphSize.y);"
 		"	float U1 = (BearingSize.x + GlyphSize.x);"
 		"	float V1 = BearingSize.y;"
-		"	vec2 ScreenPosition = RotateVector2D(InstancePosition - InstancePivot + (VertexPosition * GlyphSize * InstanceFontSize), Roll);"
-		"	ScreenPosition += InstancePivot;"
+		"	vec2 RotatedPosition = RotateVector2D(InstancePosition - InstancePivot.xy + (VertexPosition * GlyphSize * InstanceFontSize), Roll);"
+		"	vec3 ScreenPosition = vec3(RotatedPosition + InstancePivot.xy, InstancePivot.z);"
 		"	gl_Position = ScreenToClipSpace(ScreenPosition, ScreenSize);"
 		"	vec2 TextureCoords;"
 		"	switch (VertexIndex) {"
@@ -3524,6 +3542,10 @@ extern "C"
 	// Text Definition
 	///////////////////////////////////////////////////////////////
 
+#ifndef FAST_GL_TEXT_FMT_BUFFER_SIZE
+#define FAST_GL_TEXT_FMT_BUFFER_SIZE (0x1000ULL)
+#endif // FAST_GL_TEXT_FMT_BUFFER_SIZE
+
 	typedef struct _TextWorldCache
 	{
 		int unsigned GlyphVertexArray;
@@ -3547,8 +3569,8 @@ extern "C"
 	extern void Text_EndWorld(Matrix4x4 const* Projection, Matrix4x4 const* View);
 
 	extern void Text_BeginScreen(Font* Fnt);
-	extern void Text_DrawScreen(Vector2 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...);
-	extern void Text_DrawScreenSimple(float PositionX, float PositionY, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
+	extern void Text_DrawScreen(Vector3 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...);
+	extern void Text_DrawScreenSimple(float PositionX, float PositionY, float PositionZ, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
 	extern void Text_EndScreen(void);
 
 	extern void TextCache_WorldAlloc(TextWorldCache* Cache, int unsigned NumChars);
@@ -3565,8 +3587,8 @@ extern "C"
 	extern void TextCache_EndWorldCache(TextWorldCache* Cache);
 
 	extern void TextCache_BeginScreenCache(TextScreenCache* Cache, Font* Fnt);
-	extern void TextCache_DrawScreen(TextScreenCache* Cache, Vector2 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...);
-	extern void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
+	extern void TextCache_DrawScreen(TextScreenCache* Cache, Vector3 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...);
+	extern void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float PositionZ, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
 	extern void TextCache_EndScreenCache(TextScreenCache* Cache);
 
 #ifdef FAST_GL_IMPLEMENTATION
@@ -3833,11 +3855,11 @@ extern "C"
 	extern void PostProcessEffect_End(PostProcessEffect* Effect);
 	extern void PostProcessEffect_Free(PostProcessEffect* Effect);
 
-	extern char const* PostProcessEffect_GetPassThroughFragmentShader(void);
+	extern char const* PostProcessEffect_GetColorBlendFragmentShader(void);
 	extern char const* PostProcessEffect_GetWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader(void);
 
 #ifdef FAST_GL_IMPLEMENTATION
-	static char const sPassThroughPostProcessVertexShader[] =
+	static char const sPostProcessVertexShader[] =
 		GLSL_GL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
@@ -3848,15 +3870,27 @@ extern "C"
 		"	gl_Position = vec4(VertexPosition, 0.0, 1.0);"
 		"	VertexOutput.TextureCoords = VertexTextureCoords;"
 		"}";
-	char const sPassThroughPostProcessFragmentShader[] =
+	char const sColorBlendPostProcessFragmentShader[] =
 		GLSL_GL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
 		"} FragmentInput;"
 		"layout (location = 0) out vec4 FinalColor;"
-		"layout (binding = 0) uniform sampler2D BaseColorSampler;"
+		"layout (binding = 0) uniform sampler2D BaseColorSampler0;"
+		"layout (binding = 1) uniform sampler2D BaseColorSampler1;"
+		"vec4 BlendColor(vec4 Source, vec4 Destination) {"
+		"	float Alpha = Source.a + Destination.a * (1.0 - Source.a);"
+		"	vec3 Color = (Source.rgb * Source.a + Destination.rgb * Destination.a * (1.0 - Source.a)) / Alpha;"
+		"	if (Alpha == 0.0) {"
+		"		Color = vec3(0.0, 0.0, 0.0);"
+		"	}"
+		"	return vec4(Color, Alpha);"
+		"}"
 		"void main() {"
-		"	FinalColor = texelFetch(BaseColorSampler, ivec2(gl_FragCoord.xy), 0);"
+		"	vec4 Color0 = texelFetch(BaseColorSampler0, ivec2(gl_FragCoord.xy), 0);"
+		"	vec4 Color1 = texelFetch(BaseColorSampler1, ivec2(gl_FragCoord.xy), 0);"
+		"	FinalColor = BlendColor(Color0, FinalColor);"
+		"	FinalColor = BlendColor(Color1, FinalColor);"
 		"}";
 	char const sWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader[] =
 		GLSL_GL_VERSION
@@ -3892,6 +3926,18 @@ extern "C"
 	// Kek Definition
 	///////////////////////////////////////////////////////////////
 
+#ifndef KEK_DEPTH_INCREMENT
+#define KEK_DEPTH_INCREMENT (-0.01F)
+#endif // KEK_DEPTH_INCREMENT
+
+#ifndef KEK_INITIAL_DEPTH
+#define KEK_INITIAL_DEPTH (0.01F)
+#endif // KEK_INITIAL_DEPTH
+
+#ifndef KEK_DOCK_PANEL_TITLE_SIZE
+#define KEK_DOCK_PANEL_TITLE_SIZE (0xFFULL)
+#endif // KEK_DOCK_PANEL_TITLE_SIZE
+
 	typedef struct _KekVertex
 	{
 		Vector3 Position;
@@ -3920,28 +3966,35 @@ extern "C"
 		KekNodeClass Class;
 		Rect Rect;
 	} KekNode;
-	typedef enum _KekDockLayoutType
+	typedef enum _KekDockPanelType
 	{
-		KEK_DOCK_LAYOUT_TYPE_WINDOW,
-		KEK_DOCK_LAYOUT_TYPE_HORIZONTAL,
-		KEK_DOCK_LAYOUT_TYPE_VERTICAL,
-	} KekDockLayoutType;
-	typedef struct _KekDockLayout
+		KEK_DOCK_PANEL_TYPE_WINDOW,
+		KEK_DOCK_PANEL_TYPE_HORIZONTAL,
+		KEK_DOCK_PANEL_TYPE_VERTICAL,
+	} KekDockPanelType;
+	typedef struct _KekDockPanel
 	{
-		ListEntry LayoutEntry;
-		KekDockLayoutType Type;
-		Rect Rect;
-		struct _KekDockLayout* ParentLayout;
-		ListEntry ChildLayouts;
+		ListEntry PanelEntry;
+		KekDockPanelType Type;
+		Rect TabRect;
+		Rect PanelRect;
+		char Title[KEK_DOCK_PANEL_TITLE_SIZE];
+		struct _KekDockLayout* DockLayout;
+		struct _KekDockPanel* ParentPanel;
+		struct _KekDockPanel* ActivePanel;
+		ListEntry ChildPanels;
 		KekNode* Node;
 		Color4 BackgroundColor;
 		Color4 TextColor;
-	} KekDockLayout;
-	typedef struct _KekDockRoot
+	} KekDockPanel;
+	typedef struct _KekDockLayout
 	{
 		KekNode Node;
-		ListEntry ChildLayouts;
-	} KekDockRoot;
+		KekDockPanel* RootPanel;
+		KekDockPanel* DragPanel;
+		float DragOffsetX;
+		float DragOffsetY;
+	} KekDockLayout;
 	typedef struct _KekListLayout
 	{
 		KekNode Node;
@@ -3988,79 +4041,82 @@ extern "C"
 	extern void Kek_Free(void);
 	extern void Kek_PrintTree(void);
 
+	extern void Kek_DrawRectInternal(KekBatchMode BatchMode, Rect const* Rect, float Rotation, float Depth, Color4 const* Color);
+	extern void Kek_DrawTextInternal(KekBatchMode BatchMode, Rect const* Rect, float Rotation, float Depth, float Size, Color4 const* Color, char const* Text);
+
 	extern void KekNode_Resize(KekNode* Node);
 	extern void KekNode_Update(KekNode* Node);
-	extern void KekNode_Draw(KekNode* Node, KekBatchMode BatchMode);
+	extern void KekNode_Draw(KekNode* Node, KekBatchMode BatchMode, float Depth);
 	extern void KekNode_PrintTree(KekNode* Node, int unsigned NumIdentSteps);
 
-	extern KekDockLayout* KekDockLayout_Alloc(KekDockLayout* DockLayout, KekNode* Node);
-	extern void KekDockLayout_SetRect(KekDockLayout* DockLayout, Rect const* Rect);
-	extern void KekDockLayout_SetPosition(KekDockLayout* DockLayout, float PositionX, float PositionY);
-	extern void KekDockLayout_InsertLeft(KekDockLayout* DockLayout, KekNode* Node);
-	extern void KekDockLayout_InsertRight(KekDockLayout* DockLayout, KekNode* Node);
-	extern void KekDockLayout_InsertTop(KekDockLayout* DockLayout, KekNode* Node);
-	extern void KekDockLayout_InsertBottom(KekDockLayout* DockLayout, KekNode* Node);
-	extern KekDockLayout* KekDockLayout_FindChildInsideBounds(KekDockLayout* DockLayout);
+	extern KekDockPanel* KekDockPanel_Alloc(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title, KekNode* Node);
+	extern KekDockPanel* KekDockPanel_Insert(KekDockPanel* DockPanel, char const* Title);
+	extern KekDockPanel* KekDockPanel_InsertLeft(KekDockPanel* DockPanel, char const* Title);
+	extern KekDockPanel* KekDockPanel_InsertRight(KekDockPanel* DockPanel, char const* Title);
+	extern KekDockPanel* KekDockPanel_InsertTop(KekDockPanel* DockPanel, char const* Title);
+	extern KekDockPanel* KekDockPanel_InsertBottom(KekDockPanel* DockPanel, char const* Title);
+	extern KekDockPanel* KekDockPanel_FindChildInsideBounds(KekDockPanel* DockPanel);
+	extern void KekDockPanel_UpdateRect(KekDockPanel* DockPanel, int unsigned ChildIndex);
+	extern void KekDockPanel_Update(KekDockPanel* DockPanel);
+	extern void KekDockPanel_Draw(KekDockPanel* DockPanel, KekBatchMode BatchMode, float Depth);
+	extern void KekDockPanel_PrintTree(KekDockPanel* DockPanel, int unsigned NumIdentSteps);
+
+	extern void KekDockLayout_Alloc(KekDockLayout* DockLayout, Rect const* Rect);
+	extern KekDockPanel* KekDockLayout_Insert(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title);
+	extern KekDockPanel* KekDockLayout_InsertLeft(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title);
+	extern KekDockPanel* KekDockLayout_InsertRight(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title);
+	extern KekDockPanel* KekDockLayout_InsertTop(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title);
+	extern KekDockPanel* KekDockLayout_InsertBottom(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title);
+	extern void KekDockLayout_DragUpdate(KekDockLayout* DockLayout);
 	extern void KekDockLayout_Resize(KekDockLayout* DockLayout);
 	extern void KekDockLayout_Update(KekDockLayout* DockLayout);
-	extern void KekDockLayout_Draw(KekDockLayout* DockLayout, KekBatchMode BatchMode);
-	extern void KekDockLayout_DrawTabBar(KekDockLayout* DockLayout, KekBatchMode BatchMode);
+	extern void KekDockLayout_Draw(KekDockLayout* DockLayout, KekBatchMode BatchMode, float Depth);
+	extern void KekDockLayout_Free(KekDockLayout* DockLayout);
 	extern void KekDockLayout_PrintTree(KekDockLayout* DockLayout, int unsigned NumIdentSteps);
-
-	extern void KekDockRoot_Alloc(KekDockRoot* DockRoot, Rect const* Rect);
-	extern void KekDockRoot_InsertLeft(KekDockRoot* DockRoot, KekNode* Node);
-	extern void KekDockRoot_InsertRight(KekDockRoot* DockRoot, KekNode* Node);
-	extern void KekDockRoot_InsertTop(KekDockRoot* DockRoot, KekNode* Node);
-	extern void KekDockRoot_InsertBottom(KekDockRoot* DockRoot, KekNode* Node);
-	extern void KekDockRoot_Resize(KekDockRoot* DockRoot);
-	extern void KekDockRoot_Update(KekDockRoot* DockRoot);
-	extern void KekDockRoot_Draw(KekDockRoot* DockRoot, KekBatchMode BatchMode);
-	extern void KekDockRoot_Free(KekDockRoot* DockRoot);
-	extern void KekDockRoot_PrintTree(KekDockRoot* DockRoot, int unsigned NumIdentSteps);
 
 	extern void KekListLayout_Alloc(KekListLayout* ListLayout, Rect const* Rect);
 	extern void KekListLayout_Update(KekListLayout* ListLayout);
 	extern void KekListLayout_Resize(KekListLayout* ListLayout);
-	extern void KekListLayout_Draw(KekListLayout* ListLayout, KekBatchMode BatchMode);
+	extern void KekListLayout_Draw(KekListLayout* ListLayout, KekBatchMode BatchMode, float Depth);
 	extern void KekListLayout_Free(KekListLayout* ListLayout);
 	extern void KekListLayout_PrintTree(KekListLayout* ListLayout, int unsigned NumIdentSteps);
 
 	extern void KekGridLayout_Alloc(KekGridLayout* GridLayout, Rect const* Rect);
 	extern void KekGridLayout_Resize(KekGridLayout* GridLayout);
 	extern void KekGridLayout_Update(KekGridLayout* GridLayout);
-	extern void KekGridLayout_Draw(KekGridLayout* GridLayout, KekBatchMode BatchMode);
+	extern void KekGridLayout_Draw(KekGridLayout* GridLayout, KekBatchMode BatchMode, float Depth);
 	extern void KekGridLayout_Free(KekGridLayout* GridLayout);
 	extern void KekGridLayout_PrintTree(KekGridLayout* GridLayout, int unsigned NumIdentSteps);
 
 	extern void KekToolBar_Alloc(KekToolBar* ToolBar, Rect const* Rect);
 	extern void KekToolBar_Update(KekToolBar* ToolBar);
-	extern void KekToolBar_Draw(KekToolBar* ToolBar, KekBatchMode BatchMode);
+	extern void KekToolBar_Draw(KekToolBar* ToolBar, KekBatchMode BatchMode, float Depth);
 	extern void KekToolBar_Free(KekToolBar* ToolBar);
 	extern void KekToolBar_PrintTree(KekToolBar* ToolBar, int unsigned NumIdentSteps);
 
 	extern void KekImage_Alloc(KekImage* Image, Rect const* Rect);
 	extern void KekImage_Update(KekImage* Image);
-	extern void KekImage_Draw(KekImage* Image, KekBatchMode BatchMode);
+	extern void KekImage_Draw(KekImage* Image, KekBatchMode BatchMode, float Depth);
 	extern void KekImage_PrintTree(KekImage* Image, int unsigned NumIdentSteps);
 
 	extern void KekButton_Alloc(KekButton* Button, Rect const* Rect);
 	extern void KekButton_Update(KekButton* Button);
-	extern void KekButton_Draw(KekButton* Button, KekBatchMode BatchMode);
+	extern void KekButton_Draw(KekButton* Button, KekBatchMode BatchMode, float Depth);
 	extern void KekButton_PrintTree(KekButton* Button, int unsigned NumIdentSteps);
 
 	extern void KekSlider_Alloc(KekSlider* Slider, Rect const* Rect);
 	extern void KekSlider_Update(KekSlider* Slider);
-	extern void KekSlider_Draw(KekSlider* Slider, KekBatchMode BatchMode);
+	extern void KekSlider_Draw(KekSlider* Slider, KekBatchMode BatchMode, float Depth);
 	extern void KekSlider_PrintTree(KekSlider* Slider, int unsigned NumIdentSteps);
 
 	extern void KekViewPort_Alloc(KekViewPort* ViewPort, Rect const* Rect);
 	extern void KekViewPort_Update(KekViewPort* ViewPort);
-	extern void KekViewPort_Draw(KekViewPort* ViewPort, KekBatchMode BatchMode);
+	extern void KekViewPort_Draw(KekViewPort* ViewPort, KekBatchMode BatchMode, float Depth);
 	extern void KekViewPort_PrintTree(KekViewPort* ViewPort, int unsigned NumIdentSteps);
 
 	extern void KekTest_Alloc(KekTest* Test, Rect const* Rect);
 	extern void KekTest_Update(KekTest* Test);
-	extern void KekTest_Draw(KekTest* Test, KekBatchMode BatchMode);
+	extern void KekTest_Draw(KekTest* Test, KekBatchMode BatchMode, float Depth);
 	extern void KekTest_Free(KekTest* Test);
 	extern void KekTest_PrintTree(KekTest* Test, int unsigned NumIdentSteps);
 
@@ -4068,9 +4124,6 @@ extern "C"
 	static Batch sKekBatch = { 0 };
 	static KekStyle sKekStyle = { 0 };
 	static void* sKekRootNode = 0;
-	static KekDockLayout* sCurrDragDockLayout = 0;
-	static float sCurrDragOffsetX = 0.0F;
-	static float sCurrDragOffsetY = 0.0F;
 	static char const sKekVertexShader[] =
 		GLSL_GL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
@@ -4126,8 +4179,8 @@ extern "C"
 
 	extern void Histogram_Alloc(Histogram* Histgrm, SpriteMesh* Mesh, char* Name, HistogramScaleType ScaleType, int unsigned NumSamples, int unsigned Scale, int unsigned DisplayInterval);
 	extern void Histogram_PushSample(Histogram* Histgrm, double Sample);
-	extern void Histogram_Draw(Histogram* Histgrm, Vector2 Position, float Rotation, Vector2 Size);
-	extern void Histogram_DrawSimple(Histogram* Histgrm, float PositionX, float PositionY, float Rotation, float Width, float Height);
+	extern void Histogram_Draw(Histogram* Histgrm, Vector3 const* Position, float Rotation, Vector2 const* Size);
+	extern void Histogram_DrawSimple(Histogram* Histgrm, float PositionX, float PositionY, float PositionZ, float Rotation, float Width, float Height);
 	extern void Histogram_Free(Histogram* Histgrm);
 
 #ifdef FAST_GL_IMPLEMENTATION
@@ -4142,13 +4195,14 @@ extern "C"
 		"uniform vec2 ScreenSize;"
 		"uniform mat4 ProjectionMatrix;"
 		"uniform mat4 ViewMatrix;"
-		"uniform vec2 Position;"
+		"uniform vec3 Position;"
 		"uniform float Rotation;"
 		"uniform vec2 Size;"
 		GLSL_SCREEN_SPACE_IMPLEMENTATION
 		GLSL_ROTATION_IMPLEMENTATION
 		"void main() {"
-		"	vec2 ScreenPosition = RotateVector2D(Position + (VertexPosition * Size), radians(Rotation));"
+		"	vec2 RotatedPosition = RotateVector2D(Position.xy + (VertexPosition * Size), radians(Rotation));"
+		"	vec3 ScreenPosition = vec3(RotatedPosition, Position.z);"
 		"	gl_Position = ScreenToClipSpace(ScreenPosition, ScreenSize);"
 		"	VertexOutput.TextureCoords = vec2(VertexTextureCoords.x, 1.0 - VertexTextureCoords.y);"
 		"}";
@@ -4885,6 +4939,14 @@ extern "C"
 		Result->Right = Result->Right + SizeX;
 		Result->Bottom = Result->Bottom + SizeY;
 	}
+	float Rect_PositionX(Rect const* Value)
+	{
+		return Value->Left;
+	}
+	float Rect_PositionY(Rect const* Value)
+	{
+		return Value->Top;
+	}
 	float Rect_Width(Rect const* Value)
 	{
 		return Value->Right - Value->Left;
@@ -5350,7 +5412,7 @@ extern "C"
 #endif // FAST_GL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
-	// Vector Definition
+	// Vector Implementation
 	///////////////////////////////////////////////////////////////
 
 #ifdef FAST_GL_IMPLEMENTATION
@@ -7957,10 +8019,11 @@ extern "C"
 
 		sMappedScreenCircleInstanceBuffer = (BatchScreenCircleInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void Batch_DrawScreenCircle(Vector2 const* Position, float Rotation, float Radius, Color4 const* Color)
+	void Batch_DrawScreenCircle(Vector3 const* Position, float Rotation, float Radius, Color4 const* Color)
 	{
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.X = Position->X;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Y = Position->Y;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Z = Position->Z;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.R = Color->R;
@@ -7970,10 +8033,11 @@ extern "C"
 
 		sCurrBatch->ScreenCircleInstanceOffset += 1;
 	}
-	void Batch_DrawScreenCircleSimple(float PositionX, float PositionY, float Rotation, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_DrawScreenCircleSimple(float PositionX, float PositionY, float PositionZ, float Rotation, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.X = PositionX;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Y = PositionY;
+		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Z = PositionZ;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
 		sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.R = ColorR;
@@ -7983,7 +8047,7 @@ extern "C"
 
 		sCurrBatch->ScreenCircleInstanceOffset += 1;
 	}
-	void Batch_DrawScreenCircleGrid(Vector2 const* Position, float Rotation, int unsigned Num, float Scale, float Radius, Color4 const* Color)
+	void Batch_DrawScreenCircleGrid(Vector3 const* Position, float Rotation, int unsigned Num, float Scale, float Radius, Color4 const* Color)
 	{
 		float SizeStep = ((float)Num * Scale) / (float)Num;
 
@@ -7996,6 +8060,7 @@ extern "C"
 
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.X = Position->X + StepX;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Y = Position->Y + StepY;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Z = Position->Z;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.R = Color->R;
@@ -8007,7 +8072,7 @@ extern "C"
 			}
 		}
 	}
-	void Batch_DrawScreenCircleGridSimple(float PositionX, float PositionY, float Rotation, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_DrawScreenCircleGridSimple(float PositionX, float PositionY, float PositionZ, float Rotation, int unsigned Num, float Scale, float Radius, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
 		float SizeStep = ((float)Num * Scale) / (float)Num;
 
@@ -8020,6 +8085,7 @@ extern "C"
 
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.X = PositionX + StepX;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Y = PositionY + StepY;
+				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Position.Z = PositionZ;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Rotation = Rotation;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Radius = Radius;
 				sMappedScreenCircleInstanceBuffer[sCurrBatch->ScreenCircleInstanceOffset].Color.R = ColorR;
@@ -8291,10 +8357,11 @@ extern "C"
 		sMappedScreenLineVertexBuffer = (BatchScreenLineVertex*)Buffer_VertexMap(GL_WRITE_ONLY);
 		sMappedScreenLineIndexBuffer = (int unsigned*)Buffer_IndexMap(GL_WRITE_ONLY);
 	}
-	void Batch_DrawScreenLine(Vector2 const* From, Vector2 const* To, float Rotation, float Thickness, Color4 const* Color)
+	void Batch_DrawScreenLine(Vector3 const* From, Vector3 const* To, float Rotation, float Thickness, Color4 const* Color)
 	{
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position.X = From->X;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position.Y = From->Y;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position.Z = From->Z;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Rotation = Rotation;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Thickness = Thickness;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color.R = Color->R;
@@ -8304,6 +8371,7 @@ extern "C"
 
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position.X = To->X;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position.Y = To->Y;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position.Z = To->Z;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Rotation = Rotation;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Thickness = Thickness;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color.R = Color->R;
@@ -8317,10 +8385,11 @@ extern "C"
 		sCurrBatch->ScreenLineVertexOffset += 2;
 		sCurrBatch->ScreenLineIndexOffset += 2;
 	}
-	void Batch_DrawScreenLineSimple(float FromX, float FromY, float ToX, float ToY, float Rotation, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_DrawScreenLineSimple(float FromX, float FromY, float FromZ, float ToX, float ToY, float ToZ, float Rotation, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position.X = FromX;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position.Y = FromY;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Position.Z = FromZ;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Rotation = Rotation;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Thickness = Thickness;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset].Color.R = ColorR;
@@ -8330,6 +8399,7 @@ extern "C"
 
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position.X = ToX;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position.Y = ToY;
+		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Position.Z = ToZ;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Rotation = Rotation;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Thickness = Thickness;
 		sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + 1].Color.R = ColorR;
@@ -8343,7 +8413,7 @@ extern "C"
 		sCurrBatch->ScreenLineVertexOffset += 2;
 		sCurrBatch->ScreenLineIndexOffset += 2;
 	}
-	void Batch_DrawScreenLineGrid(Vector2 const* Position, float Rotation, int unsigned Num, float Scale, float Thickness, Color4 const* Color)
+	void Batch_DrawScreenLineGrid(Vector3 const* Position, float Rotation, int unsigned Num, float Scale, float Thickness, Color4 const* Color)
 	{
 		int unsigned Num4 = Num * 4;
 		int unsigned SegmentIndex = 0;
@@ -8356,6 +8426,7 @@ extern "C"
 
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position.X = Position->X + Step;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position.Y = Position->Y;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position.Z = Position->Z;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Thickness = Thickness;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color.R = Color->R;
@@ -8365,6 +8436,7 @@ extern "C"
 
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position.X = Position->X + Step;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position.Y = Position->Y + Size;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position.Z = Position->Z;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color.R = Color->R;
@@ -8374,6 +8446,7 @@ extern "C"
 
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position.X = Position->X;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position.Y = Position->Y + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position.Z = Position->Z;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color.R = Color->R;
@@ -8383,6 +8456,7 @@ extern "C"
 
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position.X = Position->X + Size;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position.Y = Position->Y + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position.Z = Position->Z;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color.R = Color->R;
@@ -8401,7 +8475,7 @@ extern "C"
 		sCurrBatch->ScreenLineVertexOffset += Num4 + 4;
 		sCurrBatch->ScreenLineIndexOffset += Num4 + 4;
 	}
-	void Batch_DrawScreenLineGridSimple(float PositionX, float PositionY, float Rotation, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_DrawScreenLineGridSimple(float PositionX, float PositionY, float PositionZ, float Rotation, int unsigned Num, float Scale, float Thickness, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
 		int unsigned Num4 = Num * 4;
 		int unsigned SegmentIndex = 0;
@@ -8414,6 +8488,7 @@ extern "C"
 
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position.X = PositionX + Step;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position.Y = PositionY;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Position.Z = PositionZ;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Thickness = Thickness;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex].Color.R = ColorR;
@@ -8423,6 +8498,7 @@ extern "C"
 
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position.X = PositionX + Step;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position.Y = PositionY + Size;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Position.Z = PositionZ;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Thickness = Thickness;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 1].Color.R = ColorR;
@@ -8432,6 +8508,7 @@ extern "C"
 
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position.X = PositionX;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position.Y = PositionY + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Position.Z = PositionZ;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Thickness = Thickness;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 2].Color.R = ColorR;
@@ -8441,6 +8518,7 @@ extern "C"
 
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position.X = PositionX + Size;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position.Y = PositionY + Step;
+			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Position.Z = PositionZ;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Rotation = Rotation;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Thickness = Thickness;
 			sMappedScreenLineVertexBuffer[sCurrBatch->ScreenLineVertexOffset + SegmentIndex + 3].Color.R = ColorR;
@@ -8543,10 +8621,11 @@ extern "C"
 
 		sMappedScreenRectInstanceBuffer = (BatchScreenRectInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void Batch_DrawScreenRect(Vector2 const* Position, float Rotation, Vector2 const* Size, Color4 const* Color)
+	void Batch_DrawScreenRect(Vector3 const* Position, float Rotation, Vector2 const* Size, Color4 const* Color)
 	{
 		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Position.X = Position->X;
 		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Position.Y = Position->Y;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Position.Z = Position->Z;
 		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Rotation = Rotation;
 		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Size.X = Size->X;
 		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Size.Y = Size->Y;
@@ -8557,10 +8636,11 @@ extern "C"
 
 		sCurrBatch->ScreenRectInstanceOffset += 1;
 	}
-	void Batch_DrawScreenRectSimple(float PositionX, float PositionY, float Rotation, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA)
+	void Batch_DrawScreenRectSimple(float PositionX, float PositionY, float PositionZ, float Rotation, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA)
 	{
 		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Position.X = PositionX;
 		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Position.Y = PositionY;
+		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Position.Z = PositionZ;
 		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Rotation = Rotation;
 		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Size.X = SizeX;
 		sMappedScreenRectInstanceBuffer[sCurrBatch->ScreenRectInstanceOffset].Size.Y = SizeY;
@@ -9006,7 +9086,7 @@ extern "C"
 		Buffer_VertexEnableAttrib(9);
 		Buffer_VertexEnableAttrib(10);
 		Buffer_VertexEnableAttrib(11);
-		Buffer_VertexAttribPointerReal32(2, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
 		Buffer_VertexAttribPointerReal32(3, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Position));
 		Buffer_VertexAttribPointerReal32(4, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Rotation));
 		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
@@ -9805,7 +9885,7 @@ extern "C"
 
 		sMappedScreenGlyphInstanceBuffer = (FontScreenGlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void Text_DrawScreen(Vector2 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...)
+	void Text_DrawScreen(Vector3 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -9851,6 +9931,7 @@ extern "C"
 				{
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot.X = Position->X;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot.Y = Position->Y;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot.Z = Position->Z;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position.X = X;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position.Y = Y;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Rotation = Rotation;
@@ -9879,7 +9960,7 @@ extern "C"
 			Char++;
 		}
 	}
-	void Text_DrawScreenSimple(float PositionX, float PositionY, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
+	void Text_DrawScreenSimple(float PositionX, float PositionY, float PositionZ, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -9925,6 +10006,7 @@ extern "C"
 				{
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot.X = PositionX;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot.Y = PositionY;
+					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Pivot.Z = PositionZ;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position.X = X;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Position.Y = Y;
 					sMappedScreenGlyphInstanceBuffer[sCurrFont->ScreenGlyphInstanceOffset].Rotation = Rotation;
@@ -10125,7 +10207,7 @@ extern "C"
 		Buffer_VertexEnableAttrib(9);
 		Buffer_VertexEnableAttrib(10);
 		Buffer_VertexEnableAttrib(11);
-		Buffer_VertexAttribPointerReal32(2, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
 		Buffer_VertexAttribPointerReal32(3, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Position));
 		Buffer_VertexAttribPointerReal32(4, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Rotation));
 		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
@@ -10370,7 +10452,7 @@ extern "C"
 
 		sMappedScreenGlyphInstanceBuffer = (FontScreenGlyphInstanceEntry*)Buffer_VertexMap(GL_WRITE_ONLY);
 	}
-	void TextCache_DrawScreen(TextScreenCache* Cache, Vector2 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...)
+	void TextCache_DrawScreen(TextScreenCache* Cache, Vector3 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -10416,6 +10498,7 @@ extern "C"
 				{
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.X = Position->X;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.Y = Position->Y;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.Z = Position->Z;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.X = X;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.Y = Y;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation = Rotation;
@@ -10444,7 +10527,7 @@ extern "C"
 			Char++;
 		}
 	}
-	void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
+	void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float PositionZ, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
 		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
@@ -10490,6 +10573,7 @@ extern "C"
 				{
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.X = PositionX;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.Y = PositionY;
+					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Pivot.Z = PositionZ;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.X = X;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Position.Y = Y;
 					sMappedScreenGlyphInstanceBuffer[Cache->GlyphInstanceOffset].Rotation = Rotation;
@@ -11164,7 +11248,7 @@ extern "C"
 	{
 		memset(Effect, 0, sizeof(PostProcessEffect));
 		Effect->Mesh = Mesh;
-		Shader_VertexFragmentAlloc(&Effect->Program, sPassThroughPostProcessVertexShader, FragmentSource);
+		Shader_VertexFragmentAlloc(&Effect->Program, sPostProcessVertexShader, FragmentSource);
 
 #ifdef FAST_GL_REFERENCE_COUNT
 		sAllocatedPostProcessEffects += 1;
@@ -11195,9 +11279,9 @@ extern "C"
 		sAllocatedPostProcessEffects -= 1;
 #endif // FAST_GL_REFERENCE_COUNT
 	}
-	char const* PostProcessEffect_GetPassThroughFragmentShader(void)
+	char const* PostProcessEffect_GetColorBlendFragmentShader(void)
 	{
-		return sPassThroughPostProcessFragmentShader;
+		return sColorBlendPostProcessFragmentShader;
 	}
 	char const* PostProcessEffect_GetWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader(void)
 	{
@@ -11237,14 +11321,16 @@ extern "C"
 	}
 	void Kek_Draw(void)
 	{
+		float Depth = KEK_INITIAL_DEPTH;
+
 		if (sKekRootNode)
 		{
 			Batch_BeginScreenRects(&sKekBatch);
-			KekNode_Draw(sKekRootNode, KEK_BATCH_MODE_RECT);
+			KekNode_Draw(sKekRootNode, KEK_BATCH_MODE_RECT, Depth);
 			Batch_EndScreenRects();
 
 			Text_BeginScreen(&sDefaultFont);
-			KekNode_Draw(sKekRootNode, KEK_BATCH_MODE_TEXT);
+			KekNode_Draw(sKekRootNode, KEK_BATCH_MODE_TEXT, Depth);
 			Text_EndScreen();
 		}
 	}
@@ -11259,13 +11345,32 @@ extern "C"
 			KekNode_PrintTree(sKekRootNode, 0);
 		}
 	}
+	void Kek_DrawRectInternal(KekBatchMode BatchMode, Rect const* Rect, float Rotation, float Depth, Color4 const* Color)
+	{
+		if (BatchMode == KEK_BATCH_MODE_RECT)
+		{
+			Vector3 Position = { Rect_PositionX(Rect), Rect_PositionY(Rect), Depth };
+			Vector2 Size = { Rect_Width(Rect), Rect_Height(Rect) };
+
+			Batch_DrawScreenRect(&Position, Rotation, &Size, Color);
+		}
+	}
+	void Kek_DrawTextInternal(KekBatchMode BatchMode, Rect const* Rect, float Rotation, float Depth, float Size, Color4 const* Color, char const* Text)
+	{
+		if (BatchMode == KEK_BATCH_MODE_TEXT)
+		{
+			Vector3 Position = { Rect_PositionX(Rect), Rect_PositionY(Rect), Depth };
+
+			Text_DrawScreen(&Position, Rotation, Size, Color, Text);
+		}
+	}
 	void KekNode_Resize(KekNode* Node)
 	{
 		KekNodeClass* Class = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
 
 		switch (*Class)
 		{
-		case KEK_NODE_CLASS_DOCK_ROOT: KekDockRoot_Resize((KekDockRoot*)Node); break;
+		case KEK_NODE_CLASS_DOCK_ROOT: KekDockLayout_Resize((KekDockLayout*)Node); break;
 		case KEK_NODE_CLASS_LIST_LAYOUT: KekListLayout_Resize((KekListLayout*)Node); break;
 		case KEK_NODE_CLASS_GRID_LAYOUT: KekGridLayout_Resize((KekGridLayout*)Node); break;
 		case KEK_NODE_CLASS_TOOL_BAR: break;
@@ -11282,7 +11387,7 @@ extern "C"
 
 		switch (*Class)
 		{
-		case KEK_NODE_CLASS_DOCK_ROOT: KekDockRoot_Update((KekDockRoot*)Node); break;
+		case KEK_NODE_CLASS_DOCK_ROOT: KekDockLayout_Update((KekDockLayout*)Node); break;
 		case KEK_NODE_CLASS_LIST_LAYOUT: KekListLayout_Update((KekListLayout*)Node); break;
 		case KEK_NODE_CLASS_GRID_LAYOUT: KekGridLayout_Update((KekGridLayout*)Node); break;
 		case KEK_NODE_CLASS_TOOL_BAR: KekToolBar_Update((KekToolBar*)Node); break;
@@ -11293,21 +11398,21 @@ extern "C"
 		case KEK_NODE_CLASS_TEST: KekTest_Update((KekTest*)Node); break;
 		}
 	}
-	void KekNode_Draw(KekNode* Node, KekBatchMode BatchMode)
+	void KekNode_Draw(KekNode* Node, KekBatchMode BatchMode, float Depth)
 	{
 		KekNodeClass* Class = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
 
 		switch (*Class)
 		{
-		case KEK_NODE_CLASS_DOCK_ROOT: KekDockRoot_Draw((KekDockRoot*)Node, BatchMode); break;
-		case KEK_NODE_CLASS_LIST_LAYOUT: KekListLayout_Draw((KekListLayout*)Node, BatchMode); break;
-		case KEK_NODE_CLASS_GRID_LAYOUT: KekGridLayout_Draw((KekGridLayout*)Node, BatchMode); break;
-		case KEK_NODE_CLASS_TOOL_BAR: KekToolBar_Draw((KekToolBar*)Node, BatchMode); break;
-		case KEK_NODE_CLASS_IMAGE: KekImage_Draw((KekImage*)Node, BatchMode); break;
-		case KEK_NODE_CLASS_BUTTON: KekButton_Draw((KekButton*)Node, BatchMode); break;
-		case KEK_NODE_CLASS_SLIDER: KekSlider_Draw((KekSlider*)Node, BatchMode); break;
-		case KEK_NODE_CLASS_VIEW_PORT: KekViewPort_Draw((KekViewPort*)Node, BatchMode); break;
-		case KEK_NODE_CLASS_TEST: KekTest_Draw((KekTest*)Node, BatchMode); break;
+		case KEK_NODE_CLASS_DOCK_ROOT: KekDockLayout_Draw((KekDockLayout*)Node, BatchMode, Depth + KEK_DEPTH_INCREMENT); break;
+		case KEK_NODE_CLASS_LIST_LAYOUT: KekListLayout_Draw((KekListLayout*)Node, BatchMode, Depth + KEK_DEPTH_INCREMENT); break;
+		case KEK_NODE_CLASS_GRID_LAYOUT: KekGridLayout_Draw((KekGridLayout*)Node, BatchMode, Depth + KEK_DEPTH_INCREMENT); break;
+		case KEK_NODE_CLASS_TOOL_BAR: KekToolBar_Draw((KekToolBar*)Node, BatchMode, Depth + KEK_DEPTH_INCREMENT); break;
+		case KEK_NODE_CLASS_IMAGE: KekImage_Draw((KekImage*)Node, BatchMode, Depth + KEK_DEPTH_INCREMENT); break;
+		case KEK_NODE_CLASS_BUTTON: KekButton_Draw((KekButton*)Node, BatchMode, Depth + KEK_DEPTH_INCREMENT); break;
+		case KEK_NODE_CLASS_SLIDER: KekSlider_Draw((KekSlider*)Node, BatchMode, Depth + KEK_DEPTH_INCREMENT); break;
+		case KEK_NODE_CLASS_VIEW_PORT: KekViewPort_Draw((KekViewPort*)Node, BatchMode, Depth + KEK_DEPTH_INCREMENT); break;
+		case KEK_NODE_CLASS_TEST: KekTest_Draw((KekTest*)Node, BatchMode, Depth + KEK_DEPTH_INCREMENT); break;
 		}
 	}
 	void KekNode_PrintTree(KekNode* Node, int unsigned NumIdentSteps)
@@ -11323,7 +11428,7 @@ extern "C"
 
 			switch (*Class)
 			{
-			case KEK_NODE_CLASS_DOCK_ROOT: KekDockRoot_PrintTree((KekDockRoot*)Node, NumIdentSteps); break;
+			case KEK_NODE_CLASS_DOCK_ROOT: KekDockLayout_PrintTree((KekDockLayout*)Node, NumIdentSteps); break;
 			case KEK_NODE_CLASS_LIST_LAYOUT: KekListLayout_PrintTree((KekListLayout*)Node, NumIdentSteps); break;
 			case KEK_NODE_CLASS_GRID_LAYOUT: KekGridLayout_PrintTree((KekGridLayout*)Node, NumIdentSteps); break;
 			case KEK_NODE_CLASS_TOOL_BAR: KekToolBar_PrintTree((KekToolBar*)Node, NumIdentSteps); break;
@@ -11335,129 +11440,227 @@ extern "C"
 			}
 		}
 	}
-	KekDockLayout* KekDockLayout_Alloc(KekDockLayout* DockLayout, KekNode* Node)
+	KekDockPanel* KekDockPanel_Alloc(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title, KekNode* Node)
 	{
-		KekDockLayout* Layout = (KekDockLayout*)Memory_Alloc(sizeof(KekDockLayout), 0);
+		KekDockPanel* Panel = (KekDockPanel*)Memory_Alloc(sizeof(KekDockPanel), 0);
 
-		memset(Layout, 0, sizeof(KekDockLayout));
+		memset(Panel, 0, sizeof(KekDockPanel));
 
-		Layout->Type = KEK_DOCK_LAYOUT_TYPE_WINDOW;
-		Layout->ParentLayout = DockLayout;
-		Layout->Node = Node;
-		Layout->BackgroundColor.R = Random_Real32Between(0.0F, 1.0F);
-		Layout->BackgroundColor.G = Random_Real32Between(0.0F, 1.0F);
-		Layout->BackgroundColor.B = Random_Real32Between(0.0F, 1.0F);
-		Layout->BackgroundColor.A = 1.0F;
-		Layout->TextColor.R = 1.0F;
-		Layout->TextColor.G = 1.0F;
-		Layout->TextColor.B = 1.0F;
-		Layout->TextColor.A = 1.0F;
+		Panel->Type = KEK_DOCK_PANEL_TYPE_WINDOW;
+		Panel->DockLayout = DockLayout;
+		Panel->ParentPanel = DockPanel;
+		Panel->Node = Node;
+		Panel->BackgroundColor.R = Random_Real32Between(0.0F, 1.0F);
+		Panel->BackgroundColor.G = Random_Real32Between(0.0F, 1.0F);
+		Panel->BackgroundColor.B = Random_Real32Between(0.0F, 1.0F);
+		Panel->BackgroundColor.A = 1.0F;
+		Panel->TextColor.R = 1.0F;
+		Panel->TextColor.G = 1.0F;
+		Panel->TextColor.B = 1.0F;
+		Panel->TextColor.A = 1.0F;
 
-		List_InitHead(&Layout->ChildLayouts);
+		long long unsigned TitleLength = strlen(Title);
+		memcpy(Panel->Title, Title, MIN(KEK_DOCK_PANEL_TITLE_SIZE, TitleLength));
 
-		if (DockLayout)
+		List_InitHead(&Panel->ChildPanels);
+
+		if (DockPanel)
 		{
-			Rect_Set(&DockLayout->Rect, &Layout->Rect);
-			Rect_Set(&DockLayout->Rect, &Node->Rect);
-		}
-
-		return Layout;
-	}
-	void KekDockLayout_SetRect(KekDockLayout* DockLayout, Rect const* Rect)
-	{
-		Rect_Set(Rect, &DockLayout->Rect);
-
-		if (DockLayout->Node)
-		{
-			Rect_Set(Rect, &DockLayout->Node->Rect);
-		}
-	}
-	void KekDockLayout_SetPosition(KekDockLayout* DockLayout, float PositionX, float PositionY)
-	{
-		Rect_SetPosition(PositionX, PositionY, &DockLayout->Rect);
-
-		if (DockLayout->Node)
-		{
-			Rect_Set(&DockLayout->Rect, &DockLayout->Node->Rect);
-		}
-	}
-	void KekDockLayout_InsertLeft(KekDockLayout* DockLayout, KekNode* Node)
-	{
-		KekDockLayout* ChildLayout = KekDockLayout_Alloc(DockLayout, Node);
-
-		List_InsertTail(&DockLayout->ChildLayouts, &ChildLayout->LayoutEntry);
-
-		KekDockLayout_Resize(DockLayout);
-
-		long long unsigned NumChildLayouts = List_Num(&DockLayout->ChildLayouts);
-
-		if (NumChildLayouts >= 2)
-		{
-			DockLayout->Type = KEK_DOCK_LAYOUT_TYPE_HORIZONTAL;
+			Rect_Set(&DockPanel->PanelRect, &Panel->PanelRect);
 		}
 		else
 		{
-			DockLayout->Type = KEK_DOCK_LAYOUT_TYPE_WINDOW;
+			Rect_Set(&DockLayout->Node.Rect, &Panel->PanelRect);
 		}
-	}
-	void KekDockLayout_InsertRight(KekDockLayout* DockLayout, KekNode* Node)
-	{
-		UNREFERENCED_PARAMETER(DockLayout);
-		UNREFERENCED_PARAMETER(Node);
-	}
-	void KekDockLayout_InsertTop(KekDockLayout* DockLayout, KekNode* Node)
-	{
-		UNREFERENCED_PARAMETER(DockLayout);
-		UNREFERENCED_PARAMETER(Node);
-	}
-	void KekDockLayout_InsertBottom(KekDockLayout* DockLayout, KekNode* Node)
-	{
-		UNREFERENCED_PARAMETER(DockLayout);
-		UNREFERENCED_PARAMETER(Node);
-	}
-	KekDockLayout* KekDockLayout_FindChildInsideBounds(KekDockLayout* DockLayout)
-	{
-		ListEntry* Entry = DockLayout->ChildLayouts.Next;
-		while (Entry != &DockLayout->ChildLayouts)
-		{
-			KekDockLayout* ChildLayout = (KekDockLayout*)Entry;
 
-			if (Rect_Overlap(&ChildLayout->Rect, (float)sMousePositionX, (float)sMousePositionY))
+		return Panel;
+	}
+	KekDockPanel* KekDockPanel_Insert(KekDockPanel* DockPanel, char const* Title)
+	{
+		KekDockPanel* ChildPanel = KekDockPanel_Alloc(DockPanel->DockLayout, DockPanel, Title, 0);
+
+		Rect TabRect = { 0 };
+		TabRect.Left = DockPanel->PanelRect.Left;
+		TabRect.Right = DockPanel->PanelRect.Left + sKekStyle.DockTabWidth;
+		TabRect.Top = DockPanel->PanelRect.Top;
+		TabRect.Bottom = DockPanel->PanelRect.Top + sKekStyle.DockTabHeight;
+
+		Rect PanelRect = { 0 };
+		PanelRect.Left = DockPanel->PanelRect.Left;
+		PanelRect.Right = DockPanel->PanelRect.Right;
+		PanelRect.Top = DockPanel->PanelRect.Top + sKekStyle.DockTabHeight;
+		PanelRect.Bottom = DockPanel->PanelRect.Bottom;
+
+		Rect_Set(&TabRect, &ChildPanel->TabRect);
+		Rect_Set(&PanelRect, &ChildPanel->PanelRect);
+
+		return ChildPanel;
+	}
+	KekDockPanel* KekDockPanel_InsertLeft(KekDockPanel* DockPanel, char const* Title)
+	{
+		KekDockPanel* ChildPanel = KekDockPanel_Alloc(DockPanel->DockLayout, DockPanel, Title, 0);
+
+		Rect TabRect = { 0 };
+		TabRect.Left = DockPanel->PanelRect.Left;
+		TabRect.Right = DockPanel->PanelRect.Left + sKekStyle.DockTabWidth;
+		TabRect.Top = DockPanel->PanelRect.Top;
+		TabRect.Bottom = DockPanel->PanelRect.Top + sKekStyle.DockTabHeight;
+
+		Rect PanelRect = { 0 };
+		PanelRect.Left = DockPanel->PanelRect.Left;
+		PanelRect.Right = DockPanel->PanelRect.Right;
+		PanelRect.Top = DockPanel->PanelRect.Top + sKekStyle.DockTabHeight;
+		PanelRect.Bottom = DockPanel->PanelRect.Bottom;
+
+		Rect_Set(&TabRect, &ChildPanel->TabRect);
+		Rect_Set(&PanelRect, &ChildPanel->PanelRect);
+
+		return ChildPanel;
+	}
+	KekDockPanel* KekDockPanel_InsertRight(KekDockPanel* DockPanel, char const* Title)
+	{
+		KekDockPanel* ChildPanel = KekDockPanel_Alloc(DockPanel->DockLayout, DockPanel, Title, 0);
+
+		Rect TabRect = { 0 };
+		TabRect.Left = DockPanel->PanelRect.Left;
+		TabRect.Right = DockPanel->PanelRect.Left + sKekStyle.DockTabWidth;
+		TabRect.Top = DockPanel->PanelRect.Top;
+		TabRect.Bottom = DockPanel->PanelRect.Top + sKekStyle.DockTabHeight;
+
+		Rect PanelRect = { 0 };
+		PanelRect.Left = DockPanel->PanelRect.Left;
+		PanelRect.Right = DockPanel->PanelRect.Right;
+		PanelRect.Top = DockPanel->PanelRect.Top + sKekStyle.DockTabHeight;
+		PanelRect.Bottom = DockPanel->PanelRect.Bottom;
+
+		Rect_Set(&TabRect, &ChildPanel->TabRect);
+		Rect_Set(&PanelRect, &ChildPanel->PanelRect);
+
+		return ChildPanel;
+	}
+	KekDockPanel* KekDockPanel_InsertTop(KekDockPanel* DockPanel, char const* Title)
+	{
+		KekDockPanel* ChildPanel = KekDockPanel_Alloc(DockPanel->DockLayout, DockPanel, Title, 0);
+
+		Rect TabRect = { 0 };
+		TabRect.Left = DockPanel->PanelRect.Left;
+		TabRect.Right = DockPanel->PanelRect.Left + sKekStyle.DockTabWidth;
+		TabRect.Top = DockPanel->PanelRect.Top;
+		TabRect.Bottom = DockPanel->PanelRect.Top + sKekStyle.DockTabHeight;
+
+		Rect PanelRect = { 0 };
+		PanelRect.Left = DockPanel->PanelRect.Left;
+		PanelRect.Right = DockPanel->PanelRect.Right;
+		PanelRect.Top = DockPanel->PanelRect.Top + sKekStyle.DockTabHeight;
+		PanelRect.Bottom = DockPanel->PanelRect.Bottom;
+
+		Rect_Set(&TabRect, &ChildPanel->TabRect);
+		Rect_Set(&PanelRect, &ChildPanel->PanelRect);
+
+		return ChildPanel;
+	}
+	KekDockPanel* KekDockPanel_InsertBottom(KekDockPanel* DockPanel, char const* Title)
+	{
+		KekDockPanel* ChildPanel = KekDockPanel_Alloc(DockPanel->DockLayout, DockPanel, Title, 0);
+
+		Rect TabRect = { 0 };
+		TabRect.Left = DockPanel->PanelRect.Left;
+		TabRect.Right = DockPanel->PanelRect.Left + sKekStyle.DockTabWidth;
+		TabRect.Top = DockPanel->PanelRect.Top;
+		TabRect.Bottom = DockPanel->PanelRect.Top + sKekStyle.DockTabHeight;
+
+		Rect PanelRect = { 0 };
+		PanelRect.Left = DockPanel->PanelRect.Left;
+		PanelRect.Right = DockPanel->PanelRect.Right;
+		PanelRect.Top = DockPanel->PanelRect.Top + sKekStyle.DockTabHeight;
+		PanelRect.Bottom = DockPanel->PanelRect.Bottom;
+
+		Rect_Set(&TabRect, &ChildPanel->TabRect);
+		Rect_Set(&PanelRect, &ChildPanel->PanelRect);
+
+		return ChildPanel;
+	}
+	KekDockPanel* KekDockPanel_FindChildInsideBounds(KekDockPanel* DockPanel)
+	{
+		UNREFERENCED_PARAMETER(DockPanel);
+
+		//ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
+		//while (Entry != &DockPanel->ChildPanels)
+		//{
+		//	KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+		//
+		//	if (Rect_Overlap(&ChildPanel->Rect, (float)sMousePositionX, (float)sMousePositionY))
+		//	{
+		//		return KekDockPanel_FindChildInsideBounds(ChildPanel);
+		//	}
+		//
+		//	Entry = Entry->Next;
+		//}
+		//
+		//return DockPanel;
+
+		return 0;
+	}
+	void KekDockPanel_UpdateRect(KekDockPanel* DockPanel, int unsigned ChildIndex)
+	{
+		switch (DockPanel->Type)
+		{
+		case KEK_DOCK_PANEL_TYPE_WINDOW:
+		{
+			Rect* ParentRect = (DockPanel->ParentPanel) ? &DockPanel->ParentPanel->PanelRect : &DockPanel->DockLayout->Node.Rect;
+
+			float TabOffsetX = ParentRect->Left + ChildIndex * sKekStyle.DockTabWidth;
+
+			Rect TabRect = { 0 };
+			TabRect.Left = TabOffsetX;
+			TabRect.Right = TabOffsetX + sKekStyle.DockTabWidth;
+			TabRect.Top = ParentRect->Top;
+			TabRect.Bottom = ParentRect->Top + sKekStyle.DockTabHeight;
+
+			Rect PanelRect = { 0 };
+			PanelRect.Left = ParentRect->Left;
+			PanelRect.Right = ParentRect->Right;
+			PanelRect.Top = ParentRect->Top + sKekStyle.DockTabHeight;
+			PanelRect.Bottom = ParentRect->Bottom;
+
+			Rect_Set(&TabRect, &DockPanel->TabRect);
+			Rect_Set(&PanelRect, &DockPanel->PanelRect);
+
+			ChildIndex = 0;
+			ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
+			while (Entry != &DockPanel->ChildPanels)
 			{
-				return KekDockLayout_FindChildInsideBounds(ChildLayout);
+				KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+
+				KekDockPanel_UpdateRect(ChildPanel, ChildIndex);
+
+				ChildIndex += 1;
+				Entry = Entry->Next;
 			}
 
-			Entry = Entry->Next;
-		}
-
-		return DockLayout;
-	}
-	void KekDockLayout_Resize(KekDockLayout* DockLayout)
-	{
-		switch (DockLayout->Type)
-		{
-		case KEK_DOCK_LAYOUT_TYPE_WINDOW:
-		{
 			break;
 		}
-		case KEK_DOCK_LAYOUT_TYPE_HORIZONTAL:
+		case KEK_DOCK_PANEL_TYPE_HORIZONTAL:
 		{
-			long long unsigned NumChildLayouts = List_Num(&DockLayout->ChildLayouts);
-			float ChildWidth = Rect_Width(&DockLayout->Rect) / (float)NumChildLayouts;
-			float ChildOffsetX = DockLayout->Rect.Left;
+			long long unsigned NumChildPanels = List_Num(&DockPanel->ChildPanels);
+			float ChildWidth = Rect_Width(&DockPanel->PanelRect) / (float)NumChildPanels;
+			float ChildOffsetX = DockPanel->PanelRect.Left;
 
-			ListEntry* Entry = DockLayout->ChildLayouts.Next;
-			while (Entry != &DockLayout->ChildLayouts)
+			ChildIndex = 0;
+			ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
+			while (Entry != &DockPanel->ChildPanels)
 			{
-				KekDockLayout* ChildLayout = (KekDockLayout*)Entry;
+				KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
 
-				Rect ChildRect = { 0 };
-				ChildRect.Left = ChildOffsetX;
-				ChildRect.Right = ChildOffsetX + ChildWidth;
-				ChildRect.Top = DockLayout->Rect.Top + sKekStyle.DockTabHeight;
-				ChildRect.Bottom = DockLayout->Rect.Bottom;
+				Rect PanelRect = { 0 };
+				PanelRect.Left = ChildOffsetX;
+				PanelRect.Right = ChildOffsetX + ChildWidth;
+				PanelRect.Top = DockPanel->PanelRect.Top + sKekStyle.DockTabHeight;
+				PanelRect.Bottom = DockPanel->PanelRect.Bottom;
 
-				KekDockLayout_SetRect(ChildLayout, &ChildRect);
+				Rect_Set(&PanelRect, &ChildPanel->PanelRect);
+
+				KekDockPanel_UpdateRect(ChildPanel, ChildIndex);
 
 				ChildOffsetX += ChildWidth;
 
@@ -11466,24 +11669,27 @@ extern "C"
 
 			break;
 		}
-		case KEK_DOCK_LAYOUT_TYPE_VERTICAL:
+		case KEK_DOCK_PANEL_TYPE_VERTICAL:
 		{
-			long long unsigned NumChildLayouts = List_Num(&DockLayout->ChildLayouts);
-			float ChildHeight = Rect_Width(&DockLayout->Rect) / (float)NumChildLayouts;
-			float ChildOffsetY = DockLayout->Rect.Top;
+			long long unsigned NumChildPanels = List_Num(&DockPanel->ChildPanels);
+			float ChildHeight = Rect_Height(&DockPanel->PanelRect) / (float)NumChildPanels;
+			float ChildOffsetY = DockPanel->PanelRect.Top;
 
-			ListEntry* Entry = DockLayout->ChildLayouts.Next;
-			while (Entry != &DockLayout->ChildLayouts)
+			ChildIndex = 0;
+			ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
+			while (Entry != &DockPanel->ChildPanels)
 			{
-				KekDockLayout* ChildLayout = (KekDockLayout*)Entry;
+				KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
 
-				Rect ChildRect = { 0 };
-				ChildRect.Left = DockLayout->Rect.Left;
-				ChildRect.Right = DockLayout->Rect.Right;
-				ChildRect.Top = ChildOffsetY;
-				ChildRect.Bottom = ChildOffsetY + ChildHeight;
+				Rect PanelRect = { 0 };
+				PanelRect.Left = DockPanel->PanelRect.Left;
+				PanelRect.Right = DockPanel->PanelRect.Right;
+				PanelRect.Top = ChildOffsetY;
+				PanelRect.Bottom = ChildOffsetY + ChildHeight;
 
-				KekDockLayout_SetRect(ChildLayout, &ChildRect);
+				Rect_Set(&PanelRect, &ChildPanel->PanelRect);
+
+				KekDockPanel_UpdateRect(ChildPanel, ChildIndex);
 
 				ChildOffsetY += ChildHeight;
 
@@ -11494,243 +11700,284 @@ extern "C"
 		}
 		}
 	}
-	void KekDockLayout_Update(KekDockLayout* DockLayout)
+	void KekDockPanel_Update(KekDockPanel* DockPanel)
 	{
-		if (!sCurrDragDockLayout)
+		if (Window_IsMouseKeyPressed(MOUSE_KEY_LEFT))
 		{
-			ListEntry* Entry = DockLayout->ChildLayouts.Next;
-			while (Entry != &DockLayout->ChildLayouts)
+			if (!DockPanel->DockLayout->DragPanel)
 			{
-				KekDockLayout* ChildLayout = BASE_OF(Entry, KekDockLayout, LayoutEntry);
-
-				if (Window_IsMouseKeyPressed(MOUSE_KEY_LEFT))
+				if (Rect_Overlap(&DockPanel->TabRect, (float)sMousePositionX, (float)sMousePositionY))
 				{
-					if (Rect_Overlap(&ChildLayout->Rect, (float)sMousePositionX, (float)sMousePositionY))
+					DockPanel->DockLayout->DragPanel = DockPanel;
+					DockPanel->DockLayout->DragOffsetX = (float)sMousePositionX - DockPanel->TabRect.Left;
+					DockPanel->DockLayout->DragOffsetY = (float)sMousePositionY - DockPanel->TabRect.Top;
+
+					if (DockPanel->ParentPanel)
 					{
-						sCurrDragDockLayout = ChildLayout;
-						sCurrDragOffsetX = (float)sMousePositionX - ChildLayout->Rect.Left;
-						sCurrDragOffsetY = (float)sMousePositionY - ChildLayout->Rect.Top;
-
-						List_Remove(Entry);
-
-						KekDockLayout_Resize(DockLayout);
-
-						break;
+						List_Remove(&DockPanel->PanelEntry);
+					}
+					else
+					{
+						DockPanel->DockLayout->RootPanel = 0;
 					}
 				}
 
-				Entry = Entry->Next;
+				ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
+				while (Entry != &DockPanel->ChildPanels)
+				{
+					KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+
+					KekDockPanel_Update(ChildPanel);
+
+					Entry = Entry->Next;
+				}
 			}
 		}
 	}
-	void KekDockLayout_Draw(KekDockLayout* DockLayout, KekBatchMode BatchMode)
+	void KekDockPanel_Draw(KekDockPanel* DockPanel, KekBatchMode BatchMode, float Depth)
 	{
-		if (BatchMode == KEK_BATCH_MODE_RECT)
+		Kek_DrawRectInternal(BatchMode, &DockPanel->TabRect, 0.0F, Depth, &DockPanel->BackgroundColor);
+		Kek_DrawRectInternal(BatchMode, &DockPanel->PanelRect, 0.0F, Depth, &DockPanel->BackgroundColor);
+		Depth += KEK_DEPTH_INCREMENT;
+
+		Kek_DrawTextInternal(BatchMode, &DockPanel->TabRect, 0.0F, Depth, 20.0F, &DockPanel->TextColor, DockPanel->Title);
+		Depth += KEK_DEPTH_INCREMENT;
+
+		ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
+		while (Entry != &DockPanel->ChildPanels)
 		{
-			Vector2 Position = { DockLayout->Rect.Left, DockLayout->Rect.Top };
-			Vector2 Size = { Rect_Width(&DockLayout->Rect), Rect_Height(&DockLayout->Rect) };
+			KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
 
-			Batch_DrawScreenRect(&Position, 0.0F, &Size, &DockLayout->BackgroundColor);
-		}
-
-		ListEntry* Entry = DockLayout->ChildLayouts.Next;
-		while (Entry != &DockLayout->ChildLayouts)
-		{
-			KekDockLayout_Draw((KekDockLayout*)Entry, BatchMode);
-
-			Entry = Entry->Next;
-		}
-
-		KekDockLayout_DrawTabBar(DockLayout, BatchMode);
-
-		if (DockLayout->Node)
-		{
-			KekNode_Draw(DockLayout->Node, BatchMode);
-		}
-	}
-	void KekDockLayout_DrawTabBar(KekDockLayout* DockLayout, KekBatchMode BatchMode)
-	{
-		float TabOffsetX = DockLayout->Rect.Left;
-
-		ListEntry* Entry = DockLayout->ChildLayouts.Next;
-		while (Entry != &DockLayout->ChildLayouts)
-		{
-			KekDockLayout* ChildLayout = (KekDockLayout*)Entry;
-
-			if (BatchMode == KEK_BATCH_MODE_RECT)
-			{
-				Vector2 Position = { TabOffsetX, DockLayout->Rect.Top };
-				Vector2 Size = { sKekStyle.DockTabWidth, sKekStyle.DockTabHeight };
-
-				Batch_DrawScreenRect(&Position, 0.0F, &Size, &ChildLayout->BackgroundColor);
-			}
-
-			if (BatchMode == KEK_BATCH_MODE_TEXT)
-			{
-				Vector2 Position = { TabOffsetX, DockLayout->Rect.Top };
-
-				Text_DrawScreen(&Position, 0.0F, 20.0F, &ChildLayout->TextColor, "Name");
-			}
-
-			TabOffsetX += sKekStyle.DockTabWidth;
+			KekDockPanel_Draw(ChildPanel, BatchMode, Depth + KEK_DEPTH_INCREMENT);
 
 			Entry = Entry->Next;
 		}
 	}
-	void KekDockLayout_PrintTree(KekDockLayout* DockLayout, int unsigned NumIdentSteps)
+	void KekDockPanel_PrintTree(KekDockPanel* DockPanel, int unsigned NumIdentSteps)
 	{
 		for (int unsigned IdentStep = 0; IdentStep < NumIdentSteps; IdentStep++)
 		{
 			printf("\t");
 		}
 
-		printf("DockLayout ");
+		printf("DockPanel ");
 
-		switch (DockLayout->Type)
+		switch (DockPanel->Type)
 		{
-		case KEK_DOCK_LAYOUT_TYPE_WINDOW: printf("WINDOW"); break;
-		case KEK_DOCK_LAYOUT_TYPE_HORIZONTAL: printf("HORIZONTAL"); break;
-		case KEK_DOCK_LAYOUT_TYPE_VERTICAL: printf("VERTICAL"); break;
+		case KEK_DOCK_PANEL_TYPE_WINDOW: printf("WINDOW"); break;
+		case KEK_DOCK_PANEL_TYPE_HORIZONTAL: printf("HORIZONTAL"); break;
+		case KEK_DOCK_PANEL_TYPE_VERTICAL: printf("VERTICAL"); break;
 		}
 
 		printf("\n");
 
-		if (DockLayout->Node)
+		if (DockPanel->Node)
 		{
-			KekNode_PrintTree(DockLayout->Node, NumIdentSteps + 1);
+			KekNode_PrintTree(DockPanel->Node, NumIdentSteps + 1);
 		}
 
-		ListEntry* Entry = DockLayout->ChildLayouts.Next;
-		while (Entry != &DockLayout->ChildLayouts)
+		ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
+		while (Entry != &DockPanel->ChildPanels)
 		{
-			KekDockLayout_PrintTree((KekDockLayout*)Entry, NumIdentSteps + 1);
+			KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+
+			KekDockPanel_PrintTree(ChildPanel, NumIdentSteps + 1);
 
 			Entry = Entry->Next;
 		}
 	}
-	void KekDockRoot_Alloc(KekDockRoot* DockRoot, Rect const* Rect)
+	void KekDockLayout_Alloc(KekDockLayout* DockLayout, Rect const* Rect)
 	{
-		memset(DockRoot, 0, sizeof(KekDockRoot));
+		memset(DockLayout, 0, sizeof(KekDockLayout));
 
-		KekDockLayout* BaseLayout = KekDockLayout_Alloc(0, 0);
+		DockLayout->Node.Class = KEK_NODE_CLASS_DOCK_ROOT;
+		DockLayout->RootPanel = KekDockPanel_Alloc(DockLayout, 0, "Root", 0);
 
-		Rect_Set(Rect, &BaseLayout->Rect);
-		Rect_Set(Rect, &DockRoot->Node.Rect);
-
-		List_InitHead(&DockRoot->ChildLayouts);
-		List_InsertTail(&DockRoot->ChildLayouts, &BaseLayout->LayoutEntry);
-
-		DockRoot->Node.Class = KEK_NODE_CLASS_DOCK_ROOT;
+		Rect_Set(Rect, &DockLayout->Node.Rect);
 	}
-	void KekDockRoot_InsertLeft(KekDockRoot* DockRoot, KekNode* Node)
+	KekDockPanel* KekDockLayout_Insert(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title)
 	{
-		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
+		if (!DockPanel)
+		{
+			DockPanel = DockLayout->RootPanel;
+		}
 
-		KekDockLayout_InsertLeft(BaseLayout, Node);
+		KekDockPanel* ChildPanel = KekDockPanel_Insert(DockPanel, Title);
+
+		List_InsertTail(&DockPanel->ChildPanels, &ChildPanel->PanelEntry);
+
+		KekDockPanel_UpdateRect(DockPanel, 0);
+
+		DockPanel->ActivePanel = ChildPanel;
+
+		return ChildPanel;
 	}
-	void KekDockRoot_InsertRight(KekDockRoot* DockRoot, KekNode* Node)
+	KekDockPanel* KekDockLayout_InsertLeft(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title)
 	{
-		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
+		if (!DockPanel)
+		{
+			DockPanel = DockLayout->RootPanel;
+		}
 
-		KekDockLayout_InsertRight(BaseLayout, Node);
+		KekDockPanel* ChildPanel = KekDockPanel_InsertLeft(DockPanel, Title);
+
+		List_InsertTail(&DockPanel->ChildPanels, &ChildPanel->PanelEntry);
+
+		KekDockPanel_UpdateRect(DockPanel, 0);
+
+		DockPanel->ActivePanel = ChildPanel;
+
+		return ChildPanel;
 	}
-	void KekDockRoot_InsertTop(KekDockRoot* DockRoot, KekNode* Node)
+	KekDockPanel* KekDockLayout_InsertRight(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title)
 	{
-		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
+		if (!DockPanel)
+		{
+			DockPanel = DockLayout->RootPanel;
+		}
 
-		KekDockLayout_InsertTop(BaseLayout, Node);
+		KekDockPanel* ChildPanel = KekDockPanel_InsertRight(DockPanel, Title);
+
+		List_InsertTail(&DockPanel->ChildPanels, &ChildPanel->PanelEntry);
+
+		KekDockPanel_UpdateRect(DockPanel, 0);
+
+		DockPanel->ActivePanel = ChildPanel;
+
+		return ChildPanel;
 	}
-	void KekDockRoot_InsertBottom(KekDockRoot* DockRoot, KekNode* Node)
+	KekDockPanel* KekDockLayout_InsertTop(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title)
 	{
-		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
+		if (!DockPanel)
+		{
+			DockPanel = DockLayout->RootPanel;
+		}
 
-		KekDockLayout_InsertBottom(BaseLayout, Node);
+		KekDockPanel* ChildPanel = KekDockPanel_InsertTop(DockPanel, Title);
+
+		List_InsertTail(&DockPanel->ChildPanels, &ChildPanel->PanelEntry);
+
+		KekDockPanel_UpdateRect(DockPanel, 0);
+
+		DockPanel->ActivePanel = ChildPanel;
+
+		return ChildPanel;
 	}
-	void KekDockRoot_Resize(KekDockRoot* DockRoot)
+	KekDockPanel* KekDockLayout_InsertBottom(KekDockLayout* DockLayout, KekDockPanel* DockPanel, char const* Title)
 	{
-		UNREFERENCED_PARAMETER(DockRoot);
+		if (!DockPanel)
+		{
+			DockPanel = DockLayout->RootPanel;
+		}
+
+		KekDockPanel* ChildPanel = KekDockPanel_InsertBottom(DockPanel, Title);
+
+		List_InsertTail(&DockPanel->ChildPanels, &ChildPanel->PanelEntry);
+
+		KekDockPanel_UpdateRect(DockPanel, 0);
+
+		DockPanel->ActivePanel = ChildPanel;
+
+		return ChildPanel;
 	}
-	void KekDockRoot_Update(KekDockRoot* DockRoot)
+	void KekDockLayout_DragUpdate(KekDockLayout* DockLayout)
 	{
-		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
-
-		KekDockLayout_Update(BaseLayout);
-
-		KekDockLayout* OverlappedLayout = KekDockLayout_FindChildInsideBounds(BaseLayout);
-		//long long unsigned NumChildLayouts = List_Num(&OverlappedLayout->ChildLayouts);
-
-		if (sCurrDragDockLayout)
+		if (DockLayout->DragPanel)
 		{
 			if (Window_IsMouseKeyHeld(MOUSE_KEY_LEFT))
 			{
-				KekDockLayout_SetPosition(sCurrDragDockLayout, (float)sMousePositionX - sCurrDragOffsetX, (float)sMousePositionY - sCurrDragOffsetY);
+				Rect* ParentRect = (DockLayout->DragPanel->ParentPanel) ? &DockLayout->DragPanel->ParentPanel->PanelRect : &DockLayout->DragPanel->DockLayout->Node.Rect;
 
-				if (OverlappedLayout)
+				Rect TabRect = { 0 };
+				TabRect.Left = (float)sMousePositionX - DockLayout->DragOffsetX;
+				TabRect.Right = TabRect.Left + sKekStyle.DockTabWidth;
+				TabRect.Top = (float)sMousePositionY - DockLayout->DragOffsetY;
+				TabRect.Bottom = TabRect.Top + sKekStyle.DockTabHeight;
+
+				Rect PanelRect = { 0 };
+				PanelRect.Left = (float)sMousePositionX - DockLayout->DragOffsetX;
+				PanelRect.Right = PanelRect.Left + Rect_Width(ParentRect);
+				PanelRect.Top = (float)sMousePositionY - DockLayout->DragOffsetY + sKekStyle.DockTabHeight;
+				PanelRect.Bottom = PanelRect.Top + Rect_Height(ParentRect) - sKekStyle.DockTabHeight;
+
+				Rect_Set(&TabRect, &DockLayout->DragPanel->TabRect);
+				Rect_Set(&PanelRect, &DockLayout->DragPanel->PanelRect);
+
+				int unsigned ChildIndex = 0;
+				ListEntry* Entry = LIST_FIRST_ENTRY(DockLayout->DragPanel->ChildPanels);
+				while (Entry != &DockLayout->DragPanel->ChildPanels)
 				{
-					ListEntry* Entry = OverlappedLayout->ChildLayouts.Next;
-					while (Entry != &OverlappedLayout->ChildLayouts)
-					{
-						KekDockLayout* CurrLayout = (KekDockLayout*)Entry;
-						KekDockLayout* NextLayout = (KekDockLayout*)Entry->Next;
+					KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
 
-						float HalfWidth = Rect_Width(&CurrLayout->Rect) / 2.0F;
-						float LeftEdge = CurrLayout->Rect.Right + HalfWidth;
-						float RightEdge = NextLayout->Rect.Right + HalfWidth;
+					KekDockPanel_UpdateRect(ChildPanel, ChildIndex);
 
-						if (((float)sMousePositionX >= LeftEdge) && ((float)sMousePositionX < RightEdge))
-						{
-							//if (!OverlappedLayout->HasGhostLayout)
-							//{
-							//	OverlappedLayout->HasGhostLayout = true;
-							//
-							//	List_InsertAfter(&CurrLayout->LayoutEntry, &sCurrDragDockLayout->LayoutEntry);
-							//}
-						}
-
-						Entry = Entry->Next;
-					}
+					ChildIndex += 1;
+					Entry = Entry->Next;
 				}
 			}
 			else if (Window_IsMouseKeyReleased(MOUSE_KEY_LEFT))
 			{
-				List_InsertTail(&sCurrDragDockLayout->ParentLayout->ChildLayouts, &sCurrDragDockLayout->LayoutEntry);
+				if (DockLayout->DragPanel->ParentPanel)
+				{
+					List_InsertTail(&DockLayout->DragPanel->ParentPanel->ChildPanels, &DockLayout->DragPanel->PanelEntry);
 
-				//KekDockLayout_Resize(sCurrDragDockLayout->ParentLayout);
+					int unsigned ChildIndex = 0;
+					ListEntry* Entry = LIST_FIRST_ENTRY(DockLayout->DragPanel->ParentPanel->ChildPanels);
+					while (Entry != &DockLayout->DragPanel->ParentPanel->ChildPanels)
+					{
+						KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
 
-				sCurrDragDockLayout = 0;
+						KekDockPanel_UpdateRect(ChildPanel, ChildIndex);
+
+						ChildIndex += 1;
+						Entry = Entry->Next;
+					}
+				}
+				else
+				{
+					DockLayout->RootPanel = DockLayout->DragPanel;
+
+					KekDockPanel_UpdateRect(DockLayout->DragPanel, 0);
+				}
+
+				DockLayout->DragPanel = 0;
 			}
 		}
 	}
-	void KekDockRoot_Draw(KekDockRoot* DockRoot, KekBatchMode BatchMode)
+	void KekDockLayout_Resize(KekDockLayout* DockLayout)
 	{
-		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
-
-		KekDockLayout_Draw(BaseLayout, BatchMode);
-
-		if (sCurrDragDockLayout)
+		UNREFERENCED_PARAMETER(DockLayout);
+	}
+	void KekDockLayout_Update(KekDockLayout* DockLayout)
+	{
+		if (DockLayout->RootPanel)
 		{
-			KekDockLayout_Draw(sCurrDragDockLayout, BatchMode);
+			KekDockPanel_Update(DockLayout->RootPanel);
+		}
+		
+		KekDockLayout_DragUpdate(DockLayout);
+	}
+	void KekDockLayout_Draw(KekDockLayout* DockLayout, KekBatchMode BatchMode, float Depth)
+	{
+		if (DockLayout->RootPanel)
+		{
+			KekDockPanel_Draw(DockLayout->RootPanel, BatchMode, Depth + KEK_DEPTH_INCREMENT);
+		}
+
+		if (DockLayout->DragPanel)
+		{
+			KekDockPanel_Draw(DockLayout->DragPanel, BatchMode, Depth);
 		}
 	}
-	void KekDockRoot_Free(KekDockRoot* DockRoot)
+	void KekDockLayout_Free(KekDockLayout* DockLayout)
 	{
-		UNREFERENCED_PARAMETER(DockRoot);
-
-		//KekDockLayout* CurrLayout = DockRoot->RootLayout;
-		//
-		//if (CurrLayout)
-		//{
-		//	CurrLayout = CurrLayout->FirstChild;
-		//	CurrLayout = CurrLayout->SecondChild;
-		//}
+		UNREFERENCED_PARAMETER(DockLayout);
 	}
-	void KekDockRoot_PrintTree(KekDockRoot* DockRoot, int unsigned NumIdentSteps)
+	void KekDockLayout_PrintTree(KekDockLayout* DockLayout, int unsigned NumIdentSteps)
 	{
-		printf("DockRoot\n");
+		printf("DockLayout\n");
 
-		KekDockLayout* BaseLayout = BASE_OF(DockRoot->ChildLayouts.Next, KekDockLayout, LayoutEntry);
-
-		KekDockLayout_PrintTree(BaseLayout, NumIdentSteps + 1);
+		KekDockPanel_PrintTree(DockLayout->RootPanel, NumIdentSteps + 1);
 	}
 	void KekListLayout_Alloc(KekListLayout* ListLayout, Rect const* Rect)
 	{
@@ -11750,10 +11997,11 @@ extern "C"
 	{
 		UNREFERENCED_PARAMETER(ListLayout);
 	}
-	void KekListLayout_Draw(KekListLayout* ListLayout, KekBatchMode BatchMode)
+	void KekListLayout_Draw(KekListLayout* ListLayout, KekBatchMode BatchMode, float Depth)
 	{
 		UNREFERENCED_PARAMETER(ListLayout);
 		UNREFERENCED_PARAMETER(BatchMode);
+		UNREFERENCED_PARAMETER(Depth);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11788,10 +12036,11 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekGridLayout_Draw(KekGridLayout* GridLayout, KekBatchMode BatchMode)
+	void KekGridLayout_Draw(KekGridLayout* GridLayout, KekBatchMode BatchMode, float Depth)
 	{
 		UNREFERENCED_PARAMETER(GridLayout);
 		UNREFERENCED_PARAMETER(BatchMode);
+		UNREFERENCED_PARAMETER(Depth);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11822,10 +12071,11 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekToolBar_Draw(KekToolBar* ToolBar, KekBatchMode BatchMode)
+	void KekToolBar_Draw(KekToolBar* ToolBar, KekBatchMode BatchMode, float Depth)
 	{
 		UNREFERENCED_PARAMETER(ToolBar);
 		UNREFERENCED_PARAMETER(BatchMode);
+		UNREFERENCED_PARAMETER(Depth);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11856,10 +12106,11 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekImage_Draw(KekImage* Image, KekBatchMode BatchMode)
+	void KekImage_Draw(KekImage* Image, KekBatchMode BatchMode, float Depth)
 	{
 		UNREFERENCED_PARAMETER(Image);
 		UNREFERENCED_PARAMETER(BatchMode);
+		UNREFERENCED_PARAMETER(Depth);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11890,10 +12141,11 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekButton_Draw(KekButton* Button, KekBatchMode BatchMode)
+	void KekButton_Draw(KekButton* Button, KekBatchMode BatchMode, float Depth)
 	{
 		UNREFERENCED_PARAMETER(Button);
 		UNREFERENCED_PARAMETER(BatchMode);
+		UNREFERENCED_PARAMETER(Depth);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11924,10 +12176,11 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekSlider_Draw(KekSlider* Slider, KekBatchMode BatchMode)
+	void KekSlider_Draw(KekSlider* Slider, KekBatchMode BatchMode, float Depth)
 	{
 		UNREFERENCED_PARAMETER(Slider);
 		UNREFERENCED_PARAMETER(BatchMode);
+		UNREFERENCED_PARAMETER(Depth);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11958,10 +12211,11 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekViewPort_Draw(KekViewPort* ViewPort, KekBatchMode BatchMode)
+	void KekViewPort_Draw(KekViewPort* ViewPort, KekBatchMode BatchMode, float Depth)
 	{
 		UNREFERENCED_PARAMETER(ViewPort);
 		UNREFERENCED_PARAMETER(BatchMode);
+		UNREFERENCED_PARAMETER(Depth);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -11992,10 +12246,11 @@ extern "C"
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
-	void KekTest_Draw(KekTest* Test, KekBatchMode BatchMode)
+	void KekTest_Draw(KekTest* Test, KekBatchMode BatchMode, float Depth)
 	{
 		UNREFERENCED_PARAMETER(Test);
 		UNREFERENCED_PARAMETER(BatchMode);
+		UNREFERENCED_PARAMETER(Depth);
 
 #pragma message("FAST_GL_NO_IMPLEMENTATION")
 	}
@@ -12066,15 +12321,15 @@ extern "C"
 		Buffer_StorageSetData(Histgrm->Samples, Histgrm->NumSamples * sizeof(float));
 		Buffer_StorageUnBind();
 	}
-	void Histogram_Draw(Histogram* Histgrm, Vector2 Position, float Rotation, Vector2 Size)
+	void Histogram_Draw(Histogram* Histgrm, Vector3 const* Position, float Rotation, Vector2 const* Size)
 	{
 		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
 
 		Shader_Bind(sHistogramProgram);
 		Shader_SetUniformVector2(sHistogramProgram, "ScreenSize", &ScreenSize);
-		Shader_SetUniformVector2(sHistogramProgram, "Position", &Position);
+		Shader_SetUniformVector3(sHistogramProgram, "Position", Position);
 		Shader_SetUniformReal32(sHistogramProgram, "Rotation", Rotation);
-		Shader_SetUniformVector2(sHistogramProgram, "Size", &Size);
+		Shader_SetUniformVector2(sHistogramProgram, "Size", Size);
 		Shader_SetUniformUInt32(sHistogramProgram, "NumSamples", Histgrm->NumSamples);
 		Shader_SetUniformUInt32(sHistogramProgram, "CurrIndex", Histgrm->SampleIndex);
 		Shader_SetUniformUInt32(sHistogramProgram, "Scale", Histgrm->Scale);
@@ -12089,9 +12344,9 @@ extern "C"
 		float LineHeight = Font_LineHeight(&sDefaultFont) * 10.0F;
 
 		Text_BeginScreen(&sDefaultFont);
-		Text_DrawScreenSimple(Position.X + Size.X + 10.0F, Position.Y, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, Histgrm->Name);
-		Text_DrawScreenSimple(Position.X + Size.X + 10.0F, Position.Y + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Max %u", Histgrm->Scale);
-		Text_DrawScreenSimple(Position.X + Size.X + 10.0F, Position.Y + LineHeight + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Avg %u", Histgrm->AvgDelta);
+		Text_DrawScreenSimple(Position->X + Size->X + 10.0F, Position->Y, Position->Z, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, Histgrm->Name);
+		Text_DrawScreenSimple(Position->X + Size->X + 10.0F, Position->Y + LineHeight, Position->Z, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Max %u", Histgrm->Scale);
+		Text_DrawScreenSimple(Position->X + Size->X + 10.0F, Position->Y + LineHeight + LineHeight, Position->Z, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Avg %u", Histgrm->AvgDelta);
 		Text_EndScreen();
 
 		if (Histgrm->DisplayIntervalAcc > 1.0F)
@@ -12102,15 +12357,15 @@ extern "C"
 
 		Histgrm->DisplayIntervalAcc += Histgrm->DisplayInterval;
 	}
-	void Histogram_DrawSimple(Histogram* Histgrm, float PositionX, float PositionY, float Rotation, float Width, float Height)
+	void Histogram_DrawSimple(Histogram* Histgrm, float PositionX, float PositionY, float PositionZ, float Rotation, float Width, float Height)
 	{
 		Vector2 ScreenSize = { (float)sWindowWidth, (float)sWindowHeight };
-		Vector2 Position = { PositionX, PositionY };
+		Vector3 Position = { PositionX, PositionY, PositionZ };
 		Vector2 Size = { Width, Height };
 
 		Shader_Bind(sHistogramProgram);
 		Shader_SetUniformVector2(sHistogramProgram, "ScreenSize", &ScreenSize);
-		Shader_SetUniformVector2(sHistogramProgram, "Position", &Position);
+		Shader_SetUniformVector3(sHistogramProgram, "Position", &Position);
 		Shader_SetUniformReal32(sHistogramProgram, "Rotation", Rotation);
 		Shader_SetUniformVector2(sHistogramProgram, "Size", &Size);
 		Shader_SetUniformUInt32(sHistogramProgram, "NumSamples", Histgrm->NumSamples);
@@ -12127,9 +12382,9 @@ extern "C"
 		float LineHeight = Font_LineHeight(&sDefaultFont) * 10.0F;
 
 		Text_BeginScreen(&sDefaultFont);
-		Text_DrawScreenSimple(PositionX + Width + 10.0F, PositionY, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, Histgrm->Name);
-		Text_DrawScreenSimple(PositionX + Width + 10.0F, PositionY + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Max %u", Histgrm->Scale);
-		Text_DrawScreenSimple(PositionX + Width + 10.0F, PositionY + LineHeight + LineHeight, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Avg %u", Histgrm->AvgDelta);
+		Text_DrawScreenSimple(PositionX + Width + 10.0F, PositionY, PositionZ, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, Histgrm->Name);
+		Text_DrawScreenSimple(PositionX + Width + 10.0F, PositionY + LineHeight, PositionZ, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Max %u", Histgrm->Scale);
+		Text_DrawScreenSimple(PositionX + Width + 10.0F, PositionY + LineHeight + LineHeight, PositionZ, 0.0F, 10.0F, 1.0F, 1.0F, 1.0F, 1.0F, "Avg %u", Histgrm->AvgDelta);
 		Text_EndScreen();
 
 		if (Histgrm->DisplayIntervalAcc > 1.0F)
