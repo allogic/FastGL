@@ -2,15 +2,15 @@
 
 ## Basic Window
 ```c
-#define FAST_GL_IMPLEMENTATION
+#define FGL_IMPLEMENTATION
 #include "FastGL.h"
 
-int main(void)
+int main()
 {
-	Window_Alloc(800, 800, "FastGL");
+	int Width = 800;
+	int Height = 800;
 
-	int Width = Window_GetWidth();
-	int Height = Window_GetHeight();
+	Window_Alloc(Width, Height, "FastGL");
 
 	while (!Window_ShouldClose())
 	{
