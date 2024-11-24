@@ -24,7 +24,7 @@ int main(void)
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		Text_BeginScreen(Font_GetDefault());
-		Text_DrawScreenSimple(10.0F, 10.0F, 0.0F, 100.0F, 1.0F, 1.0F, 1.0F, 1.0F, "FastGL");
+		Text_DrawScreenSimple(10.0F, 10.0F, 0.0F, 0.0F, 100.0F, 1.0F, 1.0F, 1.0F, 1.0F, "FastGL");
 		Text_EndScreen();
 
 		Window_SwapBuffers();
