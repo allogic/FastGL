@@ -18,8 +18,8 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#ifndef FAST_GL_H
-#define FAST_GL_H
+#ifndef FGL_H
+#define FGL_H
 
 #include <assert.h>
 #include <stdio.h>
@@ -44,25 +44,29 @@ extern "C"
 	// Feature Detection
 	///////////////////////////////////////////////////////////////
 
+#if defined(_UNICODE) || defined(UNICODE)
+#define FGL_UNICODE_SUPPORTED
+#endif // UNICODE_SUPPORT
+
 #if defined(__SSE__) && defined(__SSE2__)
-#define FAST_GL_SSE2_SUPPORTED
+#define FGL_SSE2_SUPPORTED
 #elif defined(__SSE__)
-#define FAST_GL_SSE_SUPPORTED
+#define FGL_SSE_SUPPORTED
 #endif // SSE_SUPPORT
 
 #if defined (__AVX512F__) && defined(__AVX512DQ__) && defined(__AVX512CD__) && defined(__AVX512BW__) && defined(__AVX512VL__)
-#define FAST_GL_AVX512_SUPPORTED
+#define FGL_AVX512_SUPPORTED
 #elif defined(__AVX__) && defined(__AVX2__)
-#define FAST_GL_AVX2_SUPPORTED
+#define FGL_AVX2_SUPPORTED
 #elif defined(__AVX__)
-#define FAST_GL_AVX_SUPPORTED
+#define FGL_AVX_SUPPORTED
 #endif // AVX_SUPPORT
 
-#if defined(FAST_GL_SSE_SUPPORTED) || defined(FAST_GL_SSE2_SUPPORTED)
+#if defined(FGL_SSE_SUPPORTED) || defined(FGL_SSE2_SUPPORTED)
 #include <xmmintrin.h>
 #endif // SSE_SUPPORT
 
-#if defined(FAST_GL_AVX_SUPPORTED) || defined(FAST_GL_AVX2_SUPPORTED) || defined(FAST_GL_AVX512_SUPPORTED)
+#if defined(FGL_AVX_SUPPORTED) || defined(FGL_AVX2_SUPPORTED) || defined(FGL_AVX512_SUPPORTED)
 #include <immintrin.h>
 #endif // AVX_SUPPORT
 
@@ -71,79 +75,79 @@ extern "C"
 	///////////////////////////////////////////////////////////////
 
 #ifdef _DEBUG
-#define FAST_GL_DEBUG
-#define FAST_GL_REFERENCE_COUNT
+#define FGL_DEBUG
+#define FGL_REFERENCE_COUNT
 #endif // _DEBUG
 
 	///////////////////////////////////////////////////////////////
 	// Global Utility Macros
 	///////////////////////////////////////////////////////////////
 
-#define STATIC_ASSERT(EXPRESSION, MESSAGE) typedef char static_assertion_##MESSAGE[(EXPRESSION) ? 1 : -1]
+#define FGL_STATIC_ASSERT(EXPRESSION, MESSAGE) typedef char static_assertion_##MESSAGE[(EXPRESSION) ? 1 : -1]
 
-#define OFFSET_OF(TYPE, MEMBER_NAME) ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))
-#define MEMBER_OF(INSTANCE, TYPE, MEMBER_NAME, MEMBER_TYPE) ((MEMBER_TYPE*)(((long long unsigned)(INSTANCE)) + ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))))
-#define BASE_OF(INSTANCE, TYPE, MEMBER_NAME) ((TYPE*)(((long long unsigned)(INSTANCE)) - ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))))
+#define FGL_OFFSET_OF(TYPE, MEMBER_NAME) ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))
+#define FGL_MEMBER_OF(INSTANCE, TYPE, MEMBER_NAME, MEMBER_TYPE) ((MEMBER_TYPE*)(((long long unsigned)(INSTANCE)) + ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))))
+#define FGL_BASE_OF(INSTANCE, TYPE, MEMBER_NAME) ((TYPE*)(((long long unsigned)(INSTANCE)) - ((long long unsigned)&(((TYPE*)0)->MEMBER_NAME))))
 
-#define MAX(A, B) (((A) > (B)) ? (A) : (B))
-#define MIN(A, B) (((A) < (B)) ? (A) : (B))
+#define FGL_MAX(A, B) (((A) > (B)) ? (A) : (B))
+#define FGL_MIN(A, B) (((A) < (B)) ? (A) : (B))
 
-#define PI (3.1415926F)
-#define SQRT_3 (1.7320508F)
-#define EPSILON_2 (1E-2F)
-#define EPSILON_3 (1E-3F)
-#define EPSILON_4 (1E-4F)
-#define EPSILON_5 (1E-5F)
-#define EPSILON_6 (1E-6F)
-#define EPSILON_7 (1E-7F)
+#define FGL_PI (3.1415926F)
+#define FGL_SQRT_3 (1.7320508F)
+#define FGL_EPSILON_2 (1E-2F)
+#define FGL_EPSILON_3 (1E-3F)
+#define FGL_EPSILON_4 (1E-4F)
+#define FGL_EPSILON_5 (1E-5F)
+#define FGL_EPSILON_6 (1E-6F)
+#define FGL_EPSILON_7 (1E-7F)
 
-#define DEG_TO_RAD(DEGREES) ((DEGREES) * 0.0174532F)
-#define RAD_TO_DEG(RADIANS) ((RADIANS) * 57.2957795F)
+#define FGL_DEG_TO_RAD(DEGREES) ((DEGREES) * 0.0174532F)
+#define FGL_RAD_TO_DEG(RADIANS) ((RADIANS) * 57.2957795F)
 
-#define ALIGN_DOWN_BY(VALUE, ALIGNMENT) (((long long unsigned)(VALUE)) & ~(((long long unsigned)(ALIGNMENT)) - 1ULL))
-#define ALIGN_UP_BY(VALUE, ALIGNMENT) ((((long long unsigned)(VALUE)) + (((long long unsigned)(ALIGNMENT)) - 1ULL)) & ~(((long long unsigned)(ALIGNMENT)) - 1ULL))
+#define FGL_ALIGN_DOWN_BY(VALUE, ALIGNMENT) (((long long unsigned)(VALUE)) & ~(((long long unsigned)(ALIGNMENT)) - 1ULL))
+#define FGL_ALIGN_UP_BY(VALUE, ALIGNMENT) ((((long long unsigned)(VALUE)) + (((long long unsigned)(ALIGNMENT)) - 1ULL)) & ~(((long long unsigned)(ALIGNMENT)) - 1ULL))
 
-#define L2B_ENDIAN_S16(VALUE) \
+#define FGL_L2B_ENDIAN_S16(VALUE) \
 		((short)((((VALUE) & 0xFFULL) << 8) | \
 				 (((VALUE) & 0xFF00ULL) >> 8)))
 
-#define B2L_ENDIAN_S16(VALUE) \
+#define FGL_B2L_ENDIAN_S16(VALUE) \
 		((short)((((VALUE) & 0xFFULL) << 8) | \
 				 (((VALUE) & 0xFF00ULL) >> 8)))
 
-#define L2B_ENDIAN_U16(VALUE) \
+#define FGL_L2B_ENDIAN_U16(VALUE) \
 		((short unsigned)((((VALUE) & 0xFFULL) << 8) | \
 						  (((VALUE) & 0xFF00ULL) >> 8)))
 
-#define B2L_ENDIAN_U16(VALUE) \
+#define FGL_B2L_ENDIAN_U16(VALUE) \
 		((short unsigned)((((VALUE) & 0xFFULL) << 8) | \
 						  (((VALUE) & 0xFF00ULL) >> 8)))
 
-#define L2B_ENDIAN_S32(VALUE) \
+#define FGL_L2B_ENDIAN_S32(VALUE) \
 		((int)((((VALUE) & 0xFFULL) << 24) | \
 			   (((VALUE) & 0xFF00ULL) << 8) | \
 			   (((VALUE) & 0xFF0000ULL) >> 8) | \
 			   (((VALUE) & 0xFF000000ULL) >> 24)))
 
-#define B2L_ENDIAN_S32(VALUE) \
+#define FGL_B2L_ENDIAN_S32(VALUE) \
 		((int)((((VALUE) & 0xFFULL) << 24) | \
 			   (((VALUE) & 0xFF00ULL) << 8) | \
 			   (((VALUE) & 0xFF0000ULL) >> 8) | \
 			   (((VALUE) & 0xFF000000ULL) >> 24)))
 
-#define L2B_ENDIAN_U32(VALUE) \
+#define FGL_L2B_ENDIAN_U32(VALUE) \
 		((int unsigned)((((VALUE) & 0xFFULL) << 24) | \
 						(((VALUE) & 0xFF00ULL) << 8) | \
 						(((VALUE) & 0xFF0000ULL) >> 8) | \
 						(((VALUE) & 0xFF000000ULL) >> 24)))
 
-#define B2L_ENDIAN_U32(VALUE) \
+#define FGL_B2L_ENDIAN_U32(VALUE) \
 		((int unsigned)((((VALUE) & 0xFFULL) << 24) | \
 						(((VALUE) & 0xFF00ULL) << 8) | \
 						(((VALUE) & 0xFF0000ULL) >> 8) | \
 						(((VALUE) & 0xFF000000ULL) >> 24)))
 
-#define L2B_ENDIAN_S64(VALUE) \
+#define FGL_L2B_ENDIAN_S64(VALUE) \
 		((long long)((((VALUE) & 0xFFULL) << 56) | \
 					 (((VALUE) & 0xFF00ULL) << 40) | \
 					 (((VALUE) & 0xFF0000ULL) << 24) | \
@@ -153,7 +157,7 @@ extern "C"
 					 (((VALUE) & 0xFF000000000000ULL) >> 40) | \
 					 (((VALUE) & 0xFF00000000000000ULL) >> 56)))
 
-#define B2L_ENDIAN_S64(VALUE) \
+#define FGL_B2L_ENDIAN_S64(VALUE) \
 		((long long)((((VALUE) & 0xFFULL) << 56) | \
 					 (((VALUE) & 0xFF00ULL) << 40) | \
 					 (((VALUE) & 0xFF0000ULL) << 24) | \
@@ -163,7 +167,7 @@ extern "C"
 					 (((VALUE) & 0xFF000000000000ULL) >> 40) | \
 					 (((VALUE) & 0xFF00000000000000ULL) >> 56)))
 
-#define L2B_ENDIAN_U64(VALUE) \
+#define FGL_L2B_ENDIAN_U64(VALUE) \
 		((long long unsigned)((((VALUE) & 0xFFULL) << 56) | \
 							  (((VALUE) & 0xFF00ULL) << 40) | \
 							  (((VALUE) & 0xFF0000ULL) << 24) | \
@@ -173,7 +177,7 @@ extern "C"
 							  (((VALUE) & 0xFF000000000000ULL) >> 40) | \
 							  (((VALUE) & 0xFF00000000000000ULL) >> 56)))
 
-#define B2L_ENDIAN_U64(VALUE) \
+#define FGL_B2L_ENDIAN_U64(VALUE) \
 		((long long unsigned)((((VALUE) & 0xFFULL) << 56) | \
 							  (((VALUE) & 0xFF00ULL) << 40) | \
 							  (((VALUE) & 0xFF0000ULL) << 24) | \
@@ -183,35 +187,35 @@ extern "C"
 							  (((VALUE) & 0xFF000000000000ULL) >> 40) | \
 							  (((VALUE) & 0xFF00000000000000ULL) >> 56)))
 
-#define IS_BIT_SET(VALUE, POSITION) (((long long unsigned)(VALUE)) & (1ULL << (POSITION)))
-#define IS_BIT_NOT_SET(VALUE, POSITION) (!(((long long unsigned)(VALUE)) & (1ULL << (POSITION))))
+#define FGL_IS_BIT_SET(VALUE, POSITION) (((long long unsigned)(VALUE)) & (1ULL << (POSITION)))
+#define FGL_IS_BIT_NOT_SET(VALUE, POSITION) (!(((long long unsigned)(VALUE)) & (1ULL << (POSITION))))
 
-#define SET_BIT(VALUE, POSITION) (((long long unsigned)(VALUE)) | (1ULL << (POSITION)))
-#define CLEAR_BIT(VALUE, POSITION) (((long long unsigned)(VALUE)) & (~(1ULL << (POSITION))))
-#define TOGGLE_BIT(VALUE, POSITION) (((long long unsigned)(VALUE)) ^ (1ULL << (POSITION)))
+#define FGL_SET_BIT(VALUE, POSITION) (((long long unsigned)(VALUE)) | (1ULL << (POSITION)))
+#define FGL_CLEAR_BIT(VALUE, POSITION) (((long long unsigned)(VALUE)) & (~(1ULL << (POSITION))))
+#define FGL_TOGGLE_BIT(VALUE, POSITION) (((long long unsigned)(VALUE)) ^ (1ULL << (POSITION)))
 
 	///////////////////////////////////////////////////////////////
 	// Common Shader Stuff
 	///////////////////////////////////////////////////////////////
 
-#define GLSL_GL_VERSION \
+#define FGL_VERSION \
 	"\n#version 460 core\n"
 
-#define GLSL_BEGIN_INCLUDE_GUARD(NAME) \
+#define FGL_BEGIN_INCLUDE_GUARD(NAME) \
 	"\n#ifndef " #NAME "\n" \
 	"\n#define " #NAME "\n"
 
-#define GLSL_END_INCLUDE_GUARD(NAME) \
+#define FGL_END_INCLUDE_GUARD(NAME) \
 	"\n#endif\n"
 
-#define GLSL_CONSTANTS \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_CONSTANTS) \
+#define FGL_CONSTANTS \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_CONSTANTS) \
 	"const float PI = 3.1415926;" \
 	"const float TAU = 6.2831853;" \
-	GLSL_END_INCLUDE_GUARD(GLSL_CONSTANTS)
+	FGL_END_INCLUDE_GUARD(FGL_CONSTANTS)
 
-#define GLSL_MATH_UTILITY_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_MATH_UTILITY_IMPLEMENTATION) \
+#define FGL_MATH_UTILITY_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_MATH_UTILITY_IMPLEMENTATION) \
 	"float RemapTo01(float Value, float Min, float Max) {" \
 	"	return (Value - Min) / (Max - Min);" \
 	"}" \
@@ -239,20 +243,20 @@ extern "C"
 	"float Binarize(float Value, float Threshold) {" \
 	"	return (Value > Threshold) ? 1.0 : 0.0;" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_MATH_UTILITY_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_MATH_UTILITY_IMPLEMENTATION)
 
-#define GLSL_SCREEN_SPACE_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_SCREEN_SPACE_IMPLEMENTATION) \
+#define FGL_SCREEN_SPACE_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_SCREEN_SPACE_IMPLEMENTATION) \
 	"vec4 ScreenToClipSpace(vec3 ScreenPosition, vec2 ScreenSize) {" \
 	"	float NdcX = (2.0F * ScreenPosition.x) / ScreenSize.x - 1.0F;" \
 	"	float NdcY = (2.0F * (ScreenSize.y - ScreenPosition.y)) / ScreenSize.y - 1.0F;" \
 	"	float NdcZ = ScreenPosition.z;" \
 	"	return vec4(NdcX, NdcY, NdcZ, 1.0F);" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_SCREEN_SPACE_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_SCREEN_SPACE_IMPLEMENTATION)
 
-#define GLSL_ROTATION_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_ROTATION_IMPLEMENTATION) \
+#define FGL_ROTATION_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_ROTATION_IMPLEMENTATION) \
 	"vec2 RotateVector2D(vec2 Vector, float Angle) {" \
 	"	float CA = cos(Angle);" \
 	"	float SA = sin(Angle);" \
@@ -277,10 +281,10 @@ extern "C"
 	"	Q.w = CX * CY * CZ + SX * SY * SZ;" \
 	"	return Q;" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_ROTATION_IMPLEMENTATION) \
+	FGL_END_INCLUDE_GUARD(FGL_ROTATION_IMPLEMENTATION)
 
-#define GLSL_UNSIGNED_RANDOM_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_UNSIGNED_RANDOM_IMPLEMENTATION) \
+#define FGL_UNSIGNED_RANDOM_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_UNSIGNED_RANDOM_IMPLEMENTATION) \
 	"const vec4 UNSIGNED_RANDOM_SCALE = vec4(443.897, 441.423, .0973, .1099);" \
 	"float random(float x) {" \
 	"	x = fract(x * UNSIGNED_RANDOM_SCALE.x);" \
@@ -353,10 +357,10 @@ extern "C"
 	"	p4 += dot(p4, p4.wzxy + 19.19);" \
 	"	return fract((p4.xxyz + p4.yzzw) * p4.zywx);" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_UNSIGNED_RANDOM_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_UNSIGNED_RANDOM_IMPLEMENTATION)
 
-#define GLSL_SIGNED_RANDOM_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_SIGNED_RANDOM_IMPLEMENTATION) \
+#define FGL_SIGNED_RANDOM_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_SIGNED_RANDOM_IMPLEMENTATION) \
 	"float srandom(float x) {" \
 	"	return -1. + 2. * fract(sin(x) * 43758.5453);" \
 	"}" \
@@ -387,35 +391,35 @@ extern "C"
 	"	p = mod(p, vec3(tileLength));" \
 	"	return srandom3(p);" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_SIGNED_RANDOM_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_SIGNED_RANDOM_IMPLEMENTATION)
 
-#define GLSL_MOD289_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_MOD289_IMPLEMENTATION) \
+#define FGL_MOD289_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_MOD289_IMPLEMENTATION) \
 	"float mod289(float x) { return x - floor(x * (1. / 289.)) * 289.; }" \
 	"vec2 mod289(vec2 x) { return x - floor(x * (1. / 289.)) * 289.; }" \
 	"vec3 mod289(vec3 x) { return x - floor(x * (1. / 289.)) * 289.; }" \
 	"vec4 mod289(vec4 x) { return x - floor(x * (1. / 289.)) * 289.; }" \
-	GLSL_END_INCLUDE_GUARD(GLSL_MOD289_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_MOD289_IMPLEMENTATION)
 
 
-#define GLSL_PERMUTE_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_PERMUTE_IMPLEMENTATION) \
+#define FGL_PERMUTE_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_PERMUTE_IMPLEMENTATION) \
 	"float permute(float v) { return mod289(((v * 34.0) + 1.0) * v); }" \
 	"vec2 permute(vec2 v) { return mod289(((v * 34.0) + 1.0) * v); }" \
 	"vec3 permute(vec3 v) { return mod289(((v * 34.0) + 1.0) * v); }" \
 	"vec4 permute(vec4 v) { return mod289(((v * 34.0) + 1.0) * v); }" \
-	GLSL_END_INCLUDE_GUARD(GLSL_PERMUTE_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_PERMUTE_IMPLEMENTATION)
 
-#define GLSL_TAYLOR_INV_SQRT_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_TAYLOR_INV_SQRT_IMPLEMENTATION) \
+#define FGL_TAYLOR_INV_SQRT_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_TAYLOR_INV_SQRT_IMPLEMENTATION) \
 	"float taylorInvSqrt(float r) { return 1.79284291400159 - 0.85373472095314 * r; }" \
 	"vec2 taylorInvSqrt(vec2 r) { return 1.79284291400159 - 0.85373472095314 * r; }" \
 	"vec3 taylorInvSqrt(vec3 r) { return 1.79284291400159 - 0.85373472095314 * r; }" \
 	"vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }" \
-	GLSL_END_INCLUDE_GUARD(GLSL_TAYLOR_INV_SQRT_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_TAYLOR_INV_SQRT_IMPLEMENTATION)
 
-#define GLSL_GRAD4_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_GRAD4_IMPLEMENTATION) \
+#define FGL_GRAD4_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_GRAD4_IMPLEMENTATION) \
 	"vec4 grad4(float j, vec4 ip) {" \
 	"	const vec4 ones = vec4(1.0, 1.0, 1.0, -1.0);" \
 	"	vec4 p, s;" \
@@ -425,10 +429,10 @@ extern "C"
 	"	p.xyz = p.xyz + (s.xyz * 2.0 - 1.0) * s.www;" \
 	"	return p;" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_GRAD4_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_GRAD4_IMPLEMENTATION)
 
-#define GLSL_CUBIC_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_CUBIC_IMPLEMENTATION) \
+#define FGL_CUBIC_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_CUBIC_IMPLEMENTATION) \
 	"float cubic(float v) { return v*v*(3.0-2.0*v); }" \
 	"vec2 cubic(vec2 v) { return v * v * (3.0 - 2.0 * v); }" \
 	"vec3 cubic(vec3 v) { return v * v * (3.0 - 2.0 * v); }" \
@@ -465,22 +469,22 @@ extern "C"
 	"	vec4 v3 = v * v2;" \
 	"	return a * v3 + b * v2 + c * v;" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_CUBIC_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_CUBIC_IMPLEMENTATION)
 
-#define GLSL_QUINTIC_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_QUINTIC_IMPLEMENTATION) \
+#define FGL_QUINTIC_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_QUINTIC_IMPLEMENTATION) \
 	"float quintic(float v) { return v*v*v*(v*(v*6.0-15.0)+10.0); }" \
 	"vec2 quintic(vec2 v) { return v * v * v * (v * (v * 6.0 - 15.0) + 10.0); }" \
 	"vec3 quintic(vec3 v) { return v * v * v * (v * (v * 6.0 - 15.0) + 10.0); }" \
 	"vec4 quintic(vec4 v) { return v * v * v * (v * (v * 6.0 - 15.0) + 10.0); }" \
-	GLSL_END_INCLUDE_GUARD(GLSL_QUINTIC_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_QUINTIC_IMPLEMENTATION)
 
-#define GLSL_SIMPLEX_NOISE_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_SIMPLEX_NOISE_IMPLEMENTATION) \
-	GLSL_MOD289_IMPLEMENTATION \
-	GLSL_PERMUTE_IMPLEMENTATION \
-	GLSL_TAYLOR_INV_SQRT_IMPLEMENTATION \
-	GLSL_GRAD4_IMPLEMENTATION \
+#define FGL_SIMPLEX_NOISE_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_SIMPLEX_NOISE_IMPLEMENTATION) \
+	FGL_MOD289_IMPLEMENTATION \
+	FGL_PERMUTE_IMPLEMENTATION \
+	FGL_TAYLOR_INV_SQRT_IMPLEMENTATION \
+	FGL_GRAD4_IMPLEMENTATION \
 	"float SimplexNoise2D(vec2 Position) {" \
 	"	const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);" \
 	"	vec2 i = floor(Position + dot(Position, C.yy));" \
@@ -604,14 +608,14 @@ extern "C"
 	"	float s2 = SimplexNoise4D(vec4(Position.z + 74.2, Position.x - 124.5, Position.y + 99.4, Position.w));"\
 	"	return vec3(s, s1, s2);"\
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_SIMPLEX_NOISE_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_SIMPLEX_NOISE_IMPLEMENTATION)
 
-#define GLSL_GRADIENT_NOISE_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_GRADIENT_NOISE_IMPLEMENTATION) \
-	GLSL_UNSIGNED_RANDOM_IMPLEMENTATION \
-	GLSL_SIGNED_RANDOM_IMPLEMENTATION \
-	GLSL_CUBIC_IMPLEMENTATION \
-	GLSL_QUINTIC_IMPLEMENTATION \
+#define FGL_GRADIENT_NOISE_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_GRADIENT_NOISE_IMPLEMENTATION) \
+	FGL_UNSIGNED_RANDOM_IMPLEMENTATION \
+	FGL_SIGNED_RANDOM_IMPLEMENTATION \
+	FGL_CUBIC_IMPLEMENTATION \
+	FGL_QUINTIC_IMPLEMENTATION \
 	"float GradientNoise1D(float Value) {" \
 	"	float i = floor(Value);" \
 	"	float f = fract(Value);" \
@@ -639,12 +643,12 @@ extern "C"
 	"	vec3 u = quintic(f);" \
 	"	return mix(mix(mix(dot(srandom3(i + vec3(0.0, 0.0, 0.0), TileLength), f - vec3(0.0, 0.0, 0.0)), dot(srandom3(i + vec3(1.0, 0.0, 0.0), TileLength), f - vec3(1.0, 0.0, 0.0)), u.x), mix(dot(srandom3(i + vec3(0.0, 1.0, 0.0), TileLength), f - vec3(0.0, 1.0, 0.0)), dot(srandom3(i + vec3(1.0, 1.0, 0.0), TileLength), f - vec3(1.0, 1.0, 0.0)), u.x), u.y), mix(mix(dot(srandom3(i + vec3(0.0, 0.0, 1.0), TileLength), f - vec3(0.0, 0.0, 1.0)), dot(srandom3(i + vec3(1.0, 0.0, 1.0), TileLength), f - vec3(1.0, 0.0, 1.0)), u.x), mix(dot(srandom3(i + vec3(0.0, 1.0, 1.0), TileLength), f - vec3(0.0, 1.0, 1.0)), dot(srandom3(i + vec3(1.0, 1.0, 1.0), TileLength), f - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z);" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_GRADIENT_NOISE_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_GRADIENT_NOISE_IMPLEMENTATION)
 
-#define GLSL_VORONOI_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_VORONOI_IMPLEMENTATION) \
-	GLSL_CONSTANTS \
-	GLSL_UNSIGNED_RANDOM_IMPLEMENTATION \
+#define FGL_VORONOI_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_VORONOI_IMPLEMENTATION) \
+	FGL_CONSTANTS \
+	FGL_UNSIGNED_RANDOM_IMPLEMENTATION \
 	"float Voronoi2D(vec2 Position, float AngleOffset, float Radius, float Density) {" \
 	"	vec2 n = floor(Position * Density);" \
 	"	vec2 f = fract(Position * Density);" \
@@ -663,11 +667,11 @@ extern "C"
 	"	}" \
 	"	return f1;" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_VORONOI_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_VORONOI_IMPLEMENTATION)
 
-#define GLSL_VORO_NOISE_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_VORO_NOISE_IMPLEMENTATION) \
-	GLSL_UNSIGNED_RANDOM_IMPLEMENTATION \
+#define FGL_VORO_NOISE_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_VORO_NOISE_IMPLEMENTATION) \
+	FGL_UNSIGNED_RANDOM_IMPLEMENTATION \
 	"float VoroNoise2D(vec2 Position, float U, float V) {" \
 	"	float k = 1.0 + 63.0 * pow(1.0 - V, 6.0);" \
 	"	vec2 i = floor(Position);" \
@@ -703,12 +707,12 @@ extern "C"
 	"	}" \
 	"	return a.x / a.y;" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_VORO_NOISE_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_VORO_NOISE_IMPLEMENTATION)
 
-#define GLSL_FBM_NOISE_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_FBM_NOISE_IMPLEMENTATION) \
-	GLSL_SIMPLEX_NOISE_IMPLEMENTATION \
-	GLSL_GRADIENT_NOISE_IMPLEMENTATION \
+#define FGL_FBM_NOISE_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_FBM_NOISE_IMPLEMENTATION) \
+	FGL_SIMPLEX_NOISE_IMPLEMENTATION \
+	FGL_GRADIENT_NOISE_IMPLEMENTATION \
 	"float FbmNoise2D(vec2 Position, float Scale, float Amplitude, int Octaves) {" \
 	"	float v = 0.0;" \
 	"	float a = 0.5;" \
@@ -742,11 +746,11 @@ extern "C"
 	"	}" \
 	"	return t / n;" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_FBM_NOISE_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_FBM_NOISE_IMPLEMENTATION)
 
-#define GLSL_CURL_NOISE_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_CURL_NOISE_IMPLEMENTATION) \
-	GLSL_SIMPLEX_NOISE_IMPLEMENTATION \
+#define FGL_CURL_NOISE_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_CURL_NOISE_IMPLEMENTATION) \
+	FGL_SIMPLEX_NOISE_IMPLEMENTATION \
 	"vec2 CurlNoise2D(vec2 Position) {" \
 	"	const float e = 0.1;" \
 	"	vec2 dx = vec2(e, 0.0);" \
@@ -794,14 +798,14 @@ extern "C"
 	"	const float divisor = 1.0 / (2.0 * e);" \
 	"	return normalize(vec3(x, y, z) * divisor);" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_CURL_NOISE_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_CURL_NOISE_IMPLEMENTATION)
 
-#define GLSL_PERLIN_NOISE_IMPLEMENTATION \
-	GLSL_BEGIN_INCLUDE_GUARD(GLSL_PERLIN_NOISE_IMPLEMENTATION) \
-	GLSL_MOD289_IMPLEMENTATION \
-	GLSL_PERMUTE_IMPLEMENTATION \
-	GLSL_QUINTIC_IMPLEMENTATION \
-	GLSL_TAYLOR_INV_SQRT_IMPLEMENTATION \
+#define FGL_PERLIN_NOISE_IMPLEMENTATION \
+	FGL_BEGIN_INCLUDE_GUARD(FGL_PERLIN_NOISE_IMPLEMENTATION) \
+	FGL_MOD289_IMPLEMENTATION \
+	FGL_PERMUTE_IMPLEMENTATION \
+	FGL_QUINTIC_IMPLEMENTATION \
+	FGL_TAYLOR_INV_SQRT_IMPLEMENTATION \
 	"float PerlinNoise2D(vec2 Position) {" \
 	"	vec4 Pi = floor(Position.xyxy) + vec4(0.0, 0.0, 1.0, 1.0);" \
 	"	vec4 Pf = fract(Position.xyxy) - vec4(0.0, 0.0, 1.0, 1.0);" \
@@ -1013,19 +1017,19 @@ extern "C"
 	"	float n_xyzw = mix(n_yzw.x, n_yzw.y, fade_xyzw.x);" \
 	"	return 2.2 * n_xyzw;" \
 	"}" \
-	GLSL_END_INCLUDE_GUARD(GLSL_PERLIN_NOISE_IMPLEMENTATION)
+	FGL_END_INCLUDE_GUARD(FGL_PERLIN_NOISE_IMPLEMENTATION)
 
 	///////////////////////////////////////////////////////////////
 	// Platform Type Checks
 	///////////////////////////////////////////////////////////////
 
-	STATIC_ASSERT(sizeof(char) == 1, invalid_size_detected);
-	STATIC_ASSERT(sizeof(short) == 2, invalid_size_detected);
-	STATIC_ASSERT(sizeof(int) == 4, invalid_size_detected);
-	STATIC_ASSERT(sizeof(long) == 4, invalid_size_detected);
-	STATIC_ASSERT(sizeof(long long) == 8, invalid_size_detected);
-	STATIC_ASSERT(sizeof(float) == 4, invalid_size_detected);
-	STATIC_ASSERT(sizeof(double) == 8, invalid_size_detected);
+	FGL_STATIC_ASSERT(sizeof(char) == 1, invalid_size_detected);
+	FGL_STATIC_ASSERT(sizeof(short) == 2, invalid_size_detected);
+	FGL_STATIC_ASSERT(sizeof(int) == 4, invalid_size_detected);
+	FGL_STATIC_ASSERT(sizeof(long) == 4, invalid_size_detected);
+	FGL_STATIC_ASSERT(sizeof(long long) == 8, invalid_size_detected);
+	FGL_STATIC_ASSERT(sizeof(float) == 4, invalid_size_detected);
+	FGL_STATIC_ASSERT(sizeof(double) == 8, invalid_size_detected);
 
 	///////////////////////////////////////////////////////////////
 	// WindowsGL Definition
@@ -1036,12 +1040,12 @@ extern "C"
 	typedef PROC(*glGetProcAddress_PROC)(LPCSTR ProcedureName);
 	typedef BOOL(*glDeleteContext_PROC)(HGLRC GraphicsContext);
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	static glCreateContext_PROC glCreateContext = 0;
 	static glMakeCurrent_PROC glMakeCurrent = 0;
 	static glGetProcAddress_PROC glGetProcAddress = 0;
 	static glDeleteContext_PROC glDeleteContext = 0;
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// OpenGL Definition
@@ -1222,7 +1226,7 @@ extern "C"
 	typedef void(*glDrawBuffers_PROC)(int unsigned Num, int unsigned const* Buffers);
 	typedef void(*glDeleteFramebuffers_PROC)(int unsigned Num, int unsigned const* FrameBuffers);
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	glDebugMessageCallback_PROC glDebugMessageCallback = 0;
 	glGetQueryObjectui64v_PROC glGetQueryObjectui64v = 0;
 	glGenQueries_PROC glGenQueries = 0;
@@ -1348,7 +1352,7 @@ extern "C"
 	extern glFramebufferTexture2D_PROC glFramebufferTexture2D;
 	extern glDrawBuffers_PROC glDrawBuffers;
 	extern glDeleteFramebuffers_PROC glDeleteFramebuffers;
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Memory Definition
@@ -1358,52 +1362,52 @@ extern "C"
 	extern void* Memory_Realloc(void* Block, long long unsigned Size);
 	extern void Memory_Free(void* Block);
 
-#ifdef FAST_GL_IMPLEMENTATION
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_IMPLEMENTATION
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedBytes = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Math Definition
 	///////////////////////////////////////////////////////////////
 
-#define VECTOR2_ZERO { .X = 0.0F, .Y = 0.0F }
-#define VECTOR3_ZERO { .X = 0.0F, .Y = 0.0F, .Z = 0.0F }
-#define VECTOR4_ZERO { .X = 0.0F, .Y = 0.0F, .Z = 0.0F, .W = 0.0F }
+#define FGL_VECTOR2_ZERO { .X = 0.0F, .Y = 0.0F }
+#define FGL_VECTOR3_ZERO { .X = 0.0F, .Y = 0.0F, .Z = 0.0F }
+#define FGL_VECTOR4_ZERO { .X = 0.0F, .Y = 0.0F, .Z = 0.0F, .W = 0.0F }
 
-#define VECTOR2_ONE { .X = 1.0F, .Y = 1.0F }
-#define VECTOR3_ONE { .X = 1.0F, .Y = 1.0F, .Z = 1.0F }
-#define VECTOR4_ONE { .X = 1.0F, .Y = 1.0F, .Z = 1.0F, .W = 1.0F }
+#define FGL_VECTOR2_ONE { .X = 1.0F, .Y = 1.0F }
+#define FGL_VECTOR3_ONE { .X = 1.0F, .Y = 1.0F, .Z = 1.0F }
+#define FGL_VECTOR4_ONE { .X = 1.0F, .Y = 1.0F, .Z = 1.0F, .W = 1.0F }
 
-#define VECTOR3_RIGHT { .X = 1.0F, .Y = 0.0F, .Z = 0.0F }
-#define VECTOR3_UP { .X = 0.0F, .Y = 1.0F, .Z = 0.0F }
-#define VECTOR3_FORWARD { .X = 0.0F, .Y = 0.0F, .Z = 1.0F }
-#define VECTOR3_LEFT { .X = -1.0F, .Y = 0.0F, .Z = 0.0F }
-#define VECTOR3_DOWN { .X = 0.0F, .Y = -1.0F, .Z = 0.0F }
-#define VECTOR3_BACK { .X = 0.0F, .Y = 0.0F, .Z = -1.0F }
+#define FGL_VECTOR3_RIGHT { .X = 1.0F, .Y = 0.0F, .Z = 0.0F }
+#define FGL_VECTOR3_UP { .X = 0.0F, .Y = 1.0F, .Z = 0.0F }
+#define FGL_VECTOR3_FORWARD { .X = 0.0F, .Y = 0.0F, .Z = 1.0F }
+#define FGL_VECTOR3_LEFT { .X = -1.0F, .Y = 0.0F, .Z = 0.0F }
+#define FGL_VECTOR3_DOWN { .X = 0.0F, .Y = -1.0F, .Z = 0.0F }
+#define FGL_VECTOR3_BACK { .X = 0.0F, .Y = 0.0F, .Z = -1.0F }
 
-#define COLOR2_ZERO { .R = 0.0F, .G = 0.0F }
-#define COLOR3_ZERO { .R = 0.0F, .G = 0.0F, .B = 0.0F }
-#define COLOR4_ZERO { .R = 0.0F, .G = 0.0F, .B = 0.0F, .A = 0.0F }
+#define FGL_COLOR2_ZERO { .R = 0.0F, .G = 0.0F }
+#define FGL_COLOR3_ZERO { .R = 0.0F, .G = 0.0F, .B = 0.0F }
+#define FGL_COLOR4_ZERO { .R = 0.0F, .G = 0.0F, .B = 0.0F, .A = 0.0F }
 
-#define QUATERNION_ZERO { .X = 0.0F, .Y = 0.0F, .Z = 0.0F, .W = 0.0F }
-#define QUATERNION_IDENTITY { .X = 0.0F, .Y = 0.0F, .Z = 0.0F, .W = 1.0F }
+#define FGL_QUATERNION_ZERO { .X = 0.0F, .Y = 0.0F, .Z = 0.0F, .W = 0.0F }
+#define FGL_QUATERNION_IDENTITY { .X = 0.0F, .Y = 0.0F, .Z = 0.0F, .W = 1.0F }
 
-#define RECT_ZERO { .Left = 0.0F, .Right = 0.0F, .Top = 0.0F, .Bottom = 0.0F }
+#define FGL_RECT_ZERO { .Left = 0.0F, .Right = 0.0F, .Top = 0.0F, .Bottom = 0.0F }
 
-#define MATRIX2X2_ZERO \
+#define FGL_MATRIX2X2_ZERO \
 { \
 	.M00 = 0.0F, .M01 = 0.0F, \
 	.M10 = 0.0F, .M11 = 0.0F, \
 }
-#define MATRIX3X3_ZERO \
+#define FGL_MATRIX3X3_ZERO \
 { \
 	.M00 = 0.0F, .M01 = 0.0F, .M02 = 0.0F, \
 	.M10 = 0.0F, .M11 = 0.0F, .M12 = 0.0F, \
 	.M20 = 0.0F, .M21 = 0.0F, .M22 = 0.0F, \
 }
-#define MATRIX4X4_ZERO \
+#define FGL_MATRIX4X4_ZERO \
 { \
 	.M00 = 0.0F, .M01 = 0.0F, .M02 = 0.0F, .M03 = 0.0F, \
 	.M10 = 0.0F, .M11 = 0.0F, .M12 = 0.0F, .M13 = 0.0F, \
@@ -1411,18 +1415,18 @@ extern "C"
 	.M30 = 0.0F, .M31 = 0.0F, .M32 = 0.0F, .M33 = 0.0F, \
 }
 
-#define MATRIX2X2_IDENTITY \
+#define FGL_MATRIX2X2_IDENTITY \
 { \
 	.M00 = 1.0F, .M01 = 0.0F, \
 	.M10 = 0.0F, .M11 = 1.0F, \
 }
-#define MATRIX3X3_IDENTITY \
+#define FGL_MATRIX3X3_IDENTITY \
 { \
 	.M00 = 1.0F, .M01 = 0.0F, .M02 = 0.0F, \
 	.M10 = 0.0F, .M11 = 1.0F, .M12 = 0.0F, \
 	.M20 = 0.0F, .M21 = 0.0F, .M22 = 1.0F, \
 }
-#define MATRIX4X4_IDENTITY \
+#define FGL_MATRIX4X4_IDENTITY \
 { \
 	.M00 = 1.0F, .M01 = 0.0F, .M02 = 0.0F, .M03 = 0.0F, \
 	.M10 = 0.0F, .M11 = 1.0F, .M12 = 0.0F, .M13 = 0.0F, \
@@ -1612,7 +1616,7 @@ extern "C"
 	extern void Rect_SetPosition(float PositionX, float PositionY, Rect* Result);
 	extern void Rect_SetSize(float SizeX, float SizeY, Rect* Result);
 	extern float Rect_PositionX(Rect const* Value);
-	extern float Rect_PositionZ(Rect const* Value);
+	extern float Rect_PositionY(Rect const* Value);
 	extern float Rect_Width(Rect const* Value);
 	extern float Rect_Height(Rect const* Value);
 	extern bool Rect_Overlap(Rect const* Value, float PositionX, float PositionY);
@@ -1669,9 +1673,9 @@ extern "C"
 	// Vector Definition
 	///////////////////////////////////////////////////////////////
 
-#ifndef FAST_GL_VECTOR_INITIAL_CAPACITY
-#define FAST_GL_VECTOR_INITIAL_CAPACITY (16ULL)
-#endif // FAST_GL_VECTOR_INITIAL_CAPACITY
+#ifndef FGL_VECTOR_INITIAL_CAPACITY
+#define FGL_VECTOR_INITIAL_CAPACITY (16ULL)
+#endif // FGL_VECTOR_INITIAL_CAPACITY
 
 	typedef struct _Vector
 	{
@@ -1697,27 +1701,27 @@ extern "C"
 
 	extern void Vector_ExpandInternal(Vector* Vtor);
 
-#ifdef FAST_GL_IMPLEMENTATION
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_IMPLEMENTATION
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedVectors = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// HashMap Definition
 	///////////////////////////////////////////////////////////////
 
-#ifndef FAST_GL_HASH_MAP_INITIAL_CAPACITY
-#define FAST_GL_HASH_MAP_INITIAL_CAPACITY (128ULL)
-#endif // FAST_GL_HASH_MAP_INITIAL_CAPACITY
+#ifndef FGL_HASH_MAP_INITIAL_CAPACITY
+#define FGL_HASH_MAP_INITIAL_CAPACITY (128ULL)
+#endif // FGL_HASH_MAP_INITIAL_CAPACITY
 
-#ifndef FAST_GL_HASH_MAP_INITIAL_HASH
-#define FAST_GL_HASH_MAP_INITIAL_HASH (5381ULL)
-#endif // FAST_GL_HASH_MAP_INITIAL_HASH
+#ifndef FGL_HASH_MAP_INITIAL_HASH
+#define FGL_HASH_MAP_INITIAL_HASH (5381ULL)
+#endif // FGL_HASH_MAP_INITIAL_HASH
 
-#ifndef FAST_GL_HASH_MAP_LOAD_FACTOR
-#define FAST_GL_HASH_MAP_LOAD_FACTOR (0.75F)
-#endif // FAST_GL_HASH_MAP_LOAD_FACTOR
+#ifndef FGL_HASH_MAP_LOAD_FACTOR
+#define FGL_HASH_MAP_LOAD_FACTOR (0.75F)
+#endif // FGL_HASH_MAP_LOAD_FACTOR
 
 	typedef struct _HashMapPair
 	{
@@ -1747,11 +1751,11 @@ extern "C"
 	extern long long unsigned HashMap_ComputeHashInternal(char* Key, long long unsigned Modulus);
 	extern void HashMap_ResizeInternal(HashMap* Map);
 
-#ifdef FAST_GL_IMPLEMENTATION
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_IMPLEMENTATION
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedHashMaps = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// FileSystem Definition
@@ -1846,11 +1850,11 @@ extern "C"
 	extern double Timer_ElapsedNanoSeconds(Timer* Timr);
 	extern void Timer_Free(Timer* Timr);
 
-#ifdef FAST_GL_IMPLEMENTATION
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_IMPLEMENTATION
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedTimers = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Transform Definition
@@ -1904,14 +1908,14 @@ extern "C"
 	extern void Transform_ComputeWorldRotationInternal(Transform* Trans);
 	extern void Transform_ComputeWorldScaleInternal(Transform* Trans);
 
-#ifdef FAST_GL_IMPLEMENTATION
-	static Vector3 sWorldRight = VECTOR3_RIGHT;
-	static Vector3 sWorldUp = VECTOR3_UP;
-	static Vector3 sWorldForward = VECTOR3_FORWARD;
-	static Vector3 sWorldLeft = VECTOR3_LEFT;
-	static Vector3 sWorldDown = VECTOR3_DOWN;
-	static Vector3 sWorldBack = VECTOR3_BACK;
-#endif // FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
+	static Vector3 sWorldRight = FGL_VECTOR3_RIGHT;
+	static Vector3 sWorldUp = FGL_VECTOR3_UP;
+	static Vector3 sWorldForward = FGL_VECTOR3_FORWARD;
+	static Vector3 sWorldLeft = FGL_VECTOR3_LEFT;
+	static Vector3 sWorldDown = FGL_VECTOR3_DOWN;
+	static Vector3 sWorldBack = FGL_VECTOR3_BACK;
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Controller Definition
@@ -1967,11 +1971,11 @@ extern "C"
 	extern void Shader_CheckLinkStatus(int unsigned Program);
 	extern void Shader_Free(int unsigned Program);
 
-#ifdef FAST_GL_IMPLEMENTATION
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_IMPLEMENTATION
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedPrograms = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// VertexArray Definition
@@ -1992,11 +1996,11 @@ extern "C"
 	extern void VertexArray_UnBind(void);
 	extern void VertexArray_Free(int unsigned VertexArray);
 
-#ifdef FAST_GL_IMPLEMENTATION
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_IMPLEMENTATION
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedVertexArrays = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Buffer Definition
@@ -2059,11 +2063,11 @@ extern "C"
 	extern void Buffer_StorageMount(int unsigned Buffer, int unsigned Index);
 	extern void Buffer_Free(int unsigned Buffer);
 
-#ifdef FAST_GL_IMPLEMENTATION
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_IMPLEMENTATION
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedBuffers = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Batch Definition
@@ -2212,7 +2216,7 @@ extern "C"
 	extern void Batch_DrawScreenRectSimple(float PositionX, float PositionY, float PositionZ, float Rotation, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA);
 	extern void Batch_EndScreenRects(void);
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	static int unsigned sWorldCircleProgram = 0;
 	static int unsigned sWorldLineProgram = 0;
 	static int unsigned sWorldRectProgram = 0;
@@ -2229,7 +2233,7 @@ extern "C"
 	static int unsigned* sMappedScreenLineIndexBuffer = 0;
 	static BatchScreenRectInstanceEntry* sMappedScreenRectInstanceBuffer = 0;
 	static char const sWorldCircleVertexShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
 		"layout (location = 2) in vec3 InstancePosition;"
@@ -2244,7 +2248,7 @@ extern "C"
 		"} VertexOutput;"
 		"uniform mat4 ProjectionMatrix;"
 		"uniform mat4 ViewMatrix;"
-		GLSL_ROTATION_IMPLEMENTATION
+		FGL_ROTATION_IMPLEMENTATION
 		"void main() {"
 		"	vec3 EulerAngles = radians(InstanceRotation);"
 		"	vec4 Rotation = EulerAnglesToQuaternion(EulerAngles.x, EulerAngles.y, EulerAngles.z);"
@@ -2259,7 +2263,7 @@ extern "C"
 		"	VertexOutput.Color = InstanceColor;"
 		"}";
 	static char const sWorldCircleFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in VS_OUT {"
 		"	vec3 Position;"
 		"	vec2 TextureCoords;"
@@ -2272,7 +2276,7 @@ extern "C"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
 	static char const sWorldLineVertexShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (location = 0) in vec3 VertexPosition;"
 		"layout (location = 1) in vec3 VertexRotation;"
 		"layout (location = 2) in float VertexThickness;"
@@ -2289,7 +2293,7 @@ extern "C"
 		"	VertexOutput.Color = VertexColor;"
 		"}";
 	static char const sWorldLineGeometryShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (lines) in;"
 		"layout (triangle_strip) out;"
 		"layout (max_vertices = 4) out;"
@@ -2303,7 +2307,7 @@ extern "C"
 		"} GeometryOutput;"
 		"uniform mat4 ProjectionMatrix;"
 		"uniform mat4 ViewMatrix;"
-		GLSL_ROTATION_IMPLEMENTATION
+		FGL_ROTATION_IMPLEMENTATION
 		"void main() {"
 		"	vec3 PositionStart = gl_in[0].gl_Position.xyz;"
 		"	vec3 PositionEnd = gl_in[1].gl_Position.xyz;"
@@ -2327,7 +2331,7 @@ extern "C"
 		"	EndPrimitive();"
 		"}";
 	static char const sWorldLineFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in GS_OUT {"
 		"	vec4 Color;"
 		"} FragmentInput;"
@@ -2336,7 +2340,7 @@ extern "C"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
 	static char const sWorldRectVertexShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
 		"layout (location = 2) in vec3 InstancePosition;"
@@ -2349,7 +2353,7 @@ extern "C"
 		"} VertexOutput;"
 		"uniform mat4 ProjectionMatrix;"
 		"uniform mat4 ViewMatrix;"
-		GLSL_ROTATION_IMPLEMENTATION
+		FGL_ROTATION_IMPLEMENTATION
 		"void main() {"
 		"	vec3 EulerAngles = radians(InstanceRotation);"
 		"	vec4 Rotation = EulerAnglesToQuaternion(EulerAngles.x, EulerAngles.y, EulerAngles.z);"
@@ -2362,7 +2366,7 @@ extern "C"
 		"	VertexOutput.Color = InstanceColor;"
 		"}";
 	static char const sWorldRectFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
 		"	vec4 Color;"
@@ -2372,7 +2376,7 @@ extern "C"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
 	static char const sScreenCircleVertexShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
 		"layout (location = 2) in vec3 InstancePosition;"
@@ -2386,8 +2390,8 @@ extern "C"
 		"	vec4 Color;"
 		"} VertexOutput;"
 		"uniform vec2 ScreenSize;"
-		GLSL_SCREEN_SPACE_IMPLEMENTATION
-		GLSL_ROTATION_IMPLEMENTATION
+		FGL_SCREEN_SPACE_IMPLEMENTATION
+		FGL_ROTATION_IMPLEMENTATION
 		"void main() {"
 		"	float Roll = radians(InstanceRotation);"
 		"	vec2 RotatedScreenPosition = RotateVector2D(VertexPosition * InstanceRadius, Roll);"
@@ -2399,7 +2403,7 @@ extern "C"
 		"	VertexOutput.Color = InstanceColor;"
 		"}";
 	static char const sScreenCircleFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in VS_OUT {"
 		"	vec2 Position;"
 		"	vec2 TextureCoords;"
@@ -2412,7 +2416,7 @@ extern "C"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
 	static char const sScreenLineVertexShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (location = 0) in vec3 VertexPosition;"
 		"layout (location = 1) in float VertexRotation;"
 		"layout (location = 2) in float VertexThickness;"
@@ -2429,7 +2433,7 @@ extern "C"
 		"	VertexOutput.Color = VertexColor;"
 		"}";
 	static char const sScreenLineGeometryShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (lines) in;"
 		"layout (triangle_strip) out;"
 		"layout (max_vertices = 4) out;"
@@ -2442,8 +2446,8 @@ extern "C"
 		"	vec4 Color;"
 		"} GeometryOutput;"
 		"uniform vec2 ScreenSize;"
-		GLSL_SCREEN_SPACE_IMPLEMENTATION
-		GLSL_ROTATION_IMPLEMENTATION
+		FGL_SCREEN_SPACE_IMPLEMENTATION
+		FGL_ROTATION_IMPLEMENTATION
 		"void main() {"
 		"	vec3 PositionStart = gl_in[0].gl_Position.xyz;"
 		"	vec3 PositionEnd = gl_in[1].gl_Position.xyz;"
@@ -2470,7 +2474,7 @@ extern "C"
 		"	EndPrimitive();"
 		"}";
 	static char const sScreenLineFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in GS_OUT {"
 		"	vec4 Color;"
 		"} FragmentInput;"
@@ -2479,7 +2483,7 @@ extern "C"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
 	static char const sScreenRectVertexShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
 		"layout (location = 2) in vec3 InstancePosition;"
@@ -2491,8 +2495,8 @@ extern "C"
 		"	vec4 Color;"
 		"} VertexOutput;"
 		"uniform vec2 ScreenSize;"
-		GLSL_SCREEN_SPACE_IMPLEMENTATION
-		GLSL_ROTATION_IMPLEMENTATION
+		FGL_SCREEN_SPACE_IMPLEMENTATION
+		FGL_ROTATION_IMPLEMENTATION
 		"void main() {"
 		"	float Roll = radians(InstanceRotation);"
 		"	vec2 RotatedScreenPosition = RotateVector2D(VertexPosition * InstanceSize, Roll);"
@@ -2502,7 +2506,7 @@ extern "C"
 		"	VertexOutput.Color = InstanceColor;"
 		"}";
 	static char const sScreenRectFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
 		"	vec4 Color;"
@@ -2511,10 +2515,10 @@ extern "C"
 		"void main() {"
 		"	BaseColor = FragmentInput.Color;"
 		"}";
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedBatches = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Font Definition
@@ -2795,7 +2799,7 @@ extern "C"
 	extern void Font_UnicodeToGlyphMappingsInternal(Font* Fnt, FileReader* Reader);
 	extern void Font_CreateBezierInternal(Font* Fnt, FontGlyph* Glyph);
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	static Font sDefaultFont = { 0 };
 	static FontWorldGlyphInstanceEntry* sMappedWorldGlyphInstanceBuffer = 0;
 	static FontScreenGlyphInstanceEntry* sMappedScreenGlyphInstanceBuffer = 0;
@@ -3243,7 +3247,7 @@ extern "C"
 	static int unsigned sWorldFontProgram = 0;
 	static int unsigned sScreenFontProgram = 0;
 	static char const sWorldFontVertexShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in uint VertexIndex;"
 		"layout (location = 2) in vec3 InstancePivot;"
@@ -3264,7 +3268,7 @@ extern "C"
 		"} VertexOutput;"
 		"uniform mat4 ProjectionMatrix;"
 		"uniform mat4 ViewMatrix;"
-		GLSL_ROTATION_IMPLEMENTATION
+		FGL_ROTATION_IMPLEMENTATION
 		"void main() {"
 		"	vec2 BearingSize = InstanceBearing / InstanceUnitsPerEm;"
 		"	vec2 GlyphSize = InstanceGlyphSize / InstanceUnitsPerEm;"
@@ -3293,7 +3297,7 @@ extern "C"
 		"	VertexOutput.Color = InstanceColor;"
 		"}";
 	static char const sWorldFontFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
 		"	flat uint GlyphIndex;"
@@ -3390,7 +3394,7 @@ extern "C"
 		"	BaseColor = FragmentInput.Color * Alpha;"
 		"}";
 	static char const sScreenFontVertexShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in uint VertexIndex;"
 		"layout (location = 2) in vec3 InstancePivot;"
@@ -3411,8 +3415,8 @@ extern "C"
 		"uniform vec2 ScreenSize;"
 		"uniform mat4 ProjectionMatrix;"
 		"uniform mat4 ViewMatrix;"
-		GLSL_SCREEN_SPACE_IMPLEMENTATION
-		GLSL_ROTATION_IMPLEMENTATION
+		FGL_SCREEN_SPACE_IMPLEMENTATION
+		FGL_ROTATION_IMPLEMENTATION
 		"void main() {"
 		"	vec2 BearingSize = InstanceBearing / InstanceUnitsPerEm; "
 		"	vec2 GlyphSize = InstanceGlyphSize / InstanceUnitsPerEm;"
@@ -3437,7 +3441,7 @@ extern "C"
 		"	VertexOutput.Color = InstanceColor;"
 		"}";
 	static char const sScreenFontFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
 		"	flat uint GlyphIndex;"
@@ -3533,18 +3537,18 @@ extern "C"
 		"	if (Alpha <= 0.0) discard;"
 		"	BaseColor = FragmentInput.Color * Alpha;"
 		"}";
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedFonts = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Text Definition
 	///////////////////////////////////////////////////////////////
 
-#ifndef FAST_GL_TEXT_FMT_BUFFER_SIZE
-#define FAST_GL_TEXT_FMT_BUFFER_SIZE (0x1000ULL)
-#endif // FAST_GL_TEXT_FMT_BUFFER_SIZE
+#ifndef FGL_TEXT_FMT_BUFFER_SIZE
+#define FGL_TEXT_FMT_BUFFER_SIZE (0x1000ULL)
+#endif // FGL_TEXT_FMT_BUFFER_SIZE
 
 	typedef struct _TextWorldCache
 	{
@@ -3591,12 +3595,12 @@ extern "C"
 	extern void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float PositionZ, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...);
 	extern void TextCache_EndScreenCache(TextScreenCache* Cache);
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	static Font* sCurrFont = 0;
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedTextCaches = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Texture Definition
@@ -3680,11 +3684,11 @@ extern "C"
 	extern void* Texture2D_CopyPixels(Texture2D* Texture);
 	extern void Texture2D_Free(Texture2D* Texture);
 
-#ifdef FAST_GL_IMPLEMENTATION
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_IMPLEMENTATION
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedTexture2Ds = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// FrameBuffer Definition
@@ -3718,11 +3722,11 @@ extern "C"
 	extern void FrameBuffer_UnBindReadWrite(FrameBuffer* Buffer);
 	extern void FrameBuffer_Free(FrameBuffer* Buffer);
 
-#ifdef FAST_GL_IMPLEMENTATION
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_IMPLEMENTATION
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedFrameBuffers = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// BitMap Definition
@@ -3756,11 +3760,11 @@ extern "C"
 	extern void BitMap_Alloc(char unsigned** Pixels, char const* FilePath, int unsigned* Width, int unsigned* Height);
 	extern void BitMap_Free(char unsigned* Pixels);
 
-#ifdef FAST_GL_IMPLEMENTATION
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_IMPLEMENTATION
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedBitMaps = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Primitive Definition
@@ -3817,11 +3821,11 @@ extern "C"
 	extern void Primitive_InstancedSpriteUnMapBuffer(InstancedSprite* Mesh);
 	extern void Primitive_InstancedSpriteFree(InstancedSprite* Mesh);
 
-#ifdef FAST_GL_IMPLEMENTATION
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_IMPLEMENTATION
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedPrimitives = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// SpritePlayer Definition
@@ -3858,9 +3862,9 @@ extern "C"
 	extern char const* PostProcessEffect_GetColorBlendFragmentShader(void);
 	extern char const* PostProcessEffect_GetWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader(void);
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	static char const sPostProcessVertexShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
 		"out VS_OUT {"
@@ -3871,7 +3875,7 @@ extern "C"
 		"	VertexOutput.TextureCoords = VertexTextureCoords;"
 		"}";
 	char const sColorBlendPostProcessFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
 		"} FragmentInput;"
@@ -3893,7 +3897,7 @@ extern "C"
 		"	FinalColor = BlendColor(Color1, FinalColor);"
 		"}";
 	char const sWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
 		"} FragmentInput;"
@@ -3917,10 +3921,10 @@ extern "C"
 		"	vec3 AverageColor = Accumulator.rgb / max(Accumulator.a, EPSILON_5);"
 		"	FinalColor = vec4(AverageColor, 1.0 - Revealage);"
 		"}";
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedPostProcessEffects = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Kek Definition
@@ -4120,12 +4124,12 @@ extern "C"
 	extern void KekTest_Free(KekTest* Test);
 	extern void KekTest_PrintTree(KekTest* Test, int unsigned NumIdentSteps);
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	static Batch sKekBatch = { 0 };
 	static KekStyle sKekStyle = { 0 };
 	static void* sKekRootNode = 0;
 	static char const sKekVertexShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
 		"out VS_OUT {"
@@ -4136,7 +4140,7 @@ extern "C"
 		"	VertexOutput.TextureCoords = VertexTextureCoords;"
 		"}";
 	char const gKekFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
 		"} FragmentInput;"
@@ -4144,7 +4148,7 @@ extern "C"
 		"void main() {"
 		"	FinalColor = vec4(TextureCoords, 0.0, 1.0);"
 		"}";
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Histogram Definition
@@ -4183,10 +4187,10 @@ extern "C"
 	extern void Histogram_DrawSimple(Histogram* Histgrm, float PositionX, float PositionY, float PositionZ, float Rotation, float Width, float Height);
 	extern void Histogram_Free(Histogram* Histgrm);
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	static int unsigned sHistogramProgram = 0;
 	static char const sHistogramVertexShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"layout (location = 0) in vec2 VertexPosition;"
 		"layout (location = 1) in vec2 VertexTextureCoords;"
 		"out VS_OUT {"
@@ -4198,8 +4202,8 @@ extern "C"
 		"uniform vec3 Position;"
 		"uniform float Rotation;"
 		"uniform vec2 Size;"
-		GLSL_SCREEN_SPACE_IMPLEMENTATION
-		GLSL_ROTATION_IMPLEMENTATION
+		FGL_SCREEN_SPACE_IMPLEMENTATION
+		FGL_ROTATION_IMPLEMENTATION
 		"void main() {"
 		"	vec2 RotatedPosition = RotateVector2D(Position.xy + (VertexPosition * Size), radians(Rotation));"
 		"	vec3 ScreenPosition = vec3(RotatedPosition, Position.z);"
@@ -4207,7 +4211,7 @@ extern "C"
 		"	VertexOutput.TextureCoords = vec2(VertexTextureCoords.x, 1.0 - VertexTextureCoords.y);"
 		"}";
 	static char const sHistogramFragmentShader[] =
-		GLSL_GL_VERSION
+		FGL_VERSION
 		"in VS_OUT {"
 		"	vec2 TextureCoords;"
 		"} FragmentInput;"
@@ -4220,7 +4224,7 @@ extern "C"
 		"uniform uint NumSamples;"
 		"uniform uint CurrIndex;"
 		"uniform uint Scale;"
-		GLSL_MATH_UTILITY_IMPLEMENTATION
+		FGL_MATH_UTILITY_IMPLEMENTATION
 		"void main() {"
 		"	float X = FragmentInput.TextureCoords.x;"
 		"	float LineWidth = 1.0 / float(NumSamples);"
@@ -4241,10 +4245,10 @@ extern "C"
 		"		discard;"
 		"	}"
 		"}";
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 	static long long unsigned sAllocatedHistograms = 0;
-#endif // FAST_GL_REFERENCE_COUNT
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_REFERENCE_COUNT
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Window Definition
@@ -4379,7 +4383,7 @@ extern "C"
 		MOUSE_KEY_STATE_RELEASED,
 	} MouseKeyState;
 
-	extern void Window_Alloc(int unsigned Width, int unsigned Height, char const* WindowTitle);
+	extern void Window_Alloc(int unsigned Width, int unsigned Height, char const* Title);
 	extern bool Window_ShouldClose(void);
 	extern void Window_PollEvents(void);
 	extern void Window_SwapBuffers(void);
@@ -4399,7 +4403,7 @@ extern "C"
 	extern LRESULT Window_CallbackInternal(HWND hWnd, UINT Message, WPARAM WParam, LPARAM LParam);
 	extern void Window_GLDebugCallbackInternal(int unsigned Source, int unsigned Type, int unsigned ID, int unsigned Severity, int Length, char const* Message, void const* UserParam);
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	static char const sWindowClassName[] = "FastGLWindow";
 	static HINSTANCE sModuleInstance = 0;
 	static HWND sWindowHandle = 0;
@@ -4416,16 +4420,16 @@ extern "C"
 	static int sWheelDelta = 0;
 	static KeyboardKeyState sKeyboardKeyStates[0xFF] = { 0 };
 	static MouseKeyState sMouseKeyStates[0x3] = { 0 };
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Memory Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void* Memory_Alloc(long long unsigned Size, void const* Reference)
 	{
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		long long unsigned NewSize = sizeof(long long unsigned) + Size;
 
 		long long unsigned* NewBlock = (long long unsigned*)malloc(NewSize);
@@ -4450,11 +4454,11 @@ extern "C"
 		}
 
 		return NewBlock;
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 	}
 	void* Memory_Realloc(void* Block, long long unsigned Size)
 	{
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		if (Block)
 		{
 			long long unsigned* PrevBlock = (long long unsigned*)Block;
@@ -4481,11 +4485,11 @@ extern "C"
 		}
 #else
 		return realloc(Block, Size);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 	}
 	void Memory_Free(void* Block)
 	{
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		long long unsigned* PrevBlock = (long long unsigned*)Block;
 
 		PrevBlock -= 1;
@@ -4497,15 +4501,15 @@ extern "C"
 		free(PrevBlock);
 #else
 		free(Block);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Math Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Vector2_Zero(Vector2* Result)
 	{
 		Result->X = 0.0F;
@@ -4857,7 +4861,7 @@ extern "C"
 		float P = 0.0F;
 		if (fabs(SP) >= 1.0F)
 		{
-			P = copysignf(PI / 2, SP);
+			P = copysignf(FGL_PI / 2, SP);
 		}
 		else
 		{
@@ -4874,7 +4878,7 @@ extern "C"
 	}
 	void Quaternion_AngleAxis(float Angle, Vector3* const Axis, Quaternion* Result)
 	{
-		Vector3 AN = VECTOR3_ZERO;
+		Vector3 AN = FGL_VECTOR3_ZERO;
 
 		Vector3_Norm(Axis, &AN);
 
@@ -4958,7 +4962,7 @@ extern "C"
 	bool Rect_Overlap(Rect const* Value, float PositionX, float PositionY)
 	{
 		return (PositionX >= Value->Left && PositionX < Value->Right &&
-				PositionY >= Value->Top && PositionY < Value->Bottom);
+			PositionY >= Value->Top && PositionY < Value->Bottom);
 	}
 	void Rect_Print(Rect const* Value)
 	{
@@ -5004,9 +5008,9 @@ extern "C"
 		Vector3 C1 = { Value->M01, Value->M11, Value->M21 };
 		Vector3 C2 = { Value->M02, Value->M12, Value->M22 };
 
-		Vector3 CN0 = VECTOR3_ZERO;
-		Vector3 CN1 = VECTOR3_ZERO;
-		Vector3 CN2 = VECTOR3_ZERO;
+		Vector3 CN0 = FGL_VECTOR3_ZERO;
+		Vector3 CN1 = FGL_VECTOR3_ZERO;
+		Vector3 CN2 = FGL_VECTOR3_ZERO;
 
 		Vector3_Norm(&C0, &CN0);
 		Vector3_Norm(&C1, &CN1);
@@ -5051,7 +5055,7 @@ extern "C"
 	}
 	void Matrix4x4_GetRotationEulerAngles(Matrix4x4* const Value, Vector3* Result)
 	{
-		if (fabsf(Value->M02) < 1.0F - EPSILON_6)
+		if (fabsf(Value->M02) < 1.0F - FGL_EPSILON_6)
 		{
 			Result->X = atan2f(-Value->M12, Value->M22);
 			Result->Y = asinf(Value->M02);
@@ -5060,7 +5064,7 @@ extern "C"
 		else
 		{
 			Result->X = atan2f(Value->M10, Value->M11);
-			Result->Y = (Value->M02 > 0.0F) ? PI / 2.0F : -PI / 2.0F;
+			Result->Y = (Value->M02 > 0.0F) ? FGL_PI / 2.0F : -FGL_PI / 2.0F;
 			Result->Z = 0.0F;
 		}
 	}
@@ -5134,9 +5138,9 @@ extern "C"
 	}
 	void Matrix4x4_SetRotationEulerAngles(Vector3* const Value, Matrix4x4* Result)
 	{
-		float Pitch = DEG_TO_RAD(Value->X);
-		float Yaw = DEG_TO_RAD(Value->Y);
-		float Roll = DEG_TO_RAD(Value->Z);
+		float Pitch = FGL_DEG_TO_RAD(Value->X);
+		float Yaw = FGL_DEG_TO_RAD(Value->Y);
+		float Roll = FGL_DEG_TO_RAD(Value->Z);
 
 		float CX = cosf(Pitch), SX = sinf(Pitch);
 		float CY = cosf(Yaw), SY = sinf(Yaw);
@@ -5157,9 +5161,9 @@ extern "C"
 	}
 	void Matrix4x4_SetRotationEulerAnglesSimple(float Pitch, float Yaw, float Roll, Matrix4x4* Result)
 	{
-		Pitch = DEG_TO_RAD(Pitch);
-		Yaw = DEG_TO_RAD(Yaw);
-		Roll = DEG_TO_RAD(Roll);
+		Pitch = FGL_DEG_TO_RAD(Pitch);
+		Yaw = FGL_DEG_TO_RAD(Yaw);
+		Roll = FGL_DEG_TO_RAD(Roll);
 
 		float CX = cosf(Pitch), SX = sinf(Pitch);
 		float CY = cosf(Yaw), SY = sinf(Yaw);
@@ -5204,9 +5208,9 @@ extern "C"
 		Scale->Y = Vector3_Length(&C1);
 		Scale->Z = Vector3_Length(&C2);
 
-		Vector3 CN0 = VECTOR3_ZERO;
-		Vector3 CN1 = VECTOR3_ZERO;
-		Vector3 CN2 = VECTOR3_ZERO;
+		Vector3 CN0 = FGL_VECTOR3_ZERO;
+		Vector3 CN1 = FGL_VECTOR3_ZERO;
+		Vector3 CN2 = FGL_VECTOR3_ZERO;
 
 		Vector3_Norm(&C0, &CN0);
 		Vector3_Norm(&C1, &CN1);
@@ -5294,8 +5298,8 @@ extern "C"
 	}
 	void Matrix4x4_LookAt(Vector3* const Eye, Vector3* const Center, Vector3* const Up, Matrix4x4* Result)
 	{
-		Vector3 F = VECTOR3_ZERO, U = VECTOR3_ZERO, S = VECTOR3_ZERO;
-		Vector3 FN = VECTOR3_ZERO, SN = VECTOR3_ZERO;
+		Vector3 F = FGL_VECTOR3_ZERO, U = FGL_VECTOR3_ZERO, S = FGL_VECTOR3_ZERO;
+		Vector3 FN = FGL_VECTOR3_ZERO, SN = FGL_VECTOR3_ZERO;
 
 		Vector3_Sub(Center, Eye, &F);
 		Vector3_Norm(&F, &FN);
@@ -5336,13 +5340,13 @@ extern "C"
 		}
 		return Current + (Delta > 0 ? Step : -Step);
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// List Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void List_InitHead(ListEntry* List)
 	{
 		List->Next = List;
@@ -5409,26 +5413,26 @@ extern "C"
 
 		return NumEntries;
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Vector Implementation
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Vector_Alloc(Vector* Vtor, long long unsigned ValueSize)
 	{
 		memset(Vtor, 0, sizeof(Vector));
-		Vtor->Buffer = (char unsigned*)Memory_Alloc(ValueSize * FAST_GL_VECTOR_INITIAL_CAPACITY, 0);
+		Vtor->Buffer = (char unsigned*)Memory_Alloc(ValueSize * FGL_VECTOR_INITIAL_CAPACITY, 0);
 		Vtor->ValueSize = ValueSize;
-		Vtor->BufferSize = ValueSize * FAST_GL_VECTOR_INITIAL_CAPACITY;
-		Vtor->BufferNum = FAST_GL_VECTOR_INITIAL_CAPACITY;
+		Vtor->BufferSize = ValueSize * FGL_VECTOR_INITIAL_CAPACITY;
+		Vtor->BufferNum = FGL_VECTOR_INITIAL_CAPACITY;
 		Vtor->BufferIndex = 0;
 		Vtor->BufferOffset = 0;
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedVectors += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Vector_Push(Vector* Vtor, void* Item)
 	{
@@ -5470,8 +5474,8 @@ extern "C"
 			Vtor->Buffer = (char unsigned*)Memory_Realloc(Vtor->Buffer, Num * Vtor->ValueSize);
 			Vtor->BufferNum = Num;
 			Vtor->BufferSize = Num * Vtor->ValueSize;
-			Vtor->BufferIndex = MIN(Vtor->BufferIndex, Num);
-			Vtor->BufferOffset = MIN(Vtor->BufferIndex, Num) * Vtor->ValueSize;
+			Vtor->BufferIndex = FGL_MIN(Vtor->BufferIndex, Num);
+			Vtor->BufferOffset = FGL_MIN(Vtor->BufferIndex, Num) * Vtor->ValueSize;
 		}
 	}
 	void Vector_CopyFrom(Vector* Vtor, Vector* Source)
@@ -5516,9 +5520,9 @@ extern "C"
 		Memory_Free(Vtor->Buffer);
 		memset(Vtor, 0, sizeof(Vector));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedVectors -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Vector_ExpandInternal(Vector* Vtor)
 	{
@@ -5528,31 +5532,31 @@ extern "C"
 		Vtor->BufferNum = NextBufferNum;
 		Vtor->BufferSize = NextBufferSize;
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// HashMap Definition
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void HashMap_Alloc(HashMap* Map)
 	{
 		memset(Map, 0, sizeof(HashMap));
-		Map->Table = (HashMapPair**)Memory_Alloc(FAST_GL_HASH_MAP_INITIAL_CAPACITY * sizeof(HashMapPair*), 0);
-		Map->TableSize = FAST_GL_HASH_MAP_INITIAL_CAPACITY;
+		Map->Table = (HashMapPair**)Memory_Alloc(FGL_HASH_MAP_INITIAL_CAPACITY * sizeof(HashMapPair*), 0);
+		Map->TableSize = FGL_HASH_MAP_INITIAL_CAPACITY;
 		Map->TableCount = 0;
-		for (long long unsigned TableIndex = 0; TableIndex < FAST_GL_HASH_MAP_INITIAL_CAPACITY; TableIndex++)
+		for (long long unsigned TableIndex = 0; TableIndex < FGL_HASH_MAP_INITIAL_CAPACITY; TableIndex++)
 		{
 			Map->Table[TableIndex] = 0;
 		}
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedHashMaps += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void HashMap_Insert(HashMap* Map, void const* Key, long long unsigned KeySize, void const* Value, long long unsigned KeyValue)
 	{
-		if ((((float)(Map->TableCount + 1U)) / (float)Map->TableSize) > FAST_GL_HASH_MAP_LOAD_FACTOR)
+		if ((((float)(Map->TableCount + 1U)) / (float)Map->TableSize) > FGL_HASH_MAP_LOAD_FACTOR)
 		{
 			HashMap_ResizeInternal(Map);
 		}
@@ -5564,7 +5568,7 @@ extern "C"
 	}
 	void HashMap_InsertSimple(HashMap* Map, char const* Key, void const* Value, long long unsigned KeyValue)
 	{
-		if ((((float)(Map->TableCount + 1U)) / (float)Map->TableSize) > FAST_GL_HASH_MAP_LOAD_FACTOR)
+		if ((((float)(Map->TableCount + 1U)) / (float)Map->TableSize) > FGL_HASH_MAP_LOAD_FACTOR)
 		{
 			HashMap_ResizeInternal(Map);
 		}
@@ -5581,7 +5585,7 @@ extern "C"
 		HashMapPair* Prev = 0;
 		while (Pair)
 		{
-			long long unsigned Size = MIN(Pair->KeySize, KeySize);
+			long long unsigned Size = FGL_MIN(Pair->KeySize, KeySize);
 			if (strncmp((char const*)Pair->Key, (char const*)Key, Size) == 0)
 			{
 				if (Prev)
@@ -5610,7 +5614,7 @@ extern "C"
 		while (Pair)
 		{
 			long long unsigned KeySize = strlen(Key);
-			long long unsigned Size = MIN(Pair->KeySize, KeySize);
+			long long unsigned Size = FGL_MIN(Pair->KeySize, KeySize);
 			if (strncmp((char const*)Pair->Key, (char const*)Key, Size) == 0)
 			{
 				if (Prev)
@@ -5637,7 +5641,7 @@ extern "C"
 		HashMapPair* Pair = Map->Table[Hash];
 		while (Pair)
 		{
-			long long unsigned Size = MIN(Pair->KeySize, KeySize);
+			long long unsigned Size = FGL_MIN(Pair->KeySize, KeySize);
 			if (strncmp((char const*)Pair->Key, (char const*)Key, Size) == 0)
 			{
 				return Pair->Value;
@@ -5653,7 +5657,7 @@ extern "C"
 		while (Pair)
 		{
 			long long unsigned KeySize = strlen(Key);
-			long long unsigned Size = MIN(Pair->KeySize, KeySize);
+			long long unsigned Size = FGL_MIN(Pair->KeySize, KeySize);
 			if (strncmp((char const*)Pair->Key, (char const*)Key, Size) == 0)
 			{
 				return Pair->Value;
@@ -5679,9 +5683,9 @@ extern "C"
 		Memory_Free(Map->Table);
 		memset(Map, 0, sizeof(HashMap));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedHashMaps -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	HashMapPair* HashMap_PairAllocInternal(void const* Key, long long unsigned KeySize, void const* Value, long long unsigned ValueSize)
 	{
@@ -5695,7 +5699,7 @@ extern "C"
 	}
 	long long unsigned HashMap_ComputeHashInternal(char* Key, long long unsigned Modulus)
 	{
-		long long unsigned Hash = FAST_GL_HASH_MAP_INITIAL_HASH;
+		long long unsigned Hash = FGL_HASH_MAP_INITIAL_HASH;
 		while (*Key++) Hash = ((Hash << 5U) + Hash) + *Key;
 		return Hash % Modulus;
 	}
@@ -5723,13 +5727,13 @@ extern "C"
 		Map->Table = NewTable;
 		Map->TableSize = NextTableSize;
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// FileSystem Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void FileSystem_ReadText(char** Buffer, int unsigned* BufferSize, char const* FilePath)
 	{
 		FILE* File = 0;
@@ -5768,13 +5772,13 @@ extern "C"
 		fwrite(Buffer, sizeof(char unsigned), BufferSize, File);
 		fclose(File);
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// FileReader Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void FileReader_Alloc(FileReader* Reader, char unsigned const* Buffer, int unsigned BufferSize)
 	{
 		memset(Reader, 0, sizeof(FileReader));
@@ -5813,42 +5817,42 @@ extern "C"
 		short Value = 0;
 		memcpy(&Value, Reader->Buffer + Reader->BufferOffset, sizeof(short));
 		Reader->BufferOffset += sizeof(short);
-		return (BigEndian) ? B2L_ENDIAN_S16(Value) : Value;
+		return (BigEndian) ? FGL_B2L_ENDIAN_S16(Value) : Value;
 	}
 	short unsigned FileReader_ReadUInt16(FileReader* Reader, bool BigEndian)
 	{
 		short unsigned Value = 0;
 		memcpy(&Value, Reader->Buffer + Reader->BufferOffset, sizeof(short unsigned));
 		Reader->BufferOffset += sizeof(short unsigned);
-		return (BigEndian) ? B2L_ENDIAN_U16(Value) : Value;
+		return (BigEndian) ? FGL_B2L_ENDIAN_U16(Value) : Value;
 	}
 	int FileReader_ReadInt32(FileReader* Reader, bool BigEndian)
 	{
 		int Value = 0;
 		memcpy(&Value, Reader->Buffer + Reader->BufferOffset, sizeof(int));
 		Reader->BufferOffset += sizeof(int);
-		return (BigEndian) ? B2L_ENDIAN_S32(Value) : Value;
+		return (BigEndian) ? FGL_B2L_ENDIAN_S32(Value) : Value;
 	}
 	int unsigned FileReader_ReadUInt32(FileReader* Reader, bool BigEndian)
 	{
 		int unsigned Value = 0;
 		memcpy(&Value, Reader->Buffer + Reader->BufferOffset, sizeof(int unsigned));
 		Reader->BufferOffset += sizeof(int unsigned);
-		return (BigEndian) ? B2L_ENDIAN_U32(Value) : Value;
+		return (BigEndian) ? FGL_B2L_ENDIAN_U32(Value) : Value;
 	}
 	long long FileReader_ReadInt64(FileReader* Reader, bool BigEndian)
 	{
 		long long Value = 0;
 		memcpy(&Value, Reader->Buffer + Reader->BufferOffset, sizeof(long long));
 		Reader->BufferOffset += sizeof(long long);
-		return (BigEndian) ? B2L_ENDIAN_S64(Value) : Value;
+		return (BigEndian) ? FGL_B2L_ENDIAN_S64(Value) : Value;
 	}
 	long long unsigned FileReader_ReadUInt64(FileReader* Reader, bool BigEndian)
 	{
 		long long unsigned Value = 0;
 		memcpy(&Value, Reader->Buffer + Reader->BufferOffset, sizeof(long long unsigned));
 		Reader->BufferOffset += sizeof(long long unsigned);
-		return (BigEndian) ? B2L_ENDIAN_U64(Value) : Value;
+		return (BigEndian) ? FGL_B2L_ENDIAN_U64(Value) : Value;
 	}
 	void FileReader_ReadInt8Array(FileReader* Reader, char* Values, int unsigned NumValues)
 	{
@@ -5868,7 +5872,7 @@ extern "C"
 		{
 			for (int unsigned ValueIndex = 0; ValueIndex < NumValues; ValueIndex++)
 			{
-				Values[ValueIndex] = B2L_ENDIAN_S16(Values[ValueIndex]);
+				Values[ValueIndex] = FGL_B2L_ENDIAN_S16(Values[ValueIndex]);
 			}
 		}
 	}
@@ -5880,7 +5884,7 @@ extern "C"
 		{
 			for (int unsigned ValueIndex = 0; ValueIndex < NumValues; ValueIndex++)
 			{
-				Values[ValueIndex] = B2L_ENDIAN_U16(Values[ValueIndex]);
+				Values[ValueIndex] = FGL_B2L_ENDIAN_U16(Values[ValueIndex]);
 			}
 		}
 	}
@@ -5892,7 +5896,7 @@ extern "C"
 		{
 			for (int unsigned ValueIndex = 0; ValueIndex < NumValues; ValueIndex++)
 			{
-				Values[ValueIndex] = B2L_ENDIAN_S32(Values[ValueIndex]);
+				Values[ValueIndex] = FGL_B2L_ENDIAN_S32(Values[ValueIndex]);
 			}
 		}
 	}
@@ -5904,7 +5908,7 @@ extern "C"
 		{
 			for (int unsigned ValueIndex = 0; ValueIndex < NumValues; ValueIndex++)
 			{
-				Values[ValueIndex] = B2L_ENDIAN_U32(Values[ValueIndex]);
+				Values[ValueIndex] = FGL_B2L_ENDIAN_U32(Values[ValueIndex]);
 			}
 		}
 	}
@@ -5916,7 +5920,7 @@ extern "C"
 		{
 			for (int unsigned ValueIndex = 0; ValueIndex < NumValues; ValueIndex++)
 			{
-				Values[ValueIndex] = B2L_ENDIAN_S64(Values[ValueIndex]);
+				Values[ValueIndex] = FGL_B2L_ENDIAN_S64(Values[ValueIndex]);
 			}
 		}
 	}
@@ -5928,17 +5932,17 @@ extern "C"
 		{
 			for (int unsigned ValueIndex = 0; ValueIndex < NumValues; ValueIndex++)
 			{
-				Values[ValueIndex] = B2L_ENDIAN_U64(Values[ValueIndex]);
+				Values[ValueIndex] = FGL_B2L_ENDIAN_U64(Values[ValueIndex]);
 			}
 		}
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Random Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Random_Seed(char const* Seed)
 	{
 		if (Seed)
@@ -6035,13 +6039,13 @@ extern "C"
 	{
 		return Min + (Max - Min) * ((double)rand() / (double)RAND_MAX);
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Timer Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Timer_CpuAlloc(Timer* Timr)
 	{
 		memset(Timr, 0, sizeof(Timer));
@@ -6052,9 +6056,9 @@ extern "C"
 		Timr->Type = TIMER_TYPE_CPU;
 		Timr->Frequency = (double)Frequency.QuadPart;
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedTimers += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Timer_GpuAlloc(Timer* Timr)
 	{
@@ -6063,9 +6067,9 @@ extern "C"
 		Timr->Type = TIMER_TYPE_GPU;
 		glGenQueries(1, &Timr->ComputeQuery);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedTimers += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Timer_BeginMeasure(Timer* Timr)
 	{
@@ -6134,17 +6138,17 @@ extern "C"
 		}
 		}
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedTimers -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Transform Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Transform_Init(Transform* Trans)
 	{
 		memset(Trans, 0, sizeof(Transform));
@@ -6181,9 +6185,9 @@ extern "C"
 	{
 		Quaternion_EulerAngles(&Trans->WorldRotation, Rotation);
 
-		Rotation->X = RAD_TO_DEG(Rotation->X);
-		Rotation->Y = RAD_TO_DEG(Rotation->Y);
-		Rotation->Z = RAD_TO_DEG(Rotation->Z);
+		Rotation->X = FGL_RAD_TO_DEG(Rotation->X);
+		Rotation->Y = FGL_RAD_TO_DEG(Rotation->Y);
+		Rotation->Z = FGL_RAD_TO_DEG(Rotation->Z);
 	}
 	void Transform_GetWorldScale(Transform* Trans, Vector3* Scale)
 	{
@@ -6208,9 +6212,9 @@ extern "C"
 	{
 		Quaternion_EulerAngles(&Trans->LocalRotation, Rotation);
 
-		Rotation->X = RAD_TO_DEG(Rotation->X);
-		Rotation->Y = RAD_TO_DEG(Rotation->Y);
-		Rotation->Z = RAD_TO_DEG(Rotation->Z);
+		Rotation->X = FGL_RAD_TO_DEG(Rotation->X);
+		Rotation->Y = FGL_RAD_TO_DEG(Rotation->Y);
+		Rotation->Z = FGL_RAD_TO_DEG(Rotation->Z);
 	}
 	void Transform_GetLocalScale(Transform* Trans, Vector3* Scale)
 	{
@@ -6255,7 +6259,7 @@ extern "C"
 		UNREFERENCED_PARAMETER(Trans);
 		UNREFERENCED_PARAMETER(Rotation);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void Transform_SetRotationSimple(Transform* Trans, float RotationX, float RotationY, float RotationZ, float RotationW)
 	{
@@ -6265,14 +6269,14 @@ extern "C"
 		UNREFERENCED_PARAMETER(RotationZ);
 		UNREFERENCED_PARAMETER(RotationW);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void Transform_SetRelativeRotation(Transform* Trans, Quaternion const* Rotation)
 	{
 		UNREFERENCED_PARAMETER(Trans);
 		UNREFERENCED_PARAMETER(Rotation);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void Transform_SetRelativeRotationSimple(Transform* Trans, float RotationX, float RotationY, float RotationZ, float RotationW)
 	{
@@ -6282,31 +6286,31 @@ extern "C"
 		UNREFERENCED_PARAMETER(RotationZ);
 		UNREFERENCED_PARAMETER(RotationW);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void Transform_SetEulerAngles(Transform* Trans, Vector3 const* Rotation)
 	{
-		float Pitch = DEG_TO_RAD(Rotation->X);
-		float Yaw = DEG_TO_RAD(Rotation->Y);
-		float Roll = DEG_TO_RAD(Rotation->Z);
+		float Pitch = FGL_DEG_TO_RAD(Rotation->X);
+		float Yaw = FGL_DEG_TO_RAD(Rotation->Y);
+		float Roll = FGL_DEG_TO_RAD(Rotation->Z);
 
-		Vector3 LocalLeft = VECTOR3_ZERO;
-		Vector3 LocalDown = VECTOR3_ZERO;
-		Vector3 LocalBack = VECTOR3_ZERO;
+		Vector3 LocalLeft = FGL_VECTOR3_ZERO;
+		Vector3 LocalDown = FGL_VECTOR3_ZERO;
+		Vector3 LocalBack = FGL_VECTOR3_ZERO;
 
-		Quaternion QX = QUATERNION_ZERO;
-		Quaternion QY = QUATERNION_ZERO;
-		Quaternion QZ = QUATERNION_ZERO;
-		Quaternion QXZ = QUATERNION_ZERO;
-		Quaternion QYXZ = QUATERNION_ZERO;
-		Quaternion QNYXZ = QUATERNION_ZERO;
+		Quaternion QX = FGL_QUATERNION_ZERO;
+		Quaternion QY = FGL_QUATERNION_ZERO;
+		Quaternion QZ = FGL_QUATERNION_ZERO;
+		Quaternion QXZ = FGL_QUATERNION_ZERO;
+		Quaternion QYXZ = FGL_QUATERNION_ZERO;
+		Quaternion QNYXZ = FGL_QUATERNION_ZERO;
 
-		Vector3 LR = VECTOR3_ZERO;
-		Vector3 LU = VECTOR3_ZERO;
-		Vector3 LF = VECTOR3_ZERO;
-		Vector3 LRN = VECTOR3_ZERO;
-		Vector3 LUN = VECTOR3_ZERO;
-		Vector3 LFN = VECTOR3_ZERO;
+		Vector3 LR = FGL_VECTOR3_ZERO;
+		Vector3 LU = FGL_VECTOR3_ZERO;
+		Vector3 LF = FGL_VECTOR3_ZERO;
+		Vector3 LRN = FGL_VECTOR3_ZERO;
+		Vector3 LUN = FGL_VECTOR3_ZERO;
+		Vector3 LFN = FGL_VECTOR3_ZERO;
 
 		Transform* ParentTrans = (Transform*)Trans->Parent;
 
@@ -6394,27 +6398,27 @@ extern "C"
 	}
 	void Transform_SetEulerAnglesSimple(Transform* Trans, float Pitch, float Yaw, float Roll)
 	{
-		Pitch = DEG_TO_RAD(Pitch);
-		Yaw = DEG_TO_RAD(Yaw);
-		Roll = DEG_TO_RAD(Roll);
+		Pitch = FGL_DEG_TO_RAD(Pitch);
+		Yaw = FGL_DEG_TO_RAD(Yaw);
+		Roll = FGL_DEG_TO_RAD(Roll);
 
-		Vector3 LocalLeft = VECTOR3_ZERO;
-		Vector3 LocalDown = VECTOR3_ZERO;
-		Vector3 LocalBack = VECTOR3_ZERO;
+		Vector3 LocalLeft = FGL_VECTOR3_ZERO;
+		Vector3 LocalDown = FGL_VECTOR3_ZERO;
+		Vector3 LocalBack = FGL_VECTOR3_ZERO;
 
-		Quaternion QX = QUATERNION_ZERO;
-		Quaternion QY = QUATERNION_ZERO;
-		Quaternion QZ = QUATERNION_ZERO;
-		Quaternion QXZ = QUATERNION_ZERO;
-		Quaternion QYXZ = QUATERNION_ZERO;
-		Quaternion QNYXZ = QUATERNION_ZERO;
+		Quaternion QX = FGL_QUATERNION_ZERO;
+		Quaternion QY = FGL_QUATERNION_ZERO;
+		Quaternion QZ = FGL_QUATERNION_ZERO;
+		Quaternion QXZ = FGL_QUATERNION_ZERO;
+		Quaternion QYXZ = FGL_QUATERNION_ZERO;
+		Quaternion QNYXZ = FGL_QUATERNION_ZERO;
 
-		Vector3 LR = VECTOR3_ZERO;
-		Vector3 LU = VECTOR3_ZERO;
-		Vector3 LF = VECTOR3_ZERO;
-		Vector3 LRN = VECTOR3_ZERO;
-		Vector3 LUN = VECTOR3_ZERO;
-		Vector3 LFN = VECTOR3_ZERO;
+		Vector3 LR = FGL_VECTOR3_ZERO;
+		Vector3 LU = FGL_VECTOR3_ZERO;
+		Vector3 LF = FGL_VECTOR3_ZERO;
+		Vector3 LRN = FGL_VECTOR3_ZERO;
+		Vector3 LUN = FGL_VECTOR3_ZERO;
+		Vector3 LFN = FGL_VECTOR3_ZERO;
 
 		Transform* ParentTrans = (Transform*)Trans->Parent;
 
@@ -6502,28 +6506,28 @@ extern "C"
 	}
 	void Transform_SetRelativeEulerAngles(Transform* Trans, Vector3 const* Rotation)
 	{
-		float Pitch = DEG_TO_RAD(Rotation->X);
-		float Yaw = DEG_TO_RAD(Rotation->Y);
-		float Roll = DEG_TO_RAD(Rotation->Z);
+		float Pitch = FGL_DEG_TO_RAD(Rotation->X);
+		float Yaw = FGL_DEG_TO_RAD(Rotation->Y);
+		float Roll = FGL_DEG_TO_RAD(Rotation->Z);
 
-		Vector3 LocalLeft = VECTOR3_ZERO;
-		Vector3 LocalDown = VECTOR3_ZERO;
-		Vector3 LocalBack = VECTOR3_ZERO;
+		Vector3 LocalLeft = FGL_VECTOR3_ZERO;
+		Vector3 LocalDown = FGL_VECTOR3_ZERO;
+		Vector3 LocalBack = FGL_VECTOR3_ZERO;
 
-		Quaternion QX = QUATERNION_ZERO;
-		Quaternion QY = QUATERNION_ZERO;
-		Quaternion QZ = QUATERNION_ZERO;
-		Quaternion QXZ = QUATERNION_ZERO;
-		Quaternion QYXZ = QUATERNION_ZERO;
-		Quaternion QNYXZ = QUATERNION_ZERO;
-		Quaternion QNYXZR = QUATERNION_ZERO;
+		Quaternion QX = FGL_QUATERNION_ZERO;
+		Quaternion QY = FGL_QUATERNION_ZERO;
+		Quaternion QZ = FGL_QUATERNION_ZERO;
+		Quaternion QXZ = FGL_QUATERNION_ZERO;
+		Quaternion QYXZ = FGL_QUATERNION_ZERO;
+		Quaternion QNYXZ = FGL_QUATERNION_ZERO;
+		Quaternion QNYXZR = FGL_QUATERNION_ZERO;
 
-		Vector3 LR = VECTOR3_ZERO;
-		Vector3 LU = VECTOR3_ZERO;
-		Vector3 LF = VECTOR3_ZERO;
-		Vector3 LRN = VECTOR3_ZERO;
-		Vector3 LUN = VECTOR3_ZERO;
-		Vector3 LFN = VECTOR3_ZERO;
+		Vector3 LR = FGL_VECTOR3_ZERO;
+		Vector3 LU = FGL_VECTOR3_ZERO;
+		Vector3 LF = FGL_VECTOR3_ZERO;
+		Vector3 LRN = FGL_VECTOR3_ZERO;
+		Vector3 LUN = FGL_VECTOR3_ZERO;
+		Vector3 LFN = FGL_VECTOR3_ZERO;
 
 		Transform* ParentTrans = (Transform*)Trans->Parent;
 
@@ -6613,28 +6617,28 @@ extern "C"
 	}
 	void Transform_SetRelativeEulerAnglesSimple(Transform* Trans, float Pitch, float Yaw, float Roll)
 	{
-		Pitch = DEG_TO_RAD(Pitch);
-		Yaw = DEG_TO_RAD(Yaw);
-		Roll = DEG_TO_RAD(Roll);
+		Pitch = FGL_DEG_TO_RAD(Pitch);
+		Yaw = FGL_DEG_TO_RAD(Yaw);
+		Roll = FGL_DEG_TO_RAD(Roll);
 
-		Vector3 LocalLeft = VECTOR3_ZERO;
-		Vector3 LocalDown = VECTOR3_ZERO;
-		Vector3 LocalBack = VECTOR3_ZERO;
+		Vector3 LocalLeft = FGL_VECTOR3_ZERO;
+		Vector3 LocalDown = FGL_VECTOR3_ZERO;
+		Vector3 LocalBack = FGL_VECTOR3_ZERO;
 
-		Quaternion QX = QUATERNION_ZERO;
-		Quaternion QY = QUATERNION_ZERO;
-		Quaternion QZ = QUATERNION_ZERO;
-		Quaternion QXZ = QUATERNION_ZERO;
-		Quaternion QYXZ = QUATERNION_ZERO;
-		Quaternion QNYXZ = QUATERNION_ZERO;
-		Quaternion QNYXZR = QUATERNION_ZERO;
+		Quaternion QX = FGL_QUATERNION_ZERO;
+		Quaternion QY = FGL_QUATERNION_ZERO;
+		Quaternion QZ = FGL_QUATERNION_ZERO;
+		Quaternion QXZ = FGL_QUATERNION_ZERO;
+		Quaternion QYXZ = FGL_QUATERNION_ZERO;
+		Quaternion QNYXZ = FGL_QUATERNION_ZERO;
+		Quaternion QNYXZR = FGL_QUATERNION_ZERO;
 
-		Vector3 LR = VECTOR3_ZERO;
-		Vector3 LU = VECTOR3_ZERO;
-		Vector3 LF = VECTOR3_ZERO;
-		Vector3 LRN = VECTOR3_ZERO;
-		Vector3 LUN = VECTOR3_ZERO;
-		Vector3 LFN = VECTOR3_ZERO;
+		Vector3 LR = FGL_VECTOR3_ZERO;
+		Vector3 LU = FGL_VECTOR3_ZERO;
+		Vector3 LF = FGL_VECTOR3_ZERO;
+		Vector3 LRN = FGL_VECTOR3_ZERO;
+		Vector3 LUN = FGL_VECTOR3_ZERO;
+		Vector3 LFN = FGL_VECTOR3_ZERO;
 
 		Transform* ParentTrans = (Transform*)Trans->Parent;
 
@@ -6793,8 +6797,8 @@ extern "C"
 
 		if (ParentTrans)
 		{
-			Vector3 RotatedLocalPosition = VECTOR3_ZERO;
-			Vector3 WorldPosition = VECTOR3_ZERO;
+			Vector3 RotatedLocalPosition = FGL_VECTOR3_ZERO;
+			Vector3 WorldPosition = FGL_VECTOR3_ZERO;
 
 			Vector3_Rotate(&Trans->LocalPosition, &ParentTrans->WorldRotation, &RotatedLocalPosition);
 			Vector3_Add(&ParentTrans->WorldPosition, &RotatedLocalPosition, &WorldPosition);
@@ -6811,7 +6815,7 @@ extern "C"
 
 		if (ParentTrans)
 		{
-			Quaternion WorldRotation = QUATERNION_ZERO;
+			Quaternion WorldRotation = FGL_QUATERNION_ZERO;
 
 			Quaternion_Mul(&Trans->LocalRotation, &ParentTrans->WorldRotation, &WorldRotation);
 			Quaternion_Set(&WorldRotation, &Trans->WorldRotation);
@@ -6827,7 +6831,7 @@ extern "C"
 
 		if (ParentTrans)
 		{
-			Vector3 WorldScale = VECTOR3_ZERO;
+			Vector3 WorldScale = FGL_VECTOR3_ZERO;
 
 			Vector3_Mul(&Trans->LocalScale, &ParentTrans->WorldScale, &WorldScale);
 			Vector3_Set(&WorldScale, &Trans->WorldScale);
@@ -6837,13 +6841,13 @@ extern "C"
 			Vector3_Set(&Trans->LocalScale, &Trans->WorldScale);
 		}
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Controller Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Controller_FirstPersonAlloc(FirstPersonController* Controller)
 	{
 		memset(Controller, 0, sizeof(FirstPersonController));
@@ -6878,10 +6882,10 @@ extern "C"
 
 		Transform* Trans = &Controller->Transform;
 
-		Vector3 RightStep = VECTOR3_ZERO;
-		Vector3 LeftStep = VECTOR3_ZERO;
-		Vector3 ForwardStep = VECTOR3_ZERO;
-		Vector3 BackStep = VECTOR3_ZERO;
+		Vector3 RightStep = FGL_VECTOR3_ZERO;
+		Vector3 LeftStep = FGL_VECTOR3_ZERO;
+		Vector3 ForwardStep = FGL_VECTOR3_ZERO;
+		Vector3 BackStep = FGL_VECTOR3_ZERO;
 		Vector3 RollLeftStep = { 0.0F, 0.0F, -Controller->RollSpeed };
 		Vector3 RollRightStep = { 0.0F, 0.0F, Controller->RollSpeed };
 
@@ -6908,13 +6912,13 @@ extern "C"
 			Controller->MousePositionEnd.X = (float)Window_GetMousePositionX();
 			Controller->MousePositionEnd.Y = (float)Window_GetMousePositionY();
 
-			Vector2 MousePositionDelta = VECTOR2_ZERO;
+			Vector2 MousePositionDelta = FGL_VECTOR2_ZERO;
 
 			Vector2_Sub(&Controller->MousePositionStart, &Controller->MousePositionEnd, &MousePositionDelta);
 
-			if (Vector2_Length2(&MousePositionDelta) > (EPSILON_2 * EPSILON_2))
+			if (Vector2_Length2(&MousePositionDelta) > (FGL_EPSILON_2 * FGL_EPSILON_2))
 			{
-				Vector2 MousePositionDeltaDrag = VECTOR2_ZERO;
+				Vector2 MousePositionDeltaDrag = FGL_VECTOR2_ZERO;
 
 				Vector2_MulScalar(&MousePositionDelta, Controller->MouseDrag * DeltaTime, &MousePositionDeltaDrag);
 				Vector2_Sub(&Controller->MousePositionStart, &MousePositionDelta, &Controller->MousePositionStart);
@@ -6936,10 +6940,10 @@ extern "C"
 
 		Transform* Trans = &Controller->Transform;
 
-		Vector3 RightStep = VECTOR3_ZERO;
-		Vector3 LeftStep = VECTOR3_ZERO;
-		Vector3 ForwardStep = VECTOR3_ZERO;
-		Vector3 BackStep = VECTOR3_ZERO;
+		Vector3 RightStep = FGL_VECTOR3_ZERO;
+		Vector3 LeftStep = FGL_VECTOR3_ZERO;
+		Vector3 ForwardStep = FGL_VECTOR3_ZERO;
+		Vector3 BackStep = FGL_VECTOR3_ZERO;
 
 		Vector3_MulScalar(&sWorldRight, Speed, &RightStep);
 		Vector3_MulScalar(&sWorldLeft, Speed, &LeftStep);
@@ -6962,13 +6966,13 @@ extern "C"
 			Controller->MousePositionEnd.X = (float)Window_GetMousePositionX();
 			Controller->MousePositionEnd.Y = (float)Window_GetMousePositionY();
 
-			Vector2 MousePositionDelta = VECTOR2_ZERO;
+			Vector2 MousePositionDelta = FGL_VECTOR2_ZERO;
 
 			Vector2_Sub(&Controller->MousePositionStart, &Controller->MousePositionEnd, &MousePositionDelta);
 
-			if (Vector2_Length2(&MousePositionDelta) > (EPSILON_2 * EPSILON_2))
+			if (Vector2_Length2(&MousePositionDelta) > (FGL_EPSILON_2 * FGL_EPSILON_2))
 			{
-				Vector2 MousePositionDeltaDrag = VECTOR2_ZERO;
+				Vector2 MousePositionDeltaDrag = FGL_VECTOR2_ZERO;
 
 				Vector2_MulScalar(&MousePositionDelta, Controller->MouseDrag * DeltaTime, &MousePositionDeltaDrag);
 				Vector2_Sub(&Controller->MousePositionStart, &MousePositionDelta, &Controller->MousePositionStart);
@@ -7004,13 +7008,13 @@ extern "C"
 
 		Matrix4x4_LookAt(&Eye, &Center, &Up, View);
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Shader Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Shader_VertexFragmentAlloc(int unsigned* Program, char const* VertexSource, char const* FragmentSource)
 	{
 		(*Program) = glCreateProgram();
@@ -7020,26 +7024,26 @@ extern "C"
 
 		glShaderSource(VertexShader, 1, &VertexSource, 0);
 		glCompileShader(VertexShader);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		Shader_CheckCompileStatus(VertexShader);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glShaderSource(FragmentShader, 1, &FragmentSource, 0);
 		glCompileShader(FragmentShader);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		Shader_CheckCompileStatus(FragmentShader);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glAttachShader((*Program), VertexShader);
 		glAttachShader((*Program), FragmentShader);
 		glLinkProgram((*Program));
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		Shader_CheckLinkStatus((*Program));
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glDeleteShader(VertexShader);
 		glDeleteShader(FragmentShader);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPrograms += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Shader_VertexGeometryFragmentAlloc(int unsigned* Program, char const* VertexSource, const char* GeometrySource, char const* FragmentSource)
 	{
@@ -7051,33 +7055,33 @@ extern "C"
 
 		glShaderSource(VertexShader, 1, &VertexSource, 0);
 		glCompileShader(VertexShader);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		Shader_CheckCompileStatus(VertexShader);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glShaderSource(GeometryShader, 1, &GeometrySource, 0);
 		glCompileShader(GeometryShader);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		Shader_CheckCompileStatus(GeometryShader);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glShaderSource(FragmentShader, 1, &FragmentSource, 0);
 		glCompileShader(FragmentShader);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		Shader_CheckCompileStatus(FragmentShader);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glAttachShader((*Program), VertexShader);
 		glAttachShader((*Program), GeometryShader);
 		glAttachShader((*Program), FragmentShader);
 		glLinkProgram((*Program));
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		Shader_CheckLinkStatus((*Program));
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glDeleteShader(VertexShader);
 		glDeleteShader(GeometryShader);
 		glDeleteShader(FragmentShader);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPrograms += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Shader_ComputeAlloc(int unsigned* Program, char const* ComputeSource)
 	{
@@ -7087,19 +7091,19 @@ extern "C"
 
 		glShaderSource(ComputeShader, 1, &ComputeSource, 0);
 		glCompileShader(ComputeShader);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		Shader_CheckCompileStatus(ComputeShader);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glAttachShader((*Program), ComputeShader);
 		glLinkProgram((*Program));
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		Shader_CheckLinkStatus((*Program));
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glDeleteShader(ComputeShader);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPrograms += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Shader_Bind(int unsigned Program)
 	{
@@ -7108,78 +7112,78 @@ extern "C"
 	void Shader_SetUniformInt32(int unsigned Program, char const* UniformName, int Value)
 	{
 		int Location = glGetUniformLocation(Program, UniformName);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		if (Location < 0)
 		{
 			printf("Shader %u cannot assign to uniform %s\n", Program, UniformName);
 		}
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glUniform1i(Location, Value);
 	}
 	void Shader_SetUniformUInt32(int unsigned Program, char const* UniformName, int unsigned Value)
 	{
 		int Location = glGetUniformLocation(Program, UniformName);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		if (Location < 0)
 		{
 			printf("Shader %u cannot assign to uniform %s\n", Program, UniformName);
 		}
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glUniform1ui(Location, Value);
 	}
 	void Shader_SetUniformReal32(int unsigned Program, char const* UniformName, float Value)
 	{
 		int Location = glGetUniformLocation(Program, UniformName);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		if (Location < 0)
 		{
 			printf("Shader %u cannot assign to uniform %s\n", Program, UniformName);
 		}
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glUniform1f(Location, Value);
 	}
 	void Shader_SetUniformVector2(int unsigned Program, char const* UniformName, Vector2 const* Value)
 	{
 		int Location = glGetUniformLocation(Program, UniformName);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		if (Location < 0)
 		{
 			printf("Shader %u cannot assign to uniform %s\n", Program, UniformName);
 		}
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glUniform2fv(Location, 1, &Value->Data[0]);
 	}
 	void Shader_SetUniformVector3(int unsigned Program, char const* UniformName, Vector3 const* Value)
 	{
 		int Location = glGetUniformLocation(Program, UniformName);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		if (Location < 0)
 		{
 			printf("Shader %u cannot assign to uniform %s\n", Program, UniformName);
 		}
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glUniform3fv(Location, 1, &Value->Data[0]);
 	}
 	void Shader_SetUniformVector4(int unsigned Program, char const* UniformName, Vector4 const* Value)
 	{
 		int Location = glGetUniformLocation(Program, UniformName);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		if (Location < 0)
 		{
 			printf("Shader %u cannot assign to uniform %s\n", Program, UniformName);
 		}
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glUniform4fv(Location, 1, &Value->Data[0]);
 	}
 	void Shader_SetUniformMatrix4(int unsigned Program, char const* UniformName, Matrix4x4 const* Value)
 	{
 		int Location = glGetUniformLocation(Program, UniformName);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		if (Location < 0)
 		{
 			printf("Shader %u cannot assign to uniform %s\n", Program, UniformName);
 		}
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 		glUniformMatrix4fv(Location, 1, 0, &Value->Data[0]);
 	}
 	void Shader_ExecuteCompute(int unsigned NumGroupsX, int unsigned NumGroupsY, int unsigned NumGroupsZ)
@@ -7188,7 +7192,7 @@ extern "C"
 	}
 	void Shader_CheckCompileStatus(int unsigned Shader)
 	{
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		int CompileStatus = 0;
 		int InfoLogLength = 0;
 		char Log[0x400] = { 0 };
@@ -7198,18 +7202,18 @@ extern "C"
 			glGetShaderiv(Shader, GL_INFO_LOG_LENGTH, &InfoLogLength);
 			if (InfoLogLength > 0)
 			{
-				InfoLogLength = MIN(InfoLogLength, (int)sizeof(Log));
+				InfoLogLength = FGL_MIN(InfoLogLength, (int)sizeof(Log));
 				glGetShaderInfoLog(Shader, InfoLogLength, &InfoLogLength, Log);
 				printf("%s\n", Log);
 			}
 		}
 #else
 		UNREFERENCED_PARAMETER(Shader);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 	}
 	void Shader_CheckLinkStatus(int unsigned Program)
 	{
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		int CompileStatus = 0;
 		int InfoLogLength = 0;
 		char Log[0x400] = { 0 };
@@ -7219,37 +7223,37 @@ extern "C"
 			glGetProgramiv(Program, GL_INFO_LOG_LENGTH, &InfoLogLength);
 			if (InfoLogLength > 0)
 			{
-				InfoLogLength = MIN(InfoLogLength, (int)sizeof(Log));
+				InfoLogLength = FGL_MIN(InfoLogLength, (int)sizeof(Log));
 				glGetProgramInfoLog(Program, InfoLogLength, &InfoLogLength, &Log[0]);
 				printf("%s\n", Log);
 			}
 		}
 #else
 		UNREFERENCED_PARAMETER(Program);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 	}
 	void Shader_Free(int unsigned Program)
 	{
 		glDeleteProgram(Program);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPrograms -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// VertexArray Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void VertexArray_Alloc(int unsigned* VertexArray)
 	{
 		glGenVertexArrays(1, VertexArray);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedVertexArrays += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void VertexArray_Bind(int unsigned VertexArray)
 	{
@@ -7303,48 +7307,48 @@ extern "C"
 	{
 		glDeleteVertexArrays(1, &VertexArray);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedVertexArrays -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Buffer Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Buffer_VertexAlloc(int unsigned* Buffer)
 	{
 		glGenBuffers(1, Buffer);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBuffers += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Buffer_IndexAlloc(int unsigned* Buffer)
 	{
 		glGenBuffers(1, Buffer);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBuffers += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Buffer_UniformAlloc(int unsigned* Buffer)
 	{
 		glGenBuffers(1, Buffer);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBuffers += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Buffer_StorageAlloc(int unsigned* Buffer)
 	{
 		glGenBuffers(1, Buffer);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBuffers += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Buffer_VertexAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
 	{
@@ -7354,9 +7358,9 @@ extern "C"
 		glBufferData(GL_ARRAY_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBuffers += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Buffer_IndexAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
 	{
@@ -7366,9 +7370,9 @@ extern "C"
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBuffers += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Buffer_UniformAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
 	{
@@ -7378,9 +7382,9 @@ extern "C"
 		glBufferData(GL_UNIFORM_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBuffers += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Buffer_StorageAllocSimple(int unsigned* Buffer, long long unsigned Size, void* Data, int unsigned Usage)
 	{
@@ -7390,9 +7394,9 @@ extern "C"
 		glBufferData(GL_SHADER_STORAGE_BUFFER, (int unsigned)Size, Data, Usage);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBuffers += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Buffer_VertexBind(int unsigned Buffer)
 	{
@@ -7586,17 +7590,17 @@ extern "C"
 	{
 		glDeleteBuffers(1, &Buffer);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBuffers -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Gizmo Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Batch_Alloc(Batch* Bat)
 	{
 		memset(Bat, 0, sizeof(Batch));
@@ -7612,11 +7616,11 @@ extern "C"
 		static BatchWorldCircleVertex WorldCircleVertexBuffer[3] = { 0 };
 		static int unsigned WorldCircleIndexBuffer[3] = { 0 };
 
-		WorldCircleVertexBuffer[0].Position.X = -SQRT_3;
+		WorldCircleVertexBuffer[0].Position.X = -FGL_SQRT_3;
 		WorldCircleVertexBuffer[0].Position.Y = -1.0F;
 		WorldCircleVertexBuffer[0].TextureCoords.X = 0.0F;
 		WorldCircleVertexBuffer[0].TextureCoords.Y = 0.0F;
-		WorldCircleVertexBuffer[1].Position.X = SQRT_3;
+		WorldCircleVertexBuffer[1].Position.X = FGL_SQRT_3;
 		WorldCircleVertexBuffer[1].Position.Y = -1.0F;
 		WorldCircleVertexBuffer[1].TextureCoords.X = 1.0F;
 		WorldCircleVertexBuffer[1].TextureCoords.Y = 0.0F;
@@ -7632,11 +7636,11 @@ extern "C"
 		static BatchScreenCircleVertex ScreenCircleVertexBuffer[3] = { 0 };
 		static int unsigned ScreenCircleIndexBuffer[3] = { 0 };
 
-		ScreenCircleVertexBuffer[0].Position.X = -SQRT_3;
+		ScreenCircleVertexBuffer[0].Position.X = -FGL_SQRT_3;
 		ScreenCircleVertexBuffer[0].Position.Y = -1.0F;
 		ScreenCircleVertexBuffer[0].TextureCoords.X = 0.0F;
 		ScreenCircleVertexBuffer[0].TextureCoords.Y = 0.0F;
-		ScreenCircleVertexBuffer[1].Position.X = SQRT_3;
+		ScreenCircleVertexBuffer[1].Position.X = FGL_SQRT_3;
 		ScreenCircleVertexBuffer[1].Position.Y = -1.0F;
 		ScreenCircleVertexBuffer[1].TextureCoords.X = 1.0F;
 		ScreenCircleVertexBuffer[1].TextureCoords.Y = 0.0F;
@@ -7735,18 +7739,18 @@ extern "C"
 		Buffer_VertexBind(Bat->WorldCircleVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchWorldCircleVertex), OFFSET_OF(BatchWorldCircleVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchWorldCircleVertex), OFFSET_OF(BatchWorldCircleVertex, TextureCoords));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchWorldCircleVertex), FGL_OFFSET_OF(BatchWorldCircleVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchWorldCircleVertex), FGL_OFFSET_OF(BatchWorldCircleVertex, TextureCoords));
 		Buffer_VertexResize(3 * sizeof(BatchWorldCircleVertex), WorldCircleVertexBuffer, GL_STATIC_DRAW);
 		Buffer_VertexBind(Bat->WorldCircleInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
 		Buffer_VertexEnableAttrib(4);
 		Buffer_VertexEnableAttrib(5);
-		Buffer_VertexAttribPointerReal32(2, 3, sizeof(BatchWorldCircleInstanceEntry), OFFSET_OF(BatchWorldCircleInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(3, 3, sizeof(BatchWorldCircleInstanceEntry), OFFSET_OF(BatchWorldCircleInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(4, 1, sizeof(BatchWorldCircleInstanceEntry), OFFSET_OF(BatchWorldCircleInstanceEntry, Radius));
-		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchWorldCircleInstanceEntry), OFFSET_OF(BatchWorldCircleInstanceEntry, Color));
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(BatchWorldCircleInstanceEntry), FGL_OFFSET_OF(BatchWorldCircleInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(3, 3, sizeof(BatchWorldCircleInstanceEntry), FGL_OFFSET_OF(BatchWorldCircleInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(4, 1, sizeof(BatchWorldCircleInstanceEntry), FGL_OFFSET_OF(BatchWorldCircleInstanceEntry, Radius));
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchWorldCircleInstanceEntry), FGL_OFFSET_OF(BatchWorldCircleInstanceEntry, Color));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -7760,18 +7764,18 @@ extern "C"
 		Buffer_VertexBind(Bat->ScreenCircleVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchScreenCircleVertex), OFFSET_OF(BatchScreenCircleVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchScreenCircleVertex), OFFSET_OF(BatchScreenCircleVertex, TextureCoords));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchScreenCircleVertex), FGL_OFFSET_OF(BatchScreenCircleVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchScreenCircleVertex), FGL_OFFSET_OF(BatchScreenCircleVertex, TextureCoords));
 		Buffer_VertexResize(3 * sizeof(BatchScreenCircleVertex), ScreenCircleVertexBuffer, GL_STATIC_DRAW);
 		Buffer_VertexBind(Bat->ScreenCircleInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
 		Buffer_VertexEnableAttrib(4);
 		Buffer_VertexEnableAttrib(5);
-		Buffer_VertexAttribPointerReal32(2, 2, sizeof(BatchScreenCircleInstanceEntry), OFFSET_OF(BatchScreenCircleInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(3, 1, sizeof(BatchScreenCircleInstanceEntry), OFFSET_OF(BatchScreenCircleInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(4, 1, sizeof(BatchScreenCircleInstanceEntry), OFFSET_OF(BatchScreenCircleInstanceEntry, Radius));
-		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchScreenCircleInstanceEntry), OFFSET_OF(BatchScreenCircleInstanceEntry, Color));
+		Buffer_VertexAttribPointerReal32(2, 2, sizeof(BatchScreenCircleInstanceEntry), FGL_OFFSET_OF(BatchScreenCircleInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(3, 1, sizeof(BatchScreenCircleInstanceEntry), FGL_OFFSET_OF(BatchScreenCircleInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(4, 1, sizeof(BatchScreenCircleInstanceEntry), FGL_OFFSET_OF(BatchScreenCircleInstanceEntry, Radius));
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchScreenCircleInstanceEntry), FGL_OFFSET_OF(BatchScreenCircleInstanceEntry, Color));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -7787,10 +7791,10 @@ extern "C"
 		Buffer_VertexEnableAttrib(1);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
-		Buffer_VertexAttribPointerReal32(0, 3, sizeof(BatchWorldLineVertex), OFFSET_OF(BatchWorldLineVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 3, sizeof(BatchWorldLineVertex), OFFSET_OF(BatchWorldLineVertex, Rotation));
-		Buffer_VertexAttribPointerReal32(2, 1, sizeof(BatchWorldLineVertex), OFFSET_OF(BatchWorldLineVertex, Thickness));
-		Buffer_VertexAttribPointerReal32(3, 4, sizeof(BatchWorldLineVertex), OFFSET_OF(BatchWorldLineVertex, Color));
+		Buffer_VertexAttribPointerReal32(0, 3, sizeof(BatchWorldLineVertex), FGL_OFFSET_OF(BatchWorldLineVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 3, sizeof(BatchWorldLineVertex), FGL_OFFSET_OF(BatchWorldLineVertex, Rotation));
+		Buffer_VertexAttribPointerReal32(2, 1, sizeof(BatchWorldLineVertex), FGL_OFFSET_OF(BatchWorldLineVertex, Thickness));
+		Buffer_VertexAttribPointerReal32(3, 4, sizeof(BatchWorldLineVertex), FGL_OFFSET_OF(BatchWorldLineVertex, Color));
 		Buffer_VertexResize(Bat->NumWorldLines * 2 * sizeof(BatchWorldLineVertex), 0, GL_DYNAMIC_DRAW);
 		Buffer_IndexBind(Bat->WorldLineIndexBuffer);
 		Buffer_IndexResize(Bat->NumWorldLines * 2 * sizeof(int unsigned), 0, GL_DYNAMIC_DRAW);
@@ -7802,10 +7806,10 @@ extern "C"
 		Buffer_VertexEnableAttrib(1);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchScreenLineVertex), OFFSET_OF(BatchScreenLineVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 1, sizeof(BatchScreenLineVertex), OFFSET_OF(BatchScreenLineVertex, Rotation));
-		Buffer_VertexAttribPointerReal32(2, 1, sizeof(BatchScreenLineVertex), OFFSET_OF(BatchScreenLineVertex, Thickness));
-		Buffer_VertexAttribPointerReal32(3, 4, sizeof(BatchScreenLineVertex), OFFSET_OF(BatchScreenLineVertex, Color));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchScreenLineVertex), FGL_OFFSET_OF(BatchScreenLineVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 1, sizeof(BatchScreenLineVertex), FGL_OFFSET_OF(BatchScreenLineVertex, Rotation));
+		Buffer_VertexAttribPointerReal32(2, 1, sizeof(BatchScreenLineVertex), FGL_OFFSET_OF(BatchScreenLineVertex, Thickness));
+		Buffer_VertexAttribPointerReal32(3, 4, sizeof(BatchScreenLineVertex), FGL_OFFSET_OF(BatchScreenLineVertex, Color));
 		Buffer_VertexResize(Bat->NumScreenLines * 2 * sizeof(BatchScreenLineVertex), 0, GL_DYNAMIC_DRAW);
 		Buffer_IndexBind(Bat->ScreenLineIndexBuffer);
 		Buffer_IndexResize(Bat->NumScreenLines * 2 * sizeof(int unsigned), 0, GL_DYNAMIC_DRAW);
@@ -7815,18 +7819,18 @@ extern "C"
 		Buffer_VertexBind(Bat->WorldRectVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchWorldRectVertex), OFFSET_OF(BatchWorldRectVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchWorldRectVertex), OFFSET_OF(BatchWorldRectVertex, TextureCoords));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchWorldRectVertex), FGL_OFFSET_OF(BatchWorldRectVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchWorldRectVertex), FGL_OFFSET_OF(BatchWorldRectVertex, TextureCoords));
 		Buffer_VertexResize(4 * sizeof(BatchWorldRectVertex), WorldRectVertexBuffer, GL_STATIC_DRAW);
 		Buffer_VertexBind(Bat->WorldRectInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
 		Buffer_VertexEnableAttrib(4);
 		Buffer_VertexEnableAttrib(5);
-		Buffer_VertexAttribPointerReal32(2, 3, sizeof(BatchWorldRectInstanceEntry), OFFSET_OF(BatchWorldRectInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(3, 3, sizeof(BatchWorldRectInstanceEntry), OFFSET_OF(BatchWorldRectInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(4, 2, sizeof(BatchWorldRectInstanceEntry), OFFSET_OF(BatchWorldRectInstanceEntry, Size));
-		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchWorldRectInstanceEntry), OFFSET_OF(BatchWorldRectInstanceEntry, Color));
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(BatchWorldRectInstanceEntry), FGL_OFFSET_OF(BatchWorldRectInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(3, 3, sizeof(BatchWorldRectInstanceEntry), FGL_OFFSET_OF(BatchWorldRectInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(4, 2, sizeof(BatchWorldRectInstanceEntry), FGL_OFFSET_OF(BatchWorldRectInstanceEntry, Size));
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchWorldRectInstanceEntry), FGL_OFFSET_OF(BatchWorldRectInstanceEntry, Color));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -7840,18 +7844,18 @@ extern "C"
 		Buffer_VertexBind(Bat->ScreenRectVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchScreenRectVertex), OFFSET_OF(BatchScreenRectVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchScreenRectVertex), OFFSET_OF(BatchScreenRectVertex, TextureCoords));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(BatchScreenRectVertex), FGL_OFFSET_OF(BatchScreenRectVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(BatchScreenRectVertex), FGL_OFFSET_OF(BatchScreenRectVertex, TextureCoords));
 		Buffer_VertexResize(4 * sizeof(BatchScreenRectVertex), ScreenRectVertexBuffer, GL_STATIC_DRAW);
 		Buffer_VertexBind(Bat->ScreenRectInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
 		Buffer_VertexEnableAttrib(3);
 		Buffer_VertexEnableAttrib(4);
 		Buffer_VertexEnableAttrib(5);
-		Buffer_VertexAttribPointerReal32(2, 2, sizeof(BatchScreenRectInstanceEntry), OFFSET_OF(BatchScreenRectInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(3, 1, sizeof(BatchScreenRectInstanceEntry), OFFSET_OF(BatchScreenRectInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(4, 2, sizeof(BatchScreenRectInstanceEntry), OFFSET_OF(BatchScreenRectInstanceEntry, Size));
-		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchScreenRectInstanceEntry), OFFSET_OF(BatchScreenRectInstanceEntry, Color));
+		Buffer_VertexAttribPointerReal32(2, 2, sizeof(BatchScreenRectInstanceEntry), FGL_OFFSET_OF(BatchScreenRectInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(3, 1, sizeof(BatchScreenRectInstanceEntry), FGL_OFFSET_OF(BatchScreenRectInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(4, 2, sizeof(BatchScreenRectInstanceEntry), FGL_OFFSET_OF(BatchScreenRectInstanceEntry, Size));
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(BatchScreenRectInstanceEntry), FGL_OFFSET_OF(BatchScreenRectInstanceEntry, Color));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -7861,9 +7865,9 @@ extern "C"
 		Buffer_IndexResize(6 * sizeof(int unsigned), ScreenRectIndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBatches += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Batch_Free(Batch* Bat)
 	{
@@ -7897,9 +7901,9 @@ extern "C"
 
 		memset(Bat, 0, sizeof(Batch));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBatches -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Batch_BeginWorldCircles(Batch* Bat)
 	{
@@ -8666,13 +8670,13 @@ extern "C"
 		sCurrBatch = 0;
 		sMappedScreenRectInstanceBuffer = 0;
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Font Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Font_AllocFromFile(Font* Fnt, int unsigned NumChars, char const* FilePath)
 	{
 		char unsigned* Buffer = 0;
@@ -8681,17 +8685,17 @@ extern "C"
 		Font_AllocInternal(Fnt, NumChars, Buffer, BufferSize);
 		Memory_Free(Buffer);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedFonts += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Font_AllocFromMemory(Font* Fnt, int unsigned NumChars, char unsigned* Buffer, int unsigned BufferSize)
 	{
 		Font_AllocInternal(Fnt, NumChars, Buffer, BufferSize);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedFonts += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	FontGlyph* Font_GlyphByGlyphIndex(Font* Fnt, short unsigned GlyphIndex)
 	{
@@ -8746,9 +8750,9 @@ extern "C"
 
 		memset(Fnt, 0, sizeof(Font));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedFonts -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	Font* Font_GetDefault(void)
 	{
@@ -9026,8 +9030,8 @@ extern "C"
 		Buffer_VertexBind(Fnt->WorldGlyphVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontWorldGlyphVertex), OFFSET_OF(FontWorldGlyphVertex, Position));
-		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontWorldGlyphVertex), OFFSET_OF(FontWorldGlyphVertex, Index));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontWorldGlyphVertex), FGL_OFFSET_OF(FontWorldGlyphVertex, Position));
+		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontWorldGlyphVertex), FGL_OFFSET_OF(FontWorldGlyphVertex, Index));
 		Buffer_VertexResize(4 * sizeof(FontWorldGlyphVertex), WorldVertexBuffer, GL_STATIC_DRAW);
 		Buffer_VertexBind(Fnt->WorldGlyphInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
@@ -9041,17 +9045,17 @@ extern "C"
 		Buffer_VertexEnableAttrib(10);
 		Buffer_VertexEnableAttrib(11);
 		Buffer_VertexEnableAttrib(12);
-		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Pivot));
-		Buffer_VertexAttribPointerReal32(3, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(4, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Scale));
-		Buffer_VertexAttribPointerReal32(6, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Bearing));
-		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, UnitsPerEm));
-		Buffer_VertexAttribPointerReal32(8, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, FontSize));
-		Buffer_VertexAttribPointerReal32(9, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphSize));
-		Buffer_VertexAttribPointerReal32(10, 4, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Color));
-		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphIndex));
-		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(3, 3, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(4, 3, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Scale));
+		Buffer_VertexAttribPointerReal32(6, 2, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(8, 1, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(9, 2, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(10, 4, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, LineHeight));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -9072,8 +9076,8 @@ extern "C"
 		Buffer_VertexBind(Fnt->ScreenGlyphVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontScreenGlyphVertex), OFFSET_OF(FontScreenGlyphVertex, Position));
-		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontScreenGlyphVertex), OFFSET_OF(FontScreenGlyphVertex, Index));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontScreenGlyphVertex), FGL_OFFSET_OF(FontScreenGlyphVertex, Position));
+		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontScreenGlyphVertex), FGL_OFFSET_OF(FontScreenGlyphVertex, Index));
 		Buffer_VertexResize(4 * sizeof(FontScreenGlyphVertex), ScreenVertexBuffer, GL_STATIC_DRAW);
 		Buffer_VertexBind(Fnt->ScreenGlyphInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
@@ -9086,16 +9090,16 @@ extern "C"
 		Buffer_VertexEnableAttrib(9);
 		Buffer_VertexEnableAttrib(10);
 		Buffer_VertexEnableAttrib(11);
-		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
-		Buffer_VertexAttribPointerReal32(3, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(4, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
-		Buffer_VertexAttribPointerReal32(6, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, UnitsPerEm));
-		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, FontSize));
-		Buffer_VertexAttribPointerReal32(8, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphSize));
-		Buffer_VertexAttribPointerReal32(9, 4, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Color));
-		Buffer_VertexAttribPointerUInt32(10, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphIndex));
-		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(3, 2, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(4, 1, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(6, 1, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(8, 2, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(9, 4, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(10, 1, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, LineHeight));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -9164,7 +9168,7 @@ extern "C"
 		{
 			char unsigned Flag = FileReader_ReadUInt8(Reader);
 			Result->Flags[PointIndex] = Flag;
-			if (IS_BIT_SET(Flag, REPEAT_FLAG_BIT))
+			if (FGL_IS_BIT_SET(Flag, REPEAT_FLAG_BIT))
 			{
 				char unsigned NumRepeats = FileReader_ReadUInt8(Reader);
 				for (unsigned char RepeatIndex = 0; ((RepeatIndex < NumRepeats) && ((PointIndex + 1) < Result->NumPoints)); RepeatIndex++)
@@ -9182,36 +9186,36 @@ extern "C"
 		{
 			char unsigned Flag = Result->Flags[PointIndex];
 
-			if (IS_BIT_SET(Flag, X_SHORT_VECTOR_BIT))
+			if (FGL_IS_BIT_SET(Flag, X_SHORT_VECTOR_BIT))
 			{
 				char unsigned CoordOffset = FileReader_ReadUInt8(Reader);
-				CoordX += IS_BIT_SET(Flag, X_IS_SAME_OR_POSITIVE_SHORT_VECTOR_BIT) ? CoordOffset : -CoordOffset;
+				CoordX += FGL_IS_BIT_SET(Flag, X_IS_SAME_OR_POSITIVE_SHORT_VECTOR_BIT) ? CoordOffset : -CoordOffset;
 			}
-			else if (IS_BIT_NOT_SET(Flag, X_IS_SAME_OR_POSITIVE_SHORT_VECTOR_BIT))
+			else if (FGL_IS_BIT_NOT_SET(Flag, X_IS_SAME_OR_POSITIVE_SHORT_VECTOR_BIT))
 			{
 				CoordX += FileReader_ReadInt16(Reader, true);
 			}
 
 			Result->Points[PointIndex].X = CoordX;
-			Result->Points[PointIndex].OnCurve = IS_BIT_SET(Flag, ON_CURVE_POINT_BIT);
+			Result->Points[PointIndex].OnCurve = FGL_IS_BIT_SET(Flag, ON_CURVE_POINT_BIT);
 		}
 
 		for (short unsigned PointIndex = 0; PointIndex < Result->NumPoints; PointIndex++)
 		{
 			char unsigned Flag = Result->Flags[PointIndex];
 
-			if (IS_BIT_SET(Flag, Y_SHORT_VECTOR_BIT))
+			if (FGL_IS_BIT_SET(Flag, Y_SHORT_VECTOR_BIT))
 			{
 				char unsigned CoordOffset = FileReader_ReadUInt8(Reader);
-				CoordY += IS_BIT_SET(Flag, Y_IS_SAME_OR_POSITIVE_SHORT_VECTOR_BIT) ? CoordOffset : -CoordOffset;
+				CoordY += FGL_IS_BIT_SET(Flag, Y_IS_SAME_OR_POSITIVE_SHORT_VECTOR_BIT) ? CoordOffset : -CoordOffset;
 			}
-			else if (IS_BIT_NOT_SET(Flag, Y_IS_SAME_OR_POSITIVE_SHORT_VECTOR_BIT))
+			else if (FGL_IS_BIT_NOT_SET(Flag, Y_IS_SAME_OR_POSITIVE_SHORT_VECTOR_BIT))
 			{
 				CoordY += FileReader_ReadInt16(Reader, true);
 			}
 
 			Result->Points[PointIndex].Y = CoordY;
-			Result->Points[PointIndex].OnCurve = IS_BIT_SET(Flag, ON_CURVE_POINT_BIT);
+			Result->Points[PointIndex].OnCurve = FGL_IS_BIT_SET(Flag, ON_CURVE_POINT_BIT);
 		}
 	}
 	void Font_ReadCompoundGlyphInternal(Font* Fnt, FileReader* Reader, short unsigned GlyphIndex, FontGlyph* Result)
@@ -9225,16 +9229,16 @@ extern "C"
 
 			assert(Fnt->GlyphOffsets[GlyphIndex] != Fnt->GlyphOffsets[NewGlyphIndex]);
 
-			bool ArgsAre2Bytes = IS_BIT_SET(Flags, 0);
-			bool ArgsAreXYValues = IS_BIT_SET(Flags, 1);
-			bool RoundXYToGrid = IS_BIT_SET(Flags, 2);
-			bool IsSingleScaleValue = IS_BIT_SET(Flags, 3);
-			bool IsMoreComponentsAfterThis = IS_BIT_SET(Flags, 5);
-			bool IsXAndYScale = IS_BIT_SET(Flags, 6);
-			bool Is2x2Matrix = IS_BIT_SET(Flags, 7);
-			bool HasInstructions = IS_BIT_SET(Flags, 8);
-			bool UseThisComponentMetrics = IS_BIT_SET(Flags, 9);
-			bool ComponentsOverlap = IS_BIT_SET(Flags, 10);
+			bool ArgsAre2Bytes = FGL_IS_BIT_SET(Flags, 0);
+			bool ArgsAreXYValues = FGL_IS_BIT_SET(Flags, 1);
+			bool RoundXYToGrid = FGL_IS_BIT_SET(Flags, 2);
+			bool IsSingleScaleValue = FGL_IS_BIT_SET(Flags, 3);
+			bool IsMoreComponentsAfterThis = FGL_IS_BIT_SET(Flags, 5);
+			bool IsXAndYScale = FGL_IS_BIT_SET(Flags, 6);
+			bool Is2x2Matrix = FGL_IS_BIT_SET(Flags, 7);
+			bool HasInstructions = FGL_IS_BIT_SET(Flags, 8);
+			bool UseThisComponentMetrics = FGL_IS_BIT_SET(Flags, 9);
+			bool ComponentsOverlap = FGL_IS_BIT_SET(Flags, 10);
 
 			UNREFERENCED_PARAMETER(ArgsAreXYValues);
 			UNREFERENCED_PARAMETER(RoundXYToGrid);
@@ -9682,13 +9686,13 @@ extern "C"
 
 		Vector_Free(&CollectedPoints);
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Text Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Text_BeginWorld(Font* Fnt)
 	{
 		sCurrFont = Fnt;
@@ -9700,7 +9704,7 @@ extern "C"
 	}
 	void Text_DrawWorld(Vector3 const* Position, Vector3 const* Rotation, Vector2 const* Size, Color4 const* Color, char const* Format, ...)
 	{
-		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
+		static char FormatBuffer[FGL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -9781,7 +9785,7 @@ extern "C"
 	}
 	void Text_DrawWorldSimple(float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
-		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
+		static char FormatBuffer[FGL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -9887,7 +9891,7 @@ extern "C"
 	}
 	void Text_DrawScreen(Vector3 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...)
 	{
-		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
+		static char FormatBuffer[FGL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -9962,7 +9966,7 @@ extern "C"
 	}
 	void Text_DrawScreenSimple(float PositionX, float PositionY, float PositionZ, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
-		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
+		static char FormatBuffer[FGL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -10087,8 +10091,8 @@ extern "C"
 		Buffer_VertexBind(Cache->GlyphVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontWorldGlyphVertex), OFFSET_OF(FontWorldGlyphVertex, Position));
-		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontWorldGlyphVertex), OFFSET_OF(FontWorldGlyphVertex, Index));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontWorldGlyphVertex), FGL_OFFSET_OF(FontWorldGlyphVertex, Position));
+		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontWorldGlyphVertex), FGL_OFFSET_OF(FontWorldGlyphVertex, Index));
 		Buffer_VertexResize(4 * sizeof(FontWorldGlyphVertex), WorldVertexBuffer, GL_STATIC_DRAW);
 		Buffer_VertexBind(Cache->GlyphInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
@@ -10102,17 +10106,17 @@ extern "C"
 		Buffer_VertexEnableAttrib(10);
 		Buffer_VertexEnableAttrib(11);
 		Buffer_VertexEnableAttrib(12);
-		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Pivot));
-		Buffer_VertexAttribPointerReal32(3, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(4, 3, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Scale));
-		Buffer_VertexAttribPointerReal32(6, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Bearing));
-		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, UnitsPerEm));
-		Buffer_VertexAttribPointerReal32(8, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, FontSize));
-		Buffer_VertexAttribPointerReal32(9, 2, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphSize));
-		Buffer_VertexAttribPointerReal32(10, 4, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, Color));
-		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphIndex));
-		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(FontWorldGlyphInstanceEntry), OFFSET_OF(FontWorldGlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(3, 3, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(4, 3, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Scale));
+		Buffer_VertexAttribPointerReal32(6, 2, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(8, 1, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(9, 2, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(10, 4, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(12, 1, sizeof(FontWorldGlyphInstanceEntry), FGL_OFFSET_OF(FontWorldGlyphInstanceEntry, LineHeight));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -10129,9 +10133,9 @@ extern "C"
 		Buffer_IndexResize(6 * sizeof(int unsigned), WorldIndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedTextCaches += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void TextCache_DrawWorldCache(TextWorldCache* Cache, Matrix4x4 const* Projection, Matrix4x4 const* View)
 	{
@@ -10154,9 +10158,9 @@ extern "C"
 
 		memset(Cache, 0, sizeof(TextWorldCache));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedTextCaches -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void TextCache_ScreenAlloc(TextScreenCache* Cache, int unsigned NumChars)
 	{
@@ -10193,8 +10197,8 @@ extern "C"
 		Buffer_VertexBind(Cache->GlyphVertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontScreenGlyphVertex), OFFSET_OF(FontScreenGlyphVertex, Position));
-		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontScreenGlyphVertex), OFFSET_OF(FontScreenGlyphVertex, Index));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(FontScreenGlyphVertex), FGL_OFFSET_OF(FontScreenGlyphVertex, Position));
+		Buffer_VertexAttribPointerUInt32(1, 1, sizeof(FontScreenGlyphVertex), FGL_OFFSET_OF(FontScreenGlyphVertex, Index));
 		Buffer_VertexResize(4 * sizeof(FontScreenGlyphVertex), ScreenVertexBuffer, GL_STATIC_DRAW);
 		Buffer_VertexBind(Cache->GlyphInstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
@@ -10207,16 +10211,16 @@ extern "C"
 		Buffer_VertexEnableAttrib(9);
 		Buffer_VertexEnableAttrib(10);
 		Buffer_VertexEnableAttrib(11);
-		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
-		Buffer_VertexAttribPointerReal32(3, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Position));
-		Buffer_VertexAttribPointerReal32(4, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Rotation));
-		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
-		Buffer_VertexAttribPointerReal32(6, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, UnitsPerEm));
-		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, FontSize));
-		Buffer_VertexAttribPointerReal32(8, 2, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphSize));
-		Buffer_VertexAttribPointerReal32(9, 4, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, Color));
-		Buffer_VertexAttribPointerUInt32(10, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphIndex));
-		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontScreenGlyphInstanceEntry), OFFSET_OF(FontScreenGlyphInstanceEntry, LineHeight));
+		Buffer_VertexAttribPointerReal32(2, 3, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, Pivot));
+		Buffer_VertexAttribPointerReal32(3, 2, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, Position));
+		Buffer_VertexAttribPointerReal32(4, 1, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, Rotation));
+		Buffer_VertexAttribPointerReal32(5, 2, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, Bearing));
+		Buffer_VertexAttribPointerReal32(6, 1, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, UnitsPerEm));
+		Buffer_VertexAttribPointerReal32(7, 1, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, FontSize));
+		Buffer_VertexAttribPointerReal32(8, 2, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphSize));
+		Buffer_VertexAttribPointerReal32(9, 4, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, Color));
+		Buffer_VertexAttribPointerUInt32(10, 1, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, GlyphIndex));
+		Buffer_VertexAttribPointerUInt32(11, 1, sizeof(FontScreenGlyphInstanceEntry), FGL_OFFSET_OF(FontScreenGlyphInstanceEntry, LineHeight));
 		Buffer_VertexAttribDivisor(2, 1);
 		Buffer_VertexAttribDivisor(3, 1);
 		Buffer_VertexAttribDivisor(4, 1);
@@ -10232,9 +10236,9 @@ extern "C"
 		Buffer_IndexResize(6 * sizeof(int unsigned), ScreenIndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedTextCaches += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void TextCache_DrawScreenCache(TextScreenCache* Cache)
 	{
@@ -10258,9 +10262,9 @@ extern "C"
 
 		memset(Cache, 0, sizeof(TextScreenCache));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedTextCaches -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void TextCache_BeginWorldCache(TextWorldCache* Cache, Font* Fnt)
 	{
@@ -10273,7 +10277,7 @@ extern "C"
 	}
 	void TextCache_DrawWorld(TextWorldCache* Cache, Vector3 const* Position, Vector3 const* Rotation, Vector2 const* Size, Color4 const* Color, char const* Format, ...)
 	{
-		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
+		static char FormatBuffer[FGL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -10354,7 +10358,7 @@ extern "C"
 	}
 	void TextCache_DrawWorldSimple(TextWorldCache* Cache, float PositionX, float PositionY, float PositionZ, float Pitch, float Yaw, float Roll, float SizeX, float SizeY, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
-		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
+		static char FormatBuffer[FGL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -10454,7 +10458,7 @@ extern "C"
 	}
 	void TextCache_DrawScreen(TextScreenCache* Cache, Vector3 const* Position, float Rotation, float Size, Color4 const* Color, char const* Format, ...)
 	{
-		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
+		static char FormatBuffer[FGL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -10529,7 +10533,7 @@ extern "C"
 	}
 	void TextCache_DrawScreenSimple(TextScreenCache* Cache, float PositionX, float PositionY, float PositionZ, float Rotation, float Size, float ColorR, float ColorG, float ColorB, float ColorA, char const* Format, ...)
 	{
-		static char FormatBuffer[FAST_GL_TEXT_FMT_BUFFER_SIZE] = { 0 };
+		static char FormatBuffer[FGL_TEXT_FMT_BUFFER_SIZE] = { 0 };
 
 		va_list Arguments = { 0 };
 		va_start(Arguments, Format);
@@ -10612,13 +10616,13 @@ extern "C"
 		sCurrFont = 0;
 		sMappedScreenGlyphInstanceBuffer = 0;
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Texture Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION 
+#ifdef FGL_IMPLEMENTATION 
 	void Texture2D_Alloc(Texture2D* Texture)
 	{
 		memset(Texture, 0, sizeof(Texture2D));
@@ -10633,9 +10637,9 @@ extern "C"
 		Texture->Format = TEXTURE_FORMAT_RGBA;
 		Texture->InternalFormat = TEXTURE_INTERNAL_FORMAT_RGBA;
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedTexture2Ds += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	int unsigned Texture2D_GetWidth(Texture2D* Texture)
 	{
@@ -10785,17 +10789,17 @@ extern "C"
 
 		memset(Texture, 0, sizeof(Texture2D));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedTexture2Ds -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// FrameBuffer Definition
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void FrameBuffer_Alloc(FrameBuffer* Buffer, int unsigned NumColorAttachments, int unsigned Width, int unsigned Height)
 	{
 		memset(Buffer, 0, sizeof(FrameBuffer));
@@ -10815,9 +10819,9 @@ extern "C"
 			Buffer->BufferAttachments[ColorAttachmentIndex] = GL_COLOR_ATTACHMENT0 + ColorAttachmentIndex;
 		}
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedFrameBuffers += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	int unsigned FrameBuffer_GetColorAttachmentNum(FrameBuffer* Buffer)
 	{
@@ -10913,17 +10917,17 @@ extern "C"
 
 		memset(Buffer, 0, sizeof(FrameBuffer));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedFrameBuffers -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// BitMap Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void BitMap_Alloc(char unsigned** Pixels, char const* FilePath, int unsigned* Width, int unsigned* Height)
 	{
 		FILE* File = 0;
@@ -10986,25 +10990,25 @@ extern "C"
 
 		fclose(File);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBitMaps += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void BitMap_Free(char unsigned* Pixels)
 	{
 		Memory_Free(Pixels);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedBitMaps -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Primitive Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Primitive_SpriteAlloc(SpriteMesh* Mesh)
 	{
 		memset(Mesh, 0, sizeof(SpriteMesh));
@@ -11043,16 +11047,16 @@ extern "C"
 		Buffer_VertexBind(Mesh->VertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, TextureCoords));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(SpriteVertex), FGL_OFFSET_OF(SpriteVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(SpriteVertex), FGL_OFFSET_OF(SpriteVertex, TextureCoords));
 		Buffer_VertexResize(4 * sizeof(SpriteVertex), VertexBuffer, GL_STATIC_DRAW);
 		Buffer_IndexBind(Mesh->IndexBuffer);
 		Buffer_IndexResize(6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPrimitives += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	int unsigned Primitive_GetSpriteVertexArray(SpriteMesh* Mesh)
 	{
@@ -11066,9 +11070,9 @@ extern "C"
 
 		memset(Mesh, 0, sizeof(SpriteMesh));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPrimitives -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Primitive_PostProcessAlloc(PostProcessMesh* Mesh)
 	{
@@ -11108,16 +11112,16 @@ extern "C"
 		Buffer_VertexBind(Mesh->VertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(PostProcessVertex), OFFSET_OF(PostProcessVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 2, sizeof(PostProcessVertex), OFFSET_OF(PostProcessVertex, TextureCoords));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(PostProcessVertex), FGL_OFFSET_OF(PostProcessVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(PostProcessVertex), FGL_OFFSET_OF(PostProcessVertex, TextureCoords));
 		Buffer_VertexResize(4 * sizeof(PostProcessVertex), VertexBuffer, GL_STATIC_DRAW);
 		Buffer_IndexBind(Mesh->IndexBuffer);
 		Buffer_IndexResize(6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPrimitives += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	int unsigned Primitive_GetPostProcessVertexArray(PostProcessMesh* Mesh)
 	{
@@ -11131,9 +11135,9 @@ extern "C"
 
 		memset(Mesh, 0, sizeof(PostProcessMesh));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPrimitives -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Primitive_InstancedSpriteAlloc(InstancedSprite* Mesh, int unsigned NumInstances)
 	{
@@ -11176,8 +11180,8 @@ extern "C"
 		Buffer_VertexBind(Mesh->VertexBuffer);
 		Buffer_VertexEnableAttrib(0);
 		Buffer_VertexEnableAttrib(1);
-		Buffer_VertexAttribPointerReal32(0, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, Position));
-		Buffer_VertexAttribPointerReal32(1, 2, sizeof(SpriteVertex), OFFSET_OF(SpriteVertex, TextureCoords));
+		Buffer_VertexAttribPointerReal32(0, 2, sizeof(SpriteVertex), FGL_OFFSET_OF(SpriteVertex, Position));
+		Buffer_VertexAttribPointerReal32(1, 2, sizeof(SpriteVertex), FGL_OFFSET_OF(SpriteVertex, TextureCoords));
 		Buffer_VertexResize(4 * sizeof(SpriteVertex), VertexBuffer, GL_STATIC_DRAW);
 		Buffer_VertexBind(Mesh->InstanceBuffer);
 		Buffer_VertexEnableAttrib(2);
@@ -11185,11 +11189,11 @@ extern "C"
 		Buffer_VertexEnableAttrib(4);
 		Buffer_VertexEnableAttrib(5);
 		Buffer_VertexEnableAttrib(6);
-		Buffer_VertexAttribPointerReal32(2, 4, sizeof(SpriteInstanceEntry), OFFSET_OF(SpriteInstanceEntry, TransformMatrix));
-		Buffer_VertexAttribPointerReal32(3, 4, sizeof(SpriteInstanceEntry), OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4));
-		Buffer_VertexAttribPointerReal32(4, 4, sizeof(SpriteInstanceEntry), OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4) * 2);
-		Buffer_VertexAttribPointerReal32(5, 4, sizeof(SpriteInstanceEntry), OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4) * 3);
-		Buffer_VertexAttribPointerUInt32(6, 1, sizeof(SpriteInstanceEntry), OFFSET_OF(SpriteInstanceEntry, AtlasIndex));
+		Buffer_VertexAttribPointerReal32(2, 4, sizeof(SpriteInstanceEntry), FGL_OFFSET_OF(SpriteInstanceEntry, TransformMatrix));
+		Buffer_VertexAttribPointerReal32(3, 4, sizeof(SpriteInstanceEntry), FGL_OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4));
+		Buffer_VertexAttribPointerReal32(4, 4, sizeof(SpriteInstanceEntry), FGL_OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4) * 2);
+		Buffer_VertexAttribPointerReal32(5, 4, sizeof(SpriteInstanceEntry), FGL_OFFSET_OF(SpriteInstanceEntry, TransformMatrix) + sizeof(Vector4) * 3);
+		Buffer_VertexAttribPointerUInt32(6, 1, sizeof(SpriteInstanceEntry), FGL_OFFSET_OF(SpriteInstanceEntry, AtlasIndex));
 		glVertexAttribDivisor(2, 1);
 		glVertexAttribDivisor(3, 1);
 		glVertexAttribDivisor(4, 1);
@@ -11200,9 +11204,9 @@ extern "C"
 		Buffer_IndexResize(6 * sizeof(int unsigned), IndexBuffer, GL_STATIC_DRAW);
 		VertexArray_UnBind();
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPrimitives += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	int unsigned Primitive_GetInstancedSpriteNumInstances(InstancedSprite* Mesh)
 	{
@@ -11233,26 +11237,26 @@ extern "C"
 
 		memset(Mesh, 0, sizeof(InstancedSprite));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPrimitives -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// PostProcessEffect Definition
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void PostProcessEffect_Alloc(PostProcessEffect* Effect, PostProcessMesh* Mesh, char const* FragmentSource)
 	{
 		memset(Effect, 0, sizeof(PostProcessEffect));
 		Effect->Mesh = Mesh;
 		Shader_VertexFragmentAlloc(&Effect->Program, sPostProcessVertexShader, FragmentSource);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPostProcessEffects += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void PostProcessEffect_Begin(PostProcessEffect* Effect)
 	{
@@ -11275,9 +11279,9 @@ extern "C"
 		Shader_Free(Effect->Program);
 		memset(Effect, 0, sizeof(PostProcessEffect));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedPostProcessEffects -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	char const* PostProcessEffect_GetColorBlendFragmentShader(void)
 	{
@@ -11287,13 +11291,13 @@ extern "C"
 	{
 		return sWeightedBlendedOrderIndependentTransparencyPostProcessFragmentShader;
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Kek Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Kek_Alloc(void)
 	{
 		Batch_Alloc(&sKekBatch);
@@ -11366,7 +11370,7 @@ extern "C"
 	}
 	void KekNode_Resize(KekNode* Node)
 	{
-		KekNodeClass* Class = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
+		KekNodeClass* Class = FGL_MEMBER_OF(Node, KekNode, Class, KekNodeClass);
 
 		switch (*Class)
 		{
@@ -11383,7 +11387,7 @@ extern "C"
 	}
 	void KekNode_Update(KekNode* Node)
 	{
-		KekNodeClass* Class = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
+		KekNodeClass* Class = FGL_MEMBER_OF(Node, KekNode, Class, KekNodeClass);
 
 		switch (*Class)
 		{
@@ -11400,7 +11404,7 @@ extern "C"
 	}
 	void KekNode_Draw(KekNode* Node, KekBatchMode BatchMode, float Depth)
 	{
-		KekNodeClass* Class = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
+		KekNodeClass* Class = FGL_MEMBER_OF(Node, KekNode, Class, KekNodeClass);
 
 		switch (*Class)
 		{
@@ -11424,7 +11428,7 @@ extern "C"
 
 		if (Node)
 		{
-			KekNodeClass* Class = MEMBER_OF(Node, KekNode, Class, KekNodeClass);
+			KekNodeClass* Class = FGL_MEMBER_OF(Node, KekNode, Class, KekNodeClass);
 
 			switch (*Class)
 			{
@@ -11460,7 +11464,7 @@ extern "C"
 		Panel->TextColor.A = 1.0F;
 
 		long long unsigned TitleLength = strlen(Title);
-		memcpy(Panel->Title, Title, MIN(KEK_DOCK_PANEL_TITLE_SIZE, TitleLength));
+		memcpy(Panel->Title, Title, FGL_MIN(KEK_DOCK_PANEL_TITLE_SIZE, TitleLength));
 
 		List_InitHead(&Panel->ChildPanels);
 
@@ -11630,7 +11634,7 @@ extern "C"
 			ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
 			while (Entry != &DockPanel->ChildPanels)
 			{
-				KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+				KekDockPanel* ChildPanel = FGL_BASE_OF(Entry, KekDockPanel, PanelEntry);
 
 				KekDockPanel_UpdateRect(ChildPanel, ChildIndex);
 
@@ -11650,7 +11654,7 @@ extern "C"
 			ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
 			while (Entry != &DockPanel->ChildPanels)
 			{
-				KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+				KekDockPanel* ChildPanel = FGL_BASE_OF(Entry, KekDockPanel, PanelEntry);
 
 				Rect PanelRect = { 0 };
 				PanelRect.Left = ChildOffsetX;
@@ -11679,7 +11683,7 @@ extern "C"
 			ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
 			while (Entry != &DockPanel->ChildPanels)
 			{
-				KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+				KekDockPanel* ChildPanel = FGL_BASE_OF(Entry, KekDockPanel, PanelEntry);
 
 				Rect PanelRect = { 0 };
 				PanelRect.Left = DockPanel->PanelRect.Left;
@@ -11725,7 +11729,7 @@ extern "C"
 				ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
 				while (Entry != &DockPanel->ChildPanels)
 				{
-					KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+					KekDockPanel* ChildPanel = FGL_BASE_OF(Entry, KekDockPanel, PanelEntry);
 
 					KekDockPanel_Update(ChildPanel);
 
@@ -11746,7 +11750,7 @@ extern "C"
 		ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
 		while (Entry != &DockPanel->ChildPanels)
 		{
-			KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+			KekDockPanel* ChildPanel = FGL_BASE_OF(Entry, KekDockPanel, PanelEntry);
 
 			KekDockPanel_Draw(ChildPanel, BatchMode, Depth + KEK_DEPTH_INCREMENT);
 
@@ -11779,7 +11783,7 @@ extern "C"
 		ListEntry* Entry = LIST_FIRST_ENTRY(DockPanel->ChildPanels);
 		while (Entry != &DockPanel->ChildPanels)
 		{
-			KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+			KekDockPanel* ChildPanel = FGL_BASE_OF(Entry, KekDockPanel, PanelEntry);
 
 			KekDockPanel_PrintTree(ChildPanel, NumIdentSteps + 1);
 
@@ -11907,7 +11911,7 @@ extern "C"
 				ListEntry* Entry = LIST_FIRST_ENTRY(DockLayout->DragPanel->ChildPanels);
 				while (Entry != &DockLayout->DragPanel->ChildPanels)
 				{
-					KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+					KekDockPanel* ChildPanel = FGL_BASE_OF(Entry, KekDockPanel, PanelEntry);
 
 					KekDockPanel_UpdateRect(ChildPanel, ChildIndex);
 
@@ -11925,7 +11929,7 @@ extern "C"
 					ListEntry* Entry = LIST_FIRST_ENTRY(DockLayout->DragPanel->ParentPanel->ChildPanels);
 					while (Entry != &DockLayout->DragPanel->ParentPanel->ChildPanels)
 					{
-						KekDockPanel* ChildPanel = BASE_OF(Entry, KekDockPanel, PanelEntry);
+						KekDockPanel* ChildPanel = FGL_BASE_OF(Entry, KekDockPanel, PanelEntry);
 
 						KekDockPanel_UpdateRect(ChildPanel, ChildIndex);
 
@@ -11954,7 +11958,7 @@ extern "C"
 		{
 			KekDockPanel_Update(DockLayout->RootPanel);
 		}
-		
+
 		KekDockLayout_DragUpdate(DockLayout);
 	}
 	void KekDockLayout_Draw(KekDockLayout* DockLayout, KekBatchMode BatchMode, float Depth)
@@ -11991,7 +11995,7 @@ extern "C"
 	{
 		UNREFERENCED_PARAMETER(ListLayout);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekListLayout_Resize(KekListLayout* ListLayout)
 	{
@@ -12003,13 +12007,13 @@ extern "C"
 		UNREFERENCED_PARAMETER(BatchMode);
 		UNREFERENCED_PARAMETER(Depth);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekListLayout_Free(KekListLayout* ListLayout)
 	{
 		UNREFERENCED_PARAMETER(ListLayout);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekListLayout_PrintTree(KekListLayout* ListLayout, int unsigned NumIdentSteps)
 	{
@@ -12034,7 +12038,7 @@ extern "C"
 	{
 		UNREFERENCED_PARAMETER(GridLayout);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekGridLayout_Draw(KekGridLayout* GridLayout, KekBatchMode BatchMode, float Depth)
 	{
@@ -12042,13 +12046,13 @@ extern "C"
 		UNREFERENCED_PARAMETER(BatchMode);
 		UNREFERENCED_PARAMETER(Depth);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekGridLayout_Free(KekGridLayout* GridLayout)
 	{
 		UNREFERENCED_PARAMETER(GridLayout);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekGridLayout_PrintTree(KekGridLayout* GridLayout, int unsigned NumIdentSteps)
 	{
@@ -12069,7 +12073,7 @@ extern "C"
 	{
 		UNREFERENCED_PARAMETER(ToolBar);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekToolBar_Draw(KekToolBar* ToolBar, KekBatchMode BatchMode, float Depth)
 	{
@@ -12077,13 +12081,13 @@ extern "C"
 		UNREFERENCED_PARAMETER(BatchMode);
 		UNREFERENCED_PARAMETER(Depth);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekToolBar_Free(KekToolBar* ToolBar)
 	{
 		UNREFERENCED_PARAMETER(ToolBar);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekToolBar_PrintTree(KekToolBar* ToolBar, int unsigned NumIdentSteps)
 	{
@@ -12104,7 +12108,7 @@ extern "C"
 	{
 		UNREFERENCED_PARAMETER(Image);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekImage_Draw(KekImage* Image, KekBatchMode BatchMode, float Depth)
 	{
@@ -12112,13 +12116,13 @@ extern "C"
 		UNREFERENCED_PARAMETER(BatchMode);
 		UNREFERENCED_PARAMETER(Depth);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekImage_Free(KekImage* Image)
 	{
 		UNREFERENCED_PARAMETER(Image);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekImage_PrintTree(KekImage* Image, int unsigned NumIdentSteps)
 	{
@@ -12139,7 +12143,7 @@ extern "C"
 	{
 		UNREFERENCED_PARAMETER(Button);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekButton_Draw(KekButton* Button, KekBatchMode BatchMode, float Depth)
 	{
@@ -12147,13 +12151,13 @@ extern "C"
 		UNREFERENCED_PARAMETER(BatchMode);
 		UNREFERENCED_PARAMETER(Depth);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekButton_Free(KekButton* Button)
 	{
 		UNREFERENCED_PARAMETER(Button);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekButton_PrintTree(KekButton* Button, int unsigned NumIdentSteps)
 	{
@@ -12174,7 +12178,7 @@ extern "C"
 	{
 		UNREFERENCED_PARAMETER(Slider);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekSlider_Draw(KekSlider* Slider, KekBatchMode BatchMode, float Depth)
 	{
@@ -12182,13 +12186,13 @@ extern "C"
 		UNREFERENCED_PARAMETER(BatchMode);
 		UNREFERENCED_PARAMETER(Depth);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekSlider_Free(KekSlider* Slider)
 	{
 		UNREFERENCED_PARAMETER(Slider);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekSlider_PrintTree(KekSlider* Slider, int unsigned NumIdentSteps)
 	{
@@ -12209,7 +12213,7 @@ extern "C"
 	{
 		UNREFERENCED_PARAMETER(ViewPort);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekViewPort_Draw(KekViewPort* ViewPort, KekBatchMode BatchMode, float Depth)
 	{
@@ -12217,13 +12221,13 @@ extern "C"
 		UNREFERENCED_PARAMETER(BatchMode);
 		UNREFERENCED_PARAMETER(Depth);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekViewPort_Free(KekViewPort* ViewPort)
 	{
 		UNREFERENCED_PARAMETER(ViewPort);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekViewPort_PrintTree(KekViewPort* ViewPort, int unsigned NumIdentSteps)
 	{
@@ -12244,7 +12248,7 @@ extern "C"
 	{
 		UNREFERENCED_PARAMETER(Test);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekTest_Draw(KekTest* Test, KekBatchMode BatchMode, float Depth)
 	{
@@ -12252,13 +12256,13 @@ extern "C"
 		UNREFERENCED_PARAMETER(BatchMode);
 		UNREFERENCED_PARAMETER(Depth);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekTest_Free(KekTest* Test)
 	{
 		UNREFERENCED_PARAMETER(Test);
 
-#pragma message("FAST_GL_NO_IMPLEMENTATION")
+#pragma message("FGL_NO_IMPLEMENTATION")
 	}
 	void KekTest_PrintTree(KekTest* Test, int unsigned NumIdentSteps)
 	{
@@ -12267,13 +12271,13 @@ extern "C"
 
 		printf("Test\n");
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Histogram Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
+#ifdef FGL_IMPLEMENTATION
 	void Histogram_Alloc(Histogram* Histgrm, SpriteMesh* Mesh, char* Name, HistogramScaleType ScaleType, int unsigned NumSamples, int unsigned Scale, int unsigned DisplayInterval)
 	{
 		memset(Histgrm, 0, sizeof(Histogram));
@@ -12293,9 +12297,9 @@ extern "C"
 
 		Buffer_StorageAllocSimple(&Histgrm->SampleBuffer, NumSamples * sizeof(float), Histgrm->Samples, GL_DYNAMIC_DRAW);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedHistograms += 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
 	void Histogram_PushSample(Histogram* Histgrm, double Sample)
 	{
@@ -12402,18 +12406,18 @@ extern "C"
 
 		memset(Histgrm, 0, sizeof(Histogram));
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		sAllocatedHistograms -= 1;
-#endif // FAST_GL_REFERENCE_COUNT
+#endif // FGL_REFERENCE_COUNT
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 	///////////////////////////////////////////////////////////////
 	// Window Declaration
 	///////////////////////////////////////////////////////////////
 
-#ifdef FAST_GL_IMPLEMENTATION
-	void Window_Alloc(int unsigned Width, int unsigned Height, char const* WindowTitle)
+#ifdef FGL_IMPLEMENTATION
+	void Window_Alloc(int unsigned Width, int unsigned Height, char const* Title)
 	{
 		sModuleInstance = GetModuleHandle(0);
 
@@ -12426,7 +12430,7 @@ extern "C"
 		sWindowHandle = CreateWindowEx(
 			0,
 			sWindowClassName,
-			WindowTitle,
+			Title,
 			WS_OVERLAPPEDWINDOW,
 			CW_USEDEFAULT,
 			CW_USEDEFAULT,
@@ -12528,10 +12532,10 @@ extern "C"
 		glDrawBuffers = (glDrawBuffers_PROC)glGetProcAddress("glDrawBuffers");
 		glDeleteFramebuffers = (glDeleteFramebuffers_PROC)glGetProcAddress("glDeleteFramebuffers");
 
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		glEnable(GL_DEBUG_OUTPUT);
 		glDebugMessageCallback(Window_GLDebugCallbackInternal, 0);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 
 		Shader_VertexFragmentAlloc(&sWorldCircleProgram, sWorldCircleVertexShader, sWorldCircleFragmentShader);
 		Shader_VertexGeometryFragmentAlloc(&sWorldLineProgram, sWorldLineVertexShader, sWorldLineGeometryShader, sWorldLineFragmentShader);
@@ -12661,7 +12665,7 @@ extern "C"
 		ReleaseDC(sWindowHandle, sDeviceContext);
 		DestroyWindow(sWindowHandle);
 
-#ifdef FAST_GL_REFERENCE_COUNT
+#ifdef FGL_REFERENCE_COUNT
 		assert(sAllocatedBytes == 0);
 		assert(sAllocatedVectors == 0);
 		assert(sAllocatedHashMaps == 0);
@@ -12678,7 +12682,7 @@ extern "C"
 		assert(sAllocatedPrimitives == 0);
 		assert(sAllocatedPostProcessEffects == 0);
 		assert(sAllocatedHistograms == 0);
-#endif FAST_GL_REFERENCE_COUNT
+#endif FGL_REFERENCE_COUNT
 	}
 	LRESULT Window_CallbackInternal(HWND WindowHandle, UINT Message, WPARAM WParam, LPARAM LParam)
 	{
@@ -12794,7 +12798,7 @@ extern "C"
 		UNREFERENCED_PARAMETER(ID);
 		UNREFERENCED_PARAMETER(Length);
 		UNREFERENCED_PARAMETER(UserParam);
-#ifdef FAST_GL_DEBUG
+#ifdef FGL_DEBUG
 		switch (Severity)
 		{
 		case GL_DEBUG_SEVERITY_NOTIFICATION: break;
@@ -12806,12 +12810,12 @@ extern "C"
 		UNREFERENCED_PARAMETER(Severity);
 		UNREFERENCED_PARAMETER(Type);
 		UNREFERENCED_PARAMETER(Message);
-#endif // FAST_GL_DEBUG
+#endif // FGL_DEBUG
 	}
-#endif // FAST_GL_IMPLEMENTATION
+#endif // FGL_IMPLEMENTATION
 
 #ifdef __cplusplus
 }
 #endif // __cplusplus
 
-#endif // FAST_GL_H
+#endif // FGL_H
